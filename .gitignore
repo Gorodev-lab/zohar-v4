@@ -1,0 +1,25 @@
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local configuration / secrets
+.env
+
+# Project specific data and downloads
+downloads/
+extractions/
+second_brain/
+data/inference_cache/
+data/graph_cache.json
+data/claves_*.csv
+
+# OS specific files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,6 @@
+downloads/
+extractions/
+logs/
+.venv/
+.pytest_cache/
+graphify-out/

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zohar Intelligence v4 — SEMARNAT Analytics</title>
+  <meta name="description" content="Automatización y análisis de Gacetas Ecológicas SEMARNAT. Motor de inferencia ambiental Zohar v4.">
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- IBM Plex Mono + D3 v7 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script src="https://d3js.org/d3.v7.min.js" defer></script>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ═══════════════════════════════════════════════
+       TOPBAR
+  ═══════════════════════════════════════════════ -->
+  <header class="topbar" role="banner">
+    <div class="topbar__brand">
+      ZOHAR <span>INTELLIGENCE v4</span>
+    </div>
+
+    <div class="topbar__status">
+      <div class="status-indicator status-indicator--active" id="sys-status-indicator">
+        <div class="status-indicator__dot" id="status-dot"></div>
+        <span id="status-cpu">CPU:─%</span>
+      </div>
+      <div class="status-indicator">
+        <span id="status-ram">RAM:─%</span>
+      </div>
+      <div class="status-indicator">
+        <span class="text-muted">SEMARNAT · 2026</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════
+       MAIN — Sidebar + Content
+  ═══════════════════════════════════════════════ -->
+  <div class="main" role="main">
+
+    <!-- SIDEBAR NAV -->
+    <nav class="sidebar" aria-label="Módulos">
+      <div class="sidebar__section-label">─ módulos</div>
+
+      <button class="tab-btn active" data-tab="CORPUS_PDF" id="tab-CORPUS_PDF" aria-controls="panel-CORPUS_PDF">
+        <i class="tab-btn__icon" aria-hidden="true">◈</i>
+        CORPUS_PDF
+      </button>
+
+      <button class="tab-btn" data-tab="MD_LAB" id="tab-MD_LAB" aria-controls="panel-MD_LAB">
+        <i class="tab-btn__icon" aria-hidden="true">─</i>
+        MD_LAB
+      </button>
+
+      <button class="tab-btn" data-tab="GRAFO_RED" id="tab-GRAFO_RED" aria-controls="panel-GRAFO_RED">
+        <i class="tab-btn__icon" aria-hidden="true">○</i>
+        GRAFO_RED
+      </button>
+
+      <button class="tab-btn" data-tab="INFERENCE_LAB" id="tab-INFERENCE_LAB" aria-controls="panel-INFERENCE_LAB">
+        <i class="tab-btn__icon" aria-hidden="true">▸</i>
+        INFERENCE_LAB
+      </button>
+
+      <button class="tab-btn" data-tab="SECOND_BRAIN" id="tab-SECOND_BRAIN" aria-controls="panel-SECOND_BRAIN">
+        <i class="tab-btn__icon" aria-hidden="true">◆</i>
+        SECOND_BRAIN
+      </button>
+
+      <button class="tab-btn" data-tab="WORKFLOW" id="tab-WORKFLOW" aria-controls="panel-WORKFLOW">
+        <i class="tab-btn__icon" aria-hidden="true">□</i>
+        WORKFLOW
+      </button>
+
+      <!-- Scraper Controls (sidebar bottom) -->
+      <div style="margin-top: auto; border-top: 1px solid var(--color-border); padding-top: 8px;">
+        <div class="sidebar__section-label">─ scraper</div>
+
+        <div style="padding: 8px 12px;">
+          <label class="text-xs text-muted" for="scraper-year">AÑO</label>
+          <input id="scraper-year" class="input mt-1" type="number" value="2026" min="2020" max="2030" style="width:100%;">
+        </div>
+
+        <div style="padding: 0 12px 8px; display:flex; flex-direction:column; gap:6px;">
+          <button id="btn-extract-keys" class="btn btn--primary w-full" aria-label="Extraer claves SINAT">
+            ▸ EXTRAER CLAVES
+          </button>
+          <button id="btn-run-pipeline" class="btn w-full" aria-label="Ejecutar pipeline completo">
+            ═ RUN PIPELINE
+          </button>
+        </div>
+
+        <!-- Scraper Progress -->
+        <div style="padding: 0 12px;">
+          <div class="progress-bar" id="scraper-progress">
+            <div class="progress-bar__fill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Scraper Log -->
+        <div class="log-console mt-1" id="scraper-log" style="margin: 8px; height:100px;" aria-live="polite">
+          <div class="log-line log-line--info">
+            <span class="log-line__ts">[--:--:--]</span>
+            <span class="log-line__msg">Sistema listo _</span>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ═══════════════════════════════════
+         CONTENT PANELS
+    ═══════════════════════════════════ -->
+    <div class="content">
+
+      <!-- ─────────────────────────────
+           TAB 1: CORPUS_PDF
+      ───────────────────────────── -->
+      <section
+        class="tab-panel active"
+        id="panel-CORPUS_PDF"
+        role="tabpanel"
+        aria-labelledby="tab-CORPUS_PDF"
+      >
+        <div class="panel-header">
+          <h1 class="panel-header__title">◈ CORPUS_PDF</h1>
+          <div class="flex gap-2 align-center">
+            <span class="panel-header__meta" id="corpus-meta">─</span>
+            <button class="btn btn--primary" id="btn-extract-pdf" aria-label="Extraer PDF seleccionado">▸ EXTRAER</button>
+            <button class="btn btn--danger" id="btn-stop-pdf" aria-label="Detener extracción">[ STOP ]</button>
+          </div>
+        </div>
+
+        <div class="panel-split">
+          <!-- Lista de PDFs -->
+          <div class="panel-split__left">
+            <ul class="file-list" id="pdf-list" aria-label="Lista de PDFs">
+              <li class="file-item">
+                <span class="file-item__name text-muted">[ cargando... ]</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Visor y logs -->
+          <div class="panel-split__right">
+            <div class="flex-between mb-2">
+              <span class="text-accent text-sm" id="pdf-selected-name">─ ningún archivo seleccionado ─</span>
+              <span class="text-muted text-xs" id="pdf-selected-meta"></span>
+            </div>
+
+            <div class="progress-bar" id="pdf-progress">
+              <div class="progress-bar__fill" style="width:0%"></div>
+            </div>
+
+            <div class="log-console mt-1" id="pdf-log" aria-live="polite"></div>
+
+            <hr class="ascii-divider mt-2">
+
+            <div
+              class="md-viewer mt-1"
+              id="pdf-viewer"
+              style="height: calc(100vh - 280px); overflow-y:auto;"
+              aria-label="Contenido extraído del PDF"
+            >
+              <span class="text-muted">[ Selecciona un PDF y presiona EXTRAER ]</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────────
+           TAB 2: MD_LAB
+      ───────────────────────────── -->
+      <section
+        class="tab-panel"
+        id="panel-MD_LAB"
+        role="tabpanel"
+        aria-labelledby="tab-MD_LAB"
+      >
+        <div class="panel-header">
+          <h1 class="panel-header__title">─ MD_LAB</h1>
+          <span class="panel-header__meta" id="md-meta">─</span>
+        </div>
+
+        <div class="panel-split">
+          <!-- Lista MD -->
+          <div class="panel-split__left">
+            <ul class="file-list" id="md-list" aria-label="Lista de documentos Markdown">
+              <li class="file-item">
+                <span class="file-item__name text-muted">[ cargando... ]</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Visor MD -->
+          <div class="panel-split__right">
+            <div class="flex-between mb-2">
+              <span class="text-accent text-sm" id="md-selected-name">─ ningún documento seleccionado ─</span>
+              <div id="md-badges" style="display:flex; gap:6px;"></div>
+            </div>
+            <pre
+              class="md-viewer"
+              id="md-viewer-content"
+              style="height: calc(100vh - 120px); overflow-y:auto;"
+              aria-label="Contenido del documento Markdown"
+            ><span class="text-muted">[ Selecciona un documento ]</span></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────────
+           TAB 3: GRAFO_RED
+      ───────────────────────────── -->
+      <section
+        class="tab-panel"
+        id="panel-GRAFO_RED"
+        role="tabpanel"
+        aria-labelledby="tab-GRAFO_RED"
+      >
+        <div class="panel-header">
+          <h1 class="panel-header__title">○ GRAFO_RED</h1>
+          <div class="flex gap-2 align-center">
+            <div id="graph-metrics" class="flex gap-2 text-xs text-muted"></div>
+            <button class="btn" id="btn-refresh-graph" onclick="loadGraph()" aria-label="Refrescar grafo">[ REFRESH ]</button>
+          </div>
+        </div>
+
+        <div
+          id="graph-container"
+          style="flex:1; overflow:hidden; position:relative;"
+          aria-label="Grafo de conocimiento D3.js"
+        >
+          <div style="padding:16px; color:var(--color-text-muted);">[ Cargando grafo... ]</div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────────
+           TAB 4: INFERENCE_LAB
+      ───────────────────────────── -->
+      <section
+        class="tab-panel"
+        id="panel-INFERENCE_LAB"
+        role="tabpanel"
+        aria-labelledby="tab-INFERENCE_LAB"
+      >
+        <div class="panel-header">
+          <h1 class="panel-header__title">▸ INFERENCE_LAB</h1>
+          <span class="panel-header__meta" id="inference-meta">─</span>
+        </div>
+
+        <div class="panel-split">
+          <!-- Lista estudios -->
+          <div class="panel-split__left">
+            <ul class="file-list" id="inference-list" aria-label="Lista de estudios para inferencia">
+              <li class="file-item">
+                <span class="file-item__name text-muted">[ cargando... ]</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Reporte inferencia -->
+          <div class="panel-split__right">
+            <div class="flex-between mb-2">
+              <span class="text-accent text-sm" id="inference-selected">─ selecciona un estudio ─</span>
+            </div>
+            <div id="inference-report" style="height: calc(100vh - 120px); overflow-y:auto;">
+              <div class="text-muted text-xs">
+                [ Selecciona un estudio con MD listo para analizar ]<br>
+                <br>
+                ─ El motor evaluará:<br>
+                &nbsp;&nbsp;▸ Impactos ambientales<br>
+                &nbsp;&nbsp;▸ Especies en riesgo NOM-059<br>
+                &nbsp;&nbsp;▸ Traslapes con ANPs<br>
+                &nbsp;&nbsp;▸ Medidas de mitigación<br>
+                &nbsp;&nbsp;▸ Marco legal aplicable
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────────
+           TAB 5: SECOND_BRAIN
+      ───────────────────────────── -->
+      <section
+        class="tab-panel"
+        id="panel-SECOND_BRAIN"
+        role="tabpanel"
+        aria-labelledby="tab-SECOND_BRAIN"
+      >
+        <div class="panel-header">
+          <h1 class="panel-header__title">◆ SECOND_BRAIN</h1>
+          <span class="panel-header__meta" id="sb-meta">─</span>
+        </div>
+
+        <div class="panel-split">
+          <!-- Columna Izquierda: Explorador de Notas y Controles -->
+          <div class="panel-split__left" style="padding: 12px; display:flex; flex-direction:column; gap:12px;">
+            <div class="verdict-card" style="padding: 8px 12px; margin-bottom: 0;">
+              <div class="flex-between">
+                <span class="text-accent text-xs" style="font-weight:700;">BASE DE DATOS WIKI</span>
+                <span class="text-xs text-muted" id="sb-total-notes">0 notas</span>
+              </div>
+              <div class="flex-between mt-1">
+                <span class="text-xs text-muted" id="sb-last-sync" style="font-size:10px;">No sincronizado</span>
+                <button id="btn-sync-sb" class="btn btn-sm btn--primary" style="padding: 2px 6px; font-size:10px;">
+                  [ SINCRONIZAR ]
+                </button>
+              </div>
+              <div class="progress-bar mt-1" id="sb-progress" style="display:none; height:1px;">
+                <div class="progress-bar__fill" style="width:0%"></div>
+              </div>
+            </div>
+
+            <!-- Mini Consola de Logs -->
+            <div class="log-console" id="sb-log" style="height:60px; font-size:9px; padding: 4px;" aria-live="polite">
+              <div class="log-line log-line--info">
+                <span class="log-line__ts">[--:--:--]</span>
+                <span class="log-line__msg">Listo _</span>
+              </div>
+            </div>
+
+            <!-- Listado de Notas (Árbol) -->
+            <div style="flex:1; overflow-y:auto; border: 1px solid var(--color-border); background: var(--color-surface-2); padding: 4px;">
+              <span class="sidebar__section-label" style="padding: 2px 4px; font-size:9px; border-bottom:none;">─ Documentos Wiki</span>
+              <ul class="file-list" id="sb-notes-list" aria-label="Lista de notas del Second Brain" style="font-size:11px;">
+                <li class="file-item">
+                  <span class="file-item__name text-muted">[ sin sincronizar ]</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Guía rápida de Base de Datos -->
+            <div style="border: 1px solid var(--color-border); padding: 8px; font-size: 10px; line-height:1.4; background: var(--color-surface);">
+              <span class="text-accent" style="font-weight: 700;">[ BASE DE DATOS LOCAL ]</span><br>
+              <span class="text-muted" style="font-size: 9px;">
+                Esta wiki consolida los resultados del workflow. Permite navegar interactivamente entre gacetas, claves e inferencias.
+              </span>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: Visor de Notas Wiki -->
+          <div class="panel-split__right" style="padding: var(--space-2) var(--space-3); display:flex; flex-direction:column; overflow:hidden;">
+            <div class="flex-between" style="border-bottom: 1px solid var(--color-border); padding-bottom: 8px; margin-bottom: 12px; flex-shrink:0;">
+              <h2 class="panel-header__title" id="sb-note-title" style="font-size: 16px;">00_Index</h2>
+              <span class="text-xs text-muted" id="sb-note-category">root</span>
+            </div>
+            
+            <div style="flex:1; overflow-y:auto;">
+              <div id="sb-note-viewer" class="md-viewer" style="font-size:12px; line-height:1.6; font-family:var(--font-mono); color:var(--color-text-secondary);">
+                [ Selecciona una nota o sincroniza la bóveda ]
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pestaña WORKFLOW -->
+      <section
+        class="tab-panel"
+        id="panel-WORKFLOW"
+        role="tabpanel"
+        aria-labelledby="tab-WORKFLOW"
+      >
+        <div class="panel-header">
+          <h1 class="panel-header__title">□ WORKFLOW</h1>
+          <span class="panel-header__meta" id="wf-meta">Trazabilidad del Pipeline</span>
+        </div>
+
+        <div class="panel-split">
+          <!-- Columna izquierda: Gacetas -->
+          <div class="panel-split__left" style="padding: 12px; display:flex; flex-direction:column; gap:12px;">
+            <div style="flex:1; overflow-y:auto; border: 1px solid var(--color-border); background: var(--color-surface-2); padding: 4px;">
+              <span class="sidebar__section-label" style="padding: 2px 4px; font-size:9px; border-bottom:none;">─ Gacetas Procesadas</span>
+              <ul class="file-list" id="wf-gacetas-list" aria-label="Gacetas procesadas" style="font-size:11px;">
+                <li class="file-item">
+                  <span class="file-item__name text-muted">[ sin gacetas ]</span>
+                </li>
+              </ul>
+            </div>
+            <div style="border: 1px solid var(--color-border); padding: 8px; font-size: 10px; line-height:1.4; background: var(--color-surface);">
+              <span class="text-accent" style="font-weight: 700;">[ PIPELINE STATUS ]</span><br>
+              <span class="text-muted" style="font-size: 9px;">
+                Selecciona una gaceta para auditar las claves SINAT y sus archivos asociados en el disco local.
+              </span>
+            </div>
+          </div>
+
+          <!-- Columna derecha: Tabla de Claves -->
+          <div class="panel-split__right" style="padding: var(--space-2) var(--space-3); display:flex; flex-direction:column; overflow:hidden;">
+            <div class="flex-between" style="border-bottom: 1px solid var(--color-border); padding-bottom: 8px; margin-bottom: 12px; flex-shrink:0;">
+              <h2 id="wf-selected-gaceta" class="panel-header__title" style="font-size: 16px;">Ninguna Gaceta Seleccionada</h2>
+              <span class="text-xs text-muted" id="wf-keys-count">0 claves extraídas</span>
+            </div>
+            
+            <div style="flex:1; overflow-y:auto;">
+              <table class="data-table" style="width:100%; border-collapse:collapse; font-size:11px; text-align:left;" id="wf-keys-table">
+                <thead>
+                  <tr style="border-bottom:1px solid var(--color-border); color: var(--color-accent);">
+                    <th style="padding: 6px;">Clave SINAT</th>
+                    <th style="padding: 6px;">Estudio PDF</th>
+                    <th style="padding: 6px;">Resolutivo PDF</th>
+                    <th style="padding: 6px;">Markdown (.md)</th>
+                    <th style="padding: 6px;">Inferencia (Dictamen)</th>
+                  </tr>
+                </thead>
+                <tbody id="wf-keys-tbody">
+                  <tr>
+                    <td colspan="5" class="text-muted text-center" style="padding: 20px;">
+                      [ Selecciona una gaceta del listado lateral ]
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script src="/static/app.js"></script>
+</body>
+</html>
