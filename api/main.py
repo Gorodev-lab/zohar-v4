@@ -29,7 +29,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Regex de clave SEMARNAT válida: ej. 23QR2024TD085, 05CO2026I0001
-_CLAVE_RE = re.compile(r"\b(\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})\b")
+_CLAVE_RE = re.compile(r"(?<![A-Z0-9])(\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})(?![A-Z0-9])")
 
 # ---------------------------------------------------------------------------
 # Directorios base
@@ -465,49 +465,108 @@ async def get_inference(filename: str):
 # Rutas — Scraper SSE
 # ---------------------------------------------------------------------------
 
+def _extract_year_from_name(name: str) -> Optional[int]:
+    """Helper para extraer el año de una gaceta por su formato de nombre."""
+    import re
+    # Formato ASEA: ASEA_GACETA_01-2026.pdf
+    m = re.search(r"20\d{2}", name)
+    if m:
+        return int(m.group(0))
+    # Formato SINAT: gaceta_0001-26.pdf
+    m2 = re.search(r"-(\d{2})\.pdf$", name.lower())
+    if m2:
+        return 2000 + int(m2.group(1))
+    return None
+
+
 @app.get("/api/scraper/extract-keys", tags=["scraper"])
-async def extract_keys(year: int = Query(2026)):
+async def extract_keys(year: int = Query(2026), source: str = Query("sinat", description="sinat | asea | all")):
     r"""
     SSE: Extrae claves SINAT del contenido de texto de las gacetas del año dado.
     Valida el formato de clave SEMARNAT (\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})
     antes de escribir al CSV.
     """
     from scrapers.gazette_scraper import GazetteScraper
+    from scrapers.asea_scraper import ASEAScraper
     from core.pdf_processor import iter_pages_as_markdown
     import csv
 
     csv_path = DATA_DIR / f"claves_{year}.csv"
 
     def gen():
-        yield {"status": "progress", "msg": f"Descargando/Verificando gacetas ecológicas {year}...", "pct": 5}
+        # Cargar claves existentes para no pisar la otra fuente
+        existing_claves = []
+        seen_claves = set()
+        if csv_path.exists() and source != "all":
+            try:
+                with open(csv_path, "r", encoding="utf-8") as f:
+                    reader = csv.reader(f)
+                    header = next(reader, None)
+                    for row in reader:
+                        if len(row) >= 3:
+                            row_clave, row_year, row_file = row
+                            # Si es placeholder huérfano, omitirlo
+                            if row_clave == "23QR2024TD085" and not row_file:
+                                continue
+                            is_row_asea = row_file and ("asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_"))
+                            if source == "sinat" and is_row_asea:
+                                existing_claves.append({"CLAVE": row_clave, "YEAR": int(row_year), "FILE": row_file})
+                                seen_claves.add(row_clave)
+                            elif source == "asea" and not is_row_asea:
+                                existing_claves.append({"CLAVE": row_clave, "YEAR": int(row_year), "FILE": row_file})
+                                seen_claves.add(row_clave)
+            except Exception as exc:
+                logger.warning("Error leyendo CSV existente para preservar claves: %s", exc)
 
-        scraper = GazetteScraper(output_dir=str(GACETAS_DIR))
+        yield {"status": "progress", "msg": f"Descargando/Verificando gacetas ecológicas ({source}) {year}...", "pct": 5}
+
         gacetas_descargadas = []
-        
-        # 1. Obtener/Descargar gacetas generales de la web
-        for event in scraper._descargar_gacetas_ano_gen(year):
-            yield event
-            if event.get("status") == "complete":
-                gacetas_descargadas = event.get("files", [])
 
-        # Fallback local por si no hay conexión o ya existen gacetas
-        if not gacetas_descargadas:
-            gacetas_descargadas = list(GACETAS_DIR.glob("*.pdf"))
+        # 1. Obtener gacetas de SINAT si corresponde
+        if source == "sinat" or source == "all":
+            yield {"status": "progress", "msg": f"Buscando gacetas SINAT {year}...", "pct": 10}
+            scraper = GazetteScraper(output_dir=str(GACETAS_DIR))
+            sinat_files = []
+            for event in scraper._descargar_gacetas_ano_gen(year):
+                # Emitir progreso sin terminar la conexión
+                if event.get("status") == "progress":
+                    yield {**event, "pct": 10 + int(event.get("pct", 0) * 0.2)}
+                elif event.get("status") == "complete":
+                    sinat_files = event.get("files", [])
+            
+            if not sinat_files:
+                # Fallback local para SINAT
+                sinat_files = [str(f) for f in GACETAS_DIR.glob("*.pdf") if _extract_year_from_name(f.name) == year]
+            gacetas_descargadas.extend(sinat_files)
+
+        # 2. Obtener gacetas de ASEA si corresponde
+        if source == "asea" or source == "all":
+            yield {"status": "progress", "msg": f"Buscando gacetas ASEA {year}...", "pct": 30}
+            asea_dir = GACETAS_DIR / "asea"
+            asea_scraper = ASEAScraper(output_dir=str(asea_dir), year_filter=year)
+            asea_files = []
+            for event in asea_scraper.descargar_gacetas_gen():
+                if event.get("status") == "progress":
+                    yield {**event, "pct": 30 + int(event.get("pct", 0) * 0.2)}
+                elif event.get("status") == "complete":
+                    asea_files = event.get("files", [])
+            
+            if not asea_files and asea_dir.exists():
+                # Fallback local para ASEA
+                asea_files = [str(f) for f in asea_dir.glob("*.pdf") if _extract_year_from_name(f.name) == year]
+            gacetas_descargadas.extend(asea_files)
 
         if not gacetas_descargadas:
             yield {
                 "status": "warning",
-                "msg": f"No hay archivos de gacetas PDF locales ni disponibles en la web para el año {year}",
+                "msg": f"No hay archivos de gacetas PDF locales ni disponibles en la web para el origen {source} y año {year}",
                 "level": "warning",
                 "pct": 90,
             }
 
         yield {"status": "progress", "msg": f"Procesando {len(gacetas_descargadas)} gacetas para extraer claves SINAT...", "pct": 60}
 
-        claves: list[dict] = []
-        claves_invalidas: list[str] = []
-        seen_claves = set()
-
+        new_claves = []
         for idx, g_pdf in enumerate(gacetas_descargadas):
             g_pdf_path = Path(g_pdf)
             pct = 60 + int(35 * (idx + 1) / max(len(gacetas_descargadas), 1))
@@ -544,7 +603,7 @@ async def extract_keys(year: int = Query(2026)):
             for clave in found_keys:
                 if clave not in seen_claves:
                     seen_claves.add(clave)
-                    claves.append({"CLAVE": clave, "YEAR": year, "FILE": str(g_pdf_path)})
+                    new_claves.append({"CLAVE": clave, "YEAR": year, "FILE": str(g_pdf_path)})
                     gaceta_count += 1
 
             if gaceta_count > 0:
@@ -554,15 +613,18 @@ async def extract_keys(year: int = Query(2026)):
                     "pct": pct,
                 }
 
-        # Generar CSV
+        # Generar CSV combinando existentes y nuevas
+        final_claves = existing_claves + new_claves
         DATA_DIR.mkdir(parents=True, exist_ok=True)
-        if claves:
+        if final_claves:
+            # Ordenar para consistencia
+            final_claves.sort(key=lambda x: (x.get("FILE", ""), x.get("CLAVE", "")))
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE"])
                 writer.writeheader()
-                writer.writerows(claves)
+                writer.writerows(final_claves)
         else:
-            # CSV mínimo para tests (marca explícitamente que es placeholder)
+            # CSV mínimo para tests
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE"])
                 writer.writeheader()
@@ -570,9 +632,9 @@ async def extract_keys(year: int = Query(2026)):
 
         yield {
             "status": "complete",
-            "msg": f"CSV generado: {csv_path.name} ({len(claves)} claves de proyectos válidas)",
+            "msg": f"CSV generado: {csv_path.name} ({len(final_claves)} claves de proyectos válidas)",
             "csv_path": str(csv_path),
-            "n_claves": len(claves),
+            "n_claves": len(final_claves),
             "n_invalidas": 0,
         }
 
@@ -580,9 +642,9 @@ async def extract_keys(year: int = Query(2026)):
 
 
 @app.get("/api/scraper/extract-pipeline-md", tags=["scraper"])
-async def extract_pipeline_md(force: bool = Query(False)):
+async def extract_pipeline_md(force: bool = Query(False), source: str = Query("sinat", description="sinat | asea | all")):
     """
-    SSE: Extrae texto Markdown de todos los PDFs en GACETAS_DIR y lo guarda
+    SSE: Extrae texto Markdown de todos los PDFs en GACETAS_DIR (o subdirectorios según el origen) y lo guarda
     en EXTRACTIONS_DIR/<pdf_stem>.md. Salta archivos ya extraídos (cache mtime)
     a menos que force=true.
     """
@@ -595,13 +657,21 @@ async def extract_pipeline_md(force: bool = Query(False)):
             yield {"status": "complete", "msg": "No hay gacetas descargadas", "pct": 100, "n_extracted": 0}
             return
 
-        # Recopilar todos los PDFs de gacetas (solo en el directorio raíz)
-        all_pdfs = sorted(GACETAS_DIR.glob("*.pdf"))
+        # Recopilar todos los PDFs de gacetas según el origen
+        all_pdfs = []
+        if source == "sinat" or source == "all":
+            all_pdfs.extend(list(GACETAS_DIR.glob("*.pdf")))
+        if source == "asea" or source == "all":
+            asea_dir = GACETAS_DIR / "asea"
+            if asea_dir.exists():
+                all_pdfs.extend(list(asea_dir.glob("*.pdf")))
+
+        all_pdfs = sorted(all_pdfs, key=lambda x: x.name)
         if not all_pdfs:
-            yield {"status": "complete", "msg": "No hay PDFs en gacetas", "pct": 100, "n_extracted": 0}
+            yield {"status": "complete", "msg": f"No hay PDFs en gacetas ({source})", "pct": 100, "n_extracted": 0}
             return
 
-        yield {"status": "progress", "msg": f"Encontrados {len(all_pdfs)} PDFs para extraer", "pct": 2}
+        yield {"status": "progress", "msg": f"Encontrados {len(all_pdfs)} PDFs para extraer ({source})", "pct": 2}
 
         n_extracted = 0
         n_skipped = 0
@@ -627,9 +697,9 @@ async def extract_pipeline_md(force: bool = Query(False)):
                     pages.append(md_text)
 
                 full_md = (
-                    f"# {pdf_path.stem}\n\n"
-                    f"_Extraído de: {pdf_path.name}_\n\n"
-                    + "\n\n---\n\n".join(pages)
+                     f"# {pdf_path.stem}\n\n"
+                     f"_Extraído de: {pdf_path.name}_\n\n"
+                     + "\n\n---\n\n".join(pages)
                 )
                 md_path.write_text(full_md, encoding="utf-8")
                 n_extracted += 1
@@ -649,7 +719,7 @@ async def extract_pipeline_md(force: bool = Query(False)):
 
 
 @app.get("/api/scraper/run-pipeline", tags=["scraper"])
-async def run_pipeline(year: int = Query(2026), rebuild_wiki: bool = Query(True)):
+async def run_pipeline(year: int = Query(2026), source: str = Query("all", description="sinat | asea | all"), rebuild_wiki: bool = Query(True)):
     """
     SSE: Ejecuta el pipeline completo de ingestión.
     Etapas: gacetas ASEA → gacetas SINAT → conversión MD → extracción claves → grafo → Second Brain.
@@ -662,29 +732,44 @@ async def run_pipeline(year: int = Query(2026), rebuild_wiki: bool = Query(True)
         yield {"status": "progress", "msg": "Iniciando pipeline...", "pct": 0, "stage": "init"}
 
         # Etapa 1: Gacetas ASEA
-        yield {"status": "progress", "msg": "Etapa 1/6: Gacetas ASEA", "pct": 5, "stage": "asea"}
-        try:
-            from scrapers.asea_scraper import ASEAScraper
-            asea = ASEAScraper(output_dir=str(GACETAS_DIR / "asea"), year_filter=year)
-            for event in asea.descargar_gacetas_gen():
-                yield {**event, "stage": "asea"}
-        except Exception as exc:
-            yield {"status": "progress", "msg": f"ASEA warning: {exc}", "pct": 20, "level": "warning"}
+        if source == "asea" or source == "all":
+            yield {"status": "progress", "msg": "Etapa 1/6: Gacetas ASEA", "pct": 5, "stage": "asea"}
+            try:
+                from scrapers.asea_scraper import ASEAScraper
+                asea = ASEAScraper(output_dir=str(GACETAS_DIR / "asea"), year_filter=year)
+                for event in asea.descargar_gacetas_gen():
+                    yield {**event, "stage": "asea"}
+            except Exception as exc:
+                yield {"status": "progress", "msg": f"ASEA warning: {exc}", "pct": 20, "level": "warning"}
+        else:
+            yield {"status": "progress", "msg": "Saltando Etapa 1: Gacetas ASEA", "pct": 20}
 
         # Etapa 2: Gacetas SINAT
-        yield {"status": "progress", "msg": "Etapa 2/6: Gacetas SINAT", "pct": 22, "stage": "sinat"}
-        try:
-            from scrapers.gazette_scraper import GazetteScraper
-            sinat = GazetteScraper(output_dir=str(GACETAS_DIR))
-            for event in sinat._descargar_gacetas_ano_gen(year):
-                yield {**event, "stage": "sinat"}
-        except Exception as exc:
-            yield {"status": "progress", "msg": f"SINAT warning: {exc}", "pct": 44, "level": "warning"}
+        if source == "sinat" or source == "all":
+            yield {"status": "progress", "msg": "Etapa 2/6: Gacetas SINAT", "pct": 22, "stage": "sinat"}
+            try:
+                from scrapers.gazette_scraper import GazetteScraper
+                sinat = GazetteScraper(output_dir=str(GACETAS_DIR))
+                for event in sinat._descargar_gacetas_ano_gen(year):
+                    yield {**event, "stage": "sinat"}
+            except Exception as exc:
+                yield {"status": "progress", "msg": f"SINAT warning: {exc}", "pct": 44, "level": "warning"}
+        else:
+            yield {"status": "progress", "msg": "Saltando Etapa 2: Gacetas SINAT", "pct": 44}
 
-        # Etapa 3: Conversión MD (todas las gacetas pendientes)
+        # Etapa 3: Conversión MD (todas las gacetas pendientes de este origen y año)
         yield {"status": "progress", "msg": "Etapa 3/6: Convirtiendo gacetas a Markdown...", "pct": 46, "stage": "md_extraction"}
         EXTRACTIONS_DIR.mkdir(parents=True, exist_ok=True)
-        all_pdfs = sorted(GACETAS_DIR.glob("*.pdf"))
+        
+        all_pdfs = []
+        if source == "sinat" or source == "all":
+            all_pdfs.extend([f for f in GACETAS_DIR.glob("*.pdf") if _extract_year_from_name(f.name) == year])
+        if source == "asea" or source == "all":
+            asea_dir = GACETAS_DIR / "asea"
+            if asea_dir.exists():
+                all_pdfs.extend([f for f in asea_dir.glob("*.pdf") if _extract_year_from_name(f.name) == year])
+        
+        all_pdfs = sorted(all_pdfs, key=lambda x: x.name)
         n_md_extracted = 0
         for idx, pdf in enumerate(all_pdfs):
             md_path = EXTRACTIONS_DIR / f"{pdf.stem}.md"
@@ -704,24 +789,49 @@ async def run_pipeline(year: int = Query(2026), rebuild_wiki: bool = Query(True)
         # Etapa 4: Extracción de claves SINAT
         yield {"status": "progress", "msg": "Etapa 4/6: Extrayendo claves SINAT...", "pct": 55, "stage": "keys"}
         csv_path = DATA_DIR / f"claves_{year}.csv"
-        claves: list[dict] = []
-        seen_claves: set = set()
-        all_gaceta_pdfs = sorted(GACETAS_DIR.glob("*.pdf"))
-        for idx, g_pdf in enumerate(all_gaceta_pdfs):
+        
+        # Preservar claves de la otra fuente
+        existing_claves = []
+        seen_claves = set()
+        if csv_path.exists() and source != "all":
+            try:
+                with open(csv_path, "r", encoding="utf-8") as f:
+                    reader = csv_module.reader(f)
+                    header = next(reader, None)
+                    for row in reader:
+                        if len(row) >= 3:
+                            row_clave, row_year, row_file = row
+                            if row_clave == "23QR2024TD085" and not row_file:
+                                continue
+                            is_row_asea = row_file and ("asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_"))
+                            if source == "sinat" and is_row_asea:
+                                existing_claves.append({"CLAVE": row_clave, "YEAR": int(row_year), "FILE": row_file})
+                                seen_claves.add(row_clave)
+                            elif source == "asea" and not is_row_asea:
+                                existing_claves.append({"CLAVE": row_clave, "YEAR": int(row_year), "FILE": row_file})
+                                seen_claves.add(row_clave)
+            except Exception as exc:
+                logger.warning("Error leyendo CSV existente para preservar claves en run_pipeline: %s", exc)
+
+        new_claves = []
+        for idx, g_pdf in enumerate(all_pdfs):
             md_path = EXTRACTIONS_DIR / f"{g_pdf.stem}.md"
             if md_path.exists() and md_path.stat().st_size > 0:
                 text = md_path.read_text(encoding="utf-8", errors="ignore")
                 for clave in _CLAVE_RE.findall(text.upper()):
                     if clave not in seen_claves:
                         seen_claves.add(clave)
-                        claves.append({"CLAVE": clave, "YEAR": year, "FILE": str(g_pdf)})
-        if claves:
+                        new_claves.append({"CLAVE": clave, "YEAR": year, "FILE": str(g_pdf)})
+                        
+        final_claves = existing_claves + new_claves
+        if final_claves:
+            final_claves.sort(key=lambda x: (x.get("FILE", ""), x.get("CLAVE", "")))
             DATA_DIR.mkdir(parents=True, exist_ok=True)
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv_module.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE"])
                 writer.writeheader()
-                writer.writerows(claves)
-        yield {"status": "progress", "msg": f"Claves: {len(claves)} encontradas en {len(all_gaceta_pdfs)} gacetas", "pct": 65, "stage": "keys"}
+                writer.writerows(final_claves)
+        yield {"status": "progress", "msg": f"Claves: {len(final_claves)} encontradas en total ({len(all_pdfs)} gacetas procesadas)", "pct": 65, "stage": "keys"}
 
         # Etapa 5: Rebuild Grafo
         if rebuild_wiki:
@@ -915,15 +1025,21 @@ async def get_second_brain_note(name: str = Query(..., description="Nombre de la
 
 
 @app.get("/api/scraper/gacetas-summary", tags=["scraper"])
-async def get_gacetas_summary(year: int = Query(2026)):
+async def get_gacetas_summary(year: int = Query(2026), source: str = Query("all", description="sinat | asea | all")):
     """
     Retorna el listado de todas las gacetas del año con el conteo de claves
     extraídas de cada una leyendo el CSV.
     """
     csv_path = DATA_DIR / f"claves_{year}.csv"
     
-    # Escanear PDFs físicos en downloads/gacetas/
-    gacetas_pdfs = list(GACETAS_DIR.glob("*.pdf"))
+    # Escanear PDFs físicos según origen y año
+    gacetas_pdfs = []
+    if source == "sinat" or source == "all":
+        gacetas_pdfs.extend([f for f in GACETAS_DIR.glob("*.pdf") if _extract_year_from_name(f.name) == year])
+    if source == "asea" or source == "all":
+        asea_dir = GACETAS_DIR / "asea"
+        if asea_dir.exists():
+            gacetas_pdfs.extend([f for f in asea_dir.glob("*.pdf") if _extract_year_from_name(f.name) == year])
     
     summary = {}
     for g in gacetas_pdfs:
@@ -944,6 +1060,14 @@ async def get_gacetas_summary(year: int = Query(2026)):
                         row_clave, _, row_file = row
                         if row_file:
                             stem = Path(row_file).stem.upper()
+                            is_file_asea = "asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_")
+                            
+                            # Validar que coincida con el origen filtrado
+                            if source == "sinat" and is_file_asea:
+                                continue
+                            if source == "asea" and not is_file_asea:
+                                continue
+                                
                             if stem in summary:
                                 summary[stem]["clave_count"] += 1
                             else:

@@ -1,7 +1,7 @@
 /**
- * Zohar Intelligence v4 — app.js
+ * Zohar Intelligence v4 — app.js (Enhanced Edition)
  * Vanilla JS + D3 v7 (CDN). Zero frameworks. Zero deps locales.
- * 4 tabs: CORPUS_PDF, MD_LAB, GRAFO_RED, INFERENCE_LAB
+ * Módulos: CORPUS_PDF, MD_LAB, GRAFO_RED, INFERENCE_LAB, SECOND_BRAIN, WORKFLOW
  */
 
 'use strict';
@@ -18,23 +18,33 @@ const State = {
   selectedMd:   null,
   sseSource:    null,
   systemStatus: null,
+  // Sparkline history
+  cpuHistory:   new Array(20).fill(0),
+  ramHistory:   new Array(20).fill(0),
 };
 
 /* =========================================================================
-   UTILIDADES
+   UTILIDADES DOM
    ========================================================================= */
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
 function ts() {
-  const d = new Date();
-  return d.toTimeString().slice(0, 8);
+  return new Date().toTimeString().slice(0, 8);
 }
 
 function fmtSize(bytes) {
-  if (bytes < 1024)       return `${bytes}B`;
+  if (bytes < 1024)        return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function appendLog(consoleEl, msg, level = 'info') {
@@ -43,20 +53,83 @@ function appendLog(consoleEl, msg, level = 'info') {
   line.className = `log-line log-line--${level}`;
   line.innerHTML = `<span class="log-line__ts">[${ts()}]</span><span class="log-line__msg">${escHtml(msg)}</span>`;
   consoleEl.appendChild(line);
+  // Keep max 100 lines
+  while (consoleEl.children.length > 100) consoleEl.removeChild(consoleEl.firstChild);
   consoleEl.scrollTop = consoleEl.scrollHeight;
-}
-
-function escHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }
 
 function setProgress(barEl, pct) {
   if (!barEl) return;
   const fill = barEl.querySelector('.progress-bar__fill');
-  if (fill) fill.style.width = `${Math.min(100, pct)}%`;
+  if (fill) fill.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+  barEl.setAttribute('aria-valuenow', Math.round(pct));
+}
+
+/* =========================================================================
+   TOASTS
+   ========================================================================= */
+function showToast(msg, type = 'info', durationMs = 3500) {
+  const container = $('#toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast--${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'toast-out 200ms ease forwards';
+    setTimeout(() => toast.remove(), 220);
+  }, durationMs);
+}
+
+/* =========================================================================
+   RELOJ EN TOPBAR
+   ========================================================================= */
+function startClock() {
+  const el = $('#topbar-clock');
+  if (!el) return;
+  function tick() {
+    el.textContent = new Date().toTimeString().slice(0, 8);
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+/* =========================================================================
+   SPARKLINES (Canvas)
+   ========================================================================= */
+function drawSparkline(canvasId, history, color = '#FFB000') {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const max = Math.max(...history, 1);
+  const step = W / (history.length - 1);
+
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  history.forEach((v, i) => {
+    const x = i * step;
+    const y = H - (v / max) * H;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Fill area
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = color + '18';
+  ctx.fill();
+}
+
+function updateSparklines() {
+  drawSparkline('spark-cpu', State.cpuHistory, '#FFB000');
+  drawSparkline('spark-ram', State.ramHistory, '#CC8D00');
 }
 
 /* =========================================================================
@@ -64,26 +137,23 @@ function setProgress(barEl, pct) {
    ========================================================================= */
 function initTabs() {
   $$('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tabId = btn.dataset.tab;
-      activateTab(tabId);
-    });
+    btn.addEventListener('click', () => activateTab(btn.dataset.tab));
   });
 }
 
 function activateTab(tabId) {
   State.activeTab = tabId;
-  $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+  $$('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tabId);
+    b.setAttribute('aria-selected', b.dataset.tab === tabId);
+  });
   $$('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${tabId}`));
 
   if (tabId === 'CORPUS_PDF')    loadCorpus();
   if (tabId === 'MD_LAB')        loadMdList();
   if (tabId === 'GRAFO_RED')     loadGraph();
   if (tabId === 'INFERENCE_LAB') loadInferenceList();
-  if (tabId === 'SECOND_BRAIN') {
-    if (State.systemStatus) updateSecondBrainUI(State.systemStatus);
-    loadWikiNotesList();
-  }
+  if (tabId === 'SECOND_BRAIN')  { updateSecondBrainUI(State.systemStatus); loadWikiNotesList(); }
   if (tabId === 'WORKFLOW')      loadWorkflowGacetas();
 }
 
@@ -93,26 +163,50 @@ function activateTab(tabId) {
 async function loadStatus() {
   try {
     const r = await fetch('/api/status');
+    if (!r.ok) throw new Error(r.status);
     const d = await r.json();
     State.systemStatus = d;
 
+    // Update CPU / RAM
+    const cpu = d.cpu_pct || 0;
+    const ram = d.ram_pct || 0;
+
+    State.cpuHistory.push(cpu); State.cpuHistory.shift();
+    State.ramHistory.push(ram); State.ramHistory.shift();
+    updateSparklines();
+
     const cpuEl  = $('#status-cpu');
     const ramEl  = $('#status-ram');
-    const dotEl  = $('#status-dot');
+    const diskEl = $('#status-disk');
+    const pill   = $('#sys-status-pill');
+    const dot    = $('#status-dot');
+    const txt    = $('#status-text');
 
-    if (cpuEl)  cpuEl.textContent = `CPU:${d.cpu_pct}%`;
-    if (ramEl)  ramEl.textContent = `RAM:${d.ram_pct}%`;
-    if (dotEl)  dotEl.parentElement.classList.add('status-indicator--active');
+    if (cpuEl)  cpuEl.textContent  = `${cpu}%`;
+    if (ramEl)  ramEl.textContent  = `${ram}%`;
+    if (diskEl && d.disk_free_gb !== undefined) diskEl.textContent = `${d.disk_free_gb}GB`;
+    if (pill)   pill.classList.add('status-pill--online');
+    if (txt)    txt.textContent = 'ONLINE';
+    if (dot)    dot.style.background = '';
 
-    // Actualizar contadores del Second Brain si existe
-    if (d.second_brain) {
-      updateSecondBrainUI(d);
-    }
+    // Sidebar stats
+    updateSidebarStats(d);
+
+    // Second Brain UI
+    if (d.second_brain) updateSecondBrainUI(d);
+
   } catch (err) {
-    console.error('Error cargando estatus:', err);
-    const dotEl = $('#status-dot');
-    if (dotEl) dotEl.parentElement.classList.remove('status-indicator--active');
+    const pill = $('#sys-status-pill');
+    const txt  = $('#status-text');
+    if (pill) pill.classList.remove('status-pill--online');
+    if (txt)  txt.textContent = 'OFFLINE';
   }
+}
+
+function updateSidebarStats(d) {
+  const sbNotes = d.second_brain?.total_notes || 0;
+  const noteEl = $('#sb-stat-notes');
+  if (noteEl) noteEl.textContent = sbNotes;
 }
 
 /* =========================================================================
@@ -123,27 +217,43 @@ async function loadCorpus() {
     const r = await fetch('/api/corpus/pdfs');
     const d = await r.json();
     State.pdfs = d.pdfs || [];
-    renderPdfList();
+    renderPdfList(State.pdfs);
+
     const metaEl = $('#corpus-meta');
     if (metaEl) metaEl.textContent = `${State.pdfs.length} archivos`;
+
+    // Nav count
+    const nc = $('#nav-count-corpus');
+    if (nc) nc.textContent = State.pdfs.length;
+
+    // Sidebar stat
+    const sp = $('#sb-stat-pdfs');
+    if (sp) sp.textContent = State.pdfs.length;
+
+    // Stats strip
+    const counts = { resumenes: 0, estudios: 0, resolutivos: 0, gacetas: 0 };
+    State.pdfs.forEach(p => { if (counts[p.folder] !== undefined) counts[p.folder]++; });
+    Object.entries(counts).forEach(([k, v]) => {
+      const el = $(`#stat-${k}`);
+      if (el) el.textContent = v;
+    });
   } catch (e) {
     console.error('loadCorpus:', e);
   }
 }
 
-function renderPdfList() {
+function renderPdfList(pdfs) {
   const listEl = $('#pdf-list');
   if (!listEl) return;
   listEl.innerHTML = '';
 
-  if (!State.pdfs.length) {
-    listEl.innerHTML = `<li class="file-item"><span class="file-item__name text-muted">[ corpus vacío ]</span></li>`;
+  if (!pdfs.length) {
+    listEl.innerHTML = `<li class="file-item file-item--loading"><span class="file-item__name text-muted">[ corpus vacío ]</span></li>`;
     return;
   }
 
-  // Agrupar por carpeta
   const groups = {};
-  State.pdfs.forEach(p => {
+  pdfs.forEach(p => {
     if (!groups[p.folder]) groups[p.folder] = [];
     groups[p.folder].push(p);
   });
@@ -151,14 +261,16 @@ function renderPdfList() {
   Object.entries(groups).forEach(([folder, files]) => {
     const header = document.createElement('li');
     header.className = 'sidebar__section-label';
-    header.style.cssText = 'list-style:none; padding:6px 8px; margin-top:4px;';
+    header.style.cssText = 'list-style:none; padding:5px 12px; margin-top:2px;';
     header.textContent = `─ ${folder.toUpperCase()} (${files.length})`;
     listEl.appendChild(header);
 
     files.forEach(pdf => {
       const li = document.createElement('li');
       li.className = 'file-item';
-      li.id = `pdf-${btoa(pdf.name).replace(/=/g, '')}`;
+      li.id = `pdf-${btoa(pdf.name).replace(/[/+=]/g, '_')}`;
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-selected', 'false');
       li.innerHTML = `
         <span class="file-item__name" title="${escHtml(pdf.name)}">${escHtml(pdf.name)}</span>
         <span class="file-item__badge">${pdf.size_mb}MB</span>
@@ -171,12 +283,15 @@ function renderPdfList() {
 
 function selectPdf(pdf, li) {
   State.selectedPdf = pdf;
-  $$('.file-item').forEach(el => el.classList.remove('selected'));
+  $$('#pdf-list .file-item').forEach(el => {
+    el.classList.remove('selected');
+    el.setAttribute('aria-selected', 'false');
+  });
   li.classList.add('selected');
+  li.setAttribute('aria-selected', 'true');
 
   const nameEl = $('#pdf-selected-name');
   if (nameEl) nameEl.textContent = pdf.name;
-
   const metaEl = $('#pdf-selected-meta');
   if (metaEl) metaEl.textContent = `${pdf.folder} · ${pdf.size_mb}MB`;
 }
@@ -188,23 +303,27 @@ function initCorpusActions() {
   const progressEl = $('#pdf-progress');
   const viewerEl   = $('#pdf-viewer');
 
+  // Search filter
+  const searchEl = $('#pdf-search');
+  if (searchEl) {
+    searchEl.addEventListener('input', () => {
+      const q = searchEl.value.toLowerCase();
+      const filtered = State.pdfs.filter(p => p.name.toLowerCase().includes(q));
+      renderPdfList(filtered);
+    });
+  }
+
   if (btnExtract) {
     btnExtract.addEventListener('click', () => {
       if (!State.selectedPdf) {
+        showToast('Selecciona un PDF primero', 'warn');
         appendLog(logEl, 'Selecciona un PDF primero', 'warn');
         return;
       }
-
-      if (State.sseSource) {
-        State.sseSource.close();
-        State.sseSource = null;
-      }
-
+      if (State.sseSource) { State.sseSource.close(); State.sseSource = null; }
       if (viewerEl) viewerEl.textContent = '';
-
-      // Limpiar cualquier botón de descarga previo
-      const prevDlBtn = $('#btn-download-md-corpus');
-      if (prevDlBtn) prevDlBtn.remove();
+      const prev = $('#btn-download-md-corpus');
+      if (prev) prev.remove();
 
       appendLog(logEl, `Extrayendo: ${State.selectedPdf.name}`, 'info');
       setProgress(progressEl, 0);
@@ -212,7 +331,6 @@ function initCorpusActions() {
       const url = `/stream/single?pdf_name=${encodeURIComponent(State.selectedPdf.name)}`;
       const es  = new EventSource(url);
       State.sseSource = es;
-
       btnExtract.disabled = true;
       if (btnStop) btnStop.disabled = false;
 
@@ -224,64 +342,56 @@ function initCorpusActions() {
           if (viewerEl) viewerEl.textContent += evt.md;
           appendLog(logEl, `Pág ${evt.page}/${evt.total} ${evt.is_scanned ? '[SCAN]' : ''}`, 'info');
         } else if (evt.status === 'saved') {
-          // MD guardado en servidor — mostrar botón de descarga
           appendLog(logEl, evt.msg, 'ok');
           _showMdDownloadButton(evt.md_name, btnExtract.parentElement || logEl.parentElement);
+          showToast(`MD guardado: ${evt.md_name}`, 'ok');
         } else if (evt.status === 'complete') {
           appendLog(logEl, evt.msg, 'ok');
-          es.close();
-          btnExtract.disabled = false;
+          es.close(); btnExtract.disabled = false;
           if (btnStop) btnStop.disabled = true;
           setProgress(progressEl, 100);
+          loadCorpus();
         } else if (evt.status === 'error') {
           appendLog(logEl, evt.msg, 'error');
-          es.close();
-          btnExtract.disabled = false;
+          showToast(`Error: ${evt.msg}`, 'error');
+          es.close(); btnExtract.disabled = false;
           if (btnStop) btnStop.disabled = true;
         }
       };
 
       es.onerror = () => {
         appendLog(logEl, 'Conexión SSE perdida', 'error');
-        es.close();
-        btnExtract.disabled = false;
+        es.close(); btnExtract.disabled = false;
         if (btnStop) btnStop.disabled = true;
       };
     });
   }
 
   if (btnStop) {
-    btnStop.disabled = true;
     btnStop.addEventListener('click', async () => {
       if (State.sseSource) State.sseSource.close();
       if (State.selectedPdf) {
         await fetch(`/stop_single?pdf_name=${encodeURIComponent(State.selectedPdf.name)}`);
       }
       appendLog(logEl, 'Extracción detenida', 'warn');
+      showToast('Extracción detenida', 'warn');
       if (btnExtract) btnExtract.disabled = false;
       btnStop.disabled = true;
     });
   }
 }
 
-/**
- * Muestra un botón de descarga del .md junto a los controles de extracción.
- * @param {string} mdName  - nombre del archivo .md
- * @param {Element} parent - contenedor donde insertar el botón
- */
 function _showMdDownloadButton(mdName, parent) {
   if (!mdName || !parent) return;
-  // Evitar duplicados
   const prev = document.getElementById('btn-download-md-corpus');
   if (prev) prev.remove();
-
   const btn = document.createElement('a');
   btn.id        = 'btn-download-md-corpus';
-  btn.className = 'btn btn-sm btn-ok';
+  btn.className = 'btn btn--ok';
   btn.href      = `/api/md/download?filename=${encodeURIComponent(mdName)}`;
   btn.download  = mdName;
-  btn.textContent = `⬇ Descargar ${mdName}`;
-  btn.style.cssText = 'display:inline-block; margin-top:8px; text-decoration:none;';
+  btn.innerHTML = `<span aria-hidden="true">⬇</span> ${escHtml(mdName)}`;
+  btn.style.cssText = 'display:inline-flex; margin-top:8px; text-decoration:none;';
   parent.appendChild(btn);
 }
 
@@ -293,27 +403,35 @@ async function loadMdList() {
     const r = await fetch('/api/md/list');
     const d = await r.json();
     State.mds = d.mds || [];
-    renderMdList();
+    renderMdList(State.mds);
+
     const metaEl = $('#md-meta');
     if (metaEl) metaEl.textContent = `${State.mds.length} documentos`;
+
+    const nc = $('#nav-count-md');
+    if (nc) nc.textContent = State.mds.length;
+
+    const sp = $('#sb-stat-mds');
+    if (sp) sp.textContent = State.mds.length;
   } catch (e) {
     console.error('loadMdList:', e);
   }
 }
 
-function renderMdList() {
+function renderMdList(mds) {
   const listEl = $('#md-list');
   if (!listEl) return;
   listEl.innerHTML = '';
 
-  if (!State.mds.length) {
-    listEl.innerHTML = `<li class="file-item"><span class="file-item__name text-muted">[ sin documentos MD ]</span></li>`;
+  if (!mds.length) {
+    listEl.innerHTML = `<li class="file-item file-item--loading"><span class="file-item__name text-muted">[ sin documentos MD ]</span></li>`;
     return;
   }
 
-  State.mds.forEach(md => {
+  mds.forEach(md => {
     const li = document.createElement('li');
     li.className = 'file-item';
+    li.setAttribute('role', 'option');
     li.innerHTML = `
       <span class="file-item__name" title="${escHtml(md.name)}">${escHtml(md.name)}</span>
       <span class="file-item__badge">${fmtSize(md.size_bytes)}</span>
@@ -323,6 +441,7 @@ function renderMdList() {
         download="${escHtml(md.name)}"
         title="Descargar ${escHtml(md.name)}"
         onclick="event.stopPropagation()"
+        aria-label="Descargar ${escHtml(md.name)}"
       >⬇</a>
     `;
     li.addEventListener('click', () => selectMd(md, li));
@@ -330,9 +449,58 @@ function renderMdList() {
   });
 }
 
+function initMdLabActions() {
+  // Search filter
+  const searchEl = $('#md-search');
+  if (searchEl) {
+    searchEl.addEventListener('input', () => {
+      const q = searchEl.value.toLowerCase();
+      renderMdList(State.mds.filter(m => m.name.toLowerCase().includes(q)));
+    });
+  }
+
+  // Extract all button
+  const btnAll = $('#btn-extract-all-md');
+  if (btnAll) {
+    btnAll.addEventListener('click', () => {
+      const logEl = $('#md-log');
+      const progEl = $('#md-progress');
+      if (logEl) logEl.classList.remove('hidden');
+      if (progEl) progEl.classList.remove('hidden');
+
+      if (State.sseSource) { State.sseSource.close(); }
+      appendLog(logEl, 'Iniciando extracción masiva MD...', 'info');
+      setProgress(progEl, 0);
+
+      const es = new EventSource('/api/scraper/extract-pipeline-md');
+      State.sseSource = es;
+      btnAll.disabled = true;
+
+      es.onmessage = (e) => {
+        const evt = JSON.parse(e.data);
+        if (evt.pct !== undefined) setProgress(progEl, evt.pct);
+        const level = evt.level === 'warning' ? 'warn' : evt.status === 'complete' ? 'ok' : 'info';
+        appendLog(logEl, evt.msg || evt.status, level);
+        if (evt.status === 'complete' || evt.status === 'error') {
+          es.close();
+          btnAll.disabled = false;
+          loadMdList();
+          showToast(`Pipeline MD: ${evt.n_extracted || 0} extraídos`, 'ok');
+        }
+      };
+
+      es.onerror = () => {
+        appendLog(logEl, 'SSE error', 'error');
+        es.close();
+        btnAll.disabled = false;
+      };
+    });
+  }
+}
+
 async function selectMd(md, li) {
   State.selectedMd = md;
-  $$('.file-item').forEach(el => el.classList.remove('selected'));
+  $$('#md-list .file-item').forEach(el => el.classList.remove('selected'));
   li.classList.add('selected');
 
   const viewerEl  = $('#md-viewer-content');
@@ -344,22 +512,20 @@ async function selectMd(md, li) {
   if (badgesEl) badgesEl.innerHTML = '';
 
   try {
-    const r = await fetch(`/api/md/read?filename=${encodeURIComponent(md.name)}`);
+    const r = await fetch(`/api/md/read?filename=${encodeURIComponent(md.name)}&page=1&page_size=200`);
     const d = await r.json();
-    if (viewerEl) viewerEl.textContent = d.content;
+    if (viewerEl) viewerEl.textContent = d.content + (d.total_pages > 1 ? `\n\n… (${d.total_pages - 1} páginas más)` : '');
 
-    // Detectar badges en el contenido
     if (badgesEl) {
       const content = d.content;
       const badges = [];
-      if (/latitud|longitud|UTM|coordenadas/i.test(content)) badges.push('GEO');
-      if (/NOM-\d+|LGEEPA|artículo/i.test(content))          badges.push('LAW');
-      if (/especie|flora|fauna|hábitat/i.test(content))       badges.push('BIO');
-
+      if (/latitud|longitud|UTM|coordenadas/i.test(content)) badges.push('geo');
+      if (/NOM-\d+|LGEEPA|artículo/i.test(content))          badges.push('law');
+      if (/especie|flora|fauna|hábitat/i.test(content))       badges.push('bio');
       badges.forEach(b => {
         const span = document.createElement('span');
-        span.className = `badge badge--${b.toLowerCase()}`;
-        span.textContent = b;
+        span.className = `badge badge--${b}`;
+        span.textContent = b.toUpperCase();
         badgesEl.appendChild(span);
       });
     }
@@ -375,7 +541,7 @@ async function loadGraph() {
   const containerEl = $('#graph-container');
   if (!containerEl) return;
 
-  containerEl.innerHTML = '<div style="padding:16px; color: var(--color-text-muted);">Cargando grafo...</div>';
+  containerEl.innerHTML = '<div class="graph-placeholder"><span class="text-muted">[ Construyendo grafo... ]</span></div>';
 
   try {
     const r = await fetch('/api/graph?format=compact');
@@ -383,24 +549,25 @@ async function loadGraph() {
     State.graph = d;
     renderGraph(d, containerEl);
     renderGraphMetrics(d);
+    renderGraphLegend(d);
+
+    const nc = $('#nav-count-graph');
+    if (nc) nc.textContent = d.metrics?.n_nodes || 0;
   } catch (e) {
-    containerEl.innerHTML = `<div style="padding:16px; color: var(--color-status-alert);">Error: ${escHtml(e.message)}</div>`;
+    containerEl.innerHTML = `<div class="graph-placeholder"><span class="text-alert">Error: ${escHtml(e.message)}</span></div>`;
   }
 }
 
 function renderGraph(data, containerEl) {
   containerEl.innerHTML = '';
-
   if (!window.d3) {
-    containerEl.innerHTML = '<div style="padding:16px; color:var(--color-status-alert);">D3 no disponible (carga CDN pendiente)</div>';
+    containerEl.innerHTML = '<div class="graph-placeholder"><span class="text-alert">D3 no disponible</span></div>';
     return;
   }
 
-  const schema = data.schema || {};
-  const nodeFields = schema.nodes || ['i','t','l','st','yr','deg','com'];
-  const IDX = { i:0, t:1, l:2, st:3, yr:4, deg:5, com:6 };
-
-  const nodes = data.nodes.map(n => ({
+  const schema    = data.schema || {};
+  const IDX       = { i:0, t:1, l:2, st:3, yr:4, deg:5, com:6 };
+  const nodes     = data.nodes.map(n => ({
     id:     n[IDX.i],
     type:   n[IDX.t],
     label:  n[IDX.l],
@@ -410,7 +577,6 @@ function renderGraph(data, containerEl) {
     com:    n[IDX.com] || 0,
   }));
 
-  const nodeById = Object.fromEntries(nodes.map(n => [n.id, n]));
   const links = data.links.map(l => ({
     source: nodes[l[0]]?.id,
     target: nodes[l[1]]?.id,
@@ -418,7 +584,7 @@ function renderGraph(data, containerEl) {
   })).filter(l => l.source && l.target);
 
   const W = containerEl.clientWidth  || 900;
-  const H = containerEl.clientHeight || 600;
+  const H = containerEl.clientHeight || 500;
 
   const svg = d3.select(containerEl)
     .append('svg')
@@ -428,32 +594,28 @@ function renderGraph(data, containerEl) {
 
   const g = svg.append('g');
 
-  // Zoom
   svg.call(d3.zoom()
-    .scaleExtent([0.1, 8])
+    .scaleExtent([0.05, 10])
     .on('zoom', e => g.attr('transform', e.transform)));
 
-  // Tooltip
   const tooltip = d3.select(containerEl)
     .append('div')
-    .attr('class', 'graph-tooltip');
+    .attr('class', 'graph-tooltip')
+    .attr('role', 'tooltip');
 
-  // Simulación
   const sim = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(80).strength(0.5))
-    .force('charge', d3.forceManyBody().strength(-120))
-    .force('center', d3.forceCenter(W / 2, H / 2))
-    .force('collision', d3.forceCollide(d => Math.sqrt(d.degree) * 6 + 10));
+    .force('link',      d3.forceLink(links).id(d => d.id).distance(70).strength(0.4))
+    .force('charge',    d3.forceManyBody().strength(-100))
+    .force('center',    d3.forceCenter(W / 2, H / 2))
+    .force('collision', d3.forceCollide(d => Math.sqrt(d.degree) * 5 + 8));
 
-  // Links
   const link = g.append('g')
     .selectAll('line')
     .data(links)
     .join('line')
     .attr('class', 'graph-link')
-    .attr('stroke-width', 1);
+    .attr('stroke-width', 0.8);
 
-  // Nodos
   const node = g.append('g')
     .selectAll('g')
     .data(nodes)
@@ -465,29 +627,43 @@ function renderGraph(data, containerEl) {
       .on('end',   (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
 
   node.append('circle')
-    .attr('r', d => Math.max(4, Math.sqrt(d.degree) * 4))
+    .attr('r', d => Math.max(3, Math.sqrt(d.degree) * 4))
     .attr('fill', d => d.color)
-    .attr('fill-opacity', 0.85)
+    .attr('fill-opacity', 0.8)
     .attr('stroke', d => d.color)
-    .attr('stroke-width', 1);
+    .attr('stroke-width', 1.5);
 
   node.append('text')
-    .attr('dy', d => Math.sqrt(d.degree) * 4 + 10)
+    .attr('dy', d => Math.sqrt(d.degree) * 4 + 11)
     .attr('text-anchor', 'middle')
-    .text(d => d.label.length > 14 ? d.label.slice(0, 12) + '..' : d.label);
+    .text(d => d.label.length > 12 ? d.label.slice(0, 10) + '..' : d.label);
 
-  // Hover tooltip
   node.on('mousemove', (e, d) => {
     tooltip
       .style('display', 'block')
-      .style('left', e.clientX + 12 + 'px')
-      .style('top',  e.clientY - 8 + 'px')
+      .style('left', e.clientX + 14 + 'px')
+      .style('top',  e.clientY - 10 + 'px')
       .html(`
-        <div class="text-accent">${escHtml(d.label)}</div>
+        <div class="text-accent" style="font-weight:700;">${escHtml(d.label)}</div>
         <div class="text-muted">${d.type} · deg:${d.degree}</div>
         ${d.year ? `<div class="text-muted">${d.year}</div>` : ''}
       `);
   }).on('mouseleave', () => tooltip.style('display', 'none'));
+
+  // Graph type filter
+  const filterEl = $('#graph-filter-type');
+  if (filterEl) {
+    filterEl.addEventListener('change', () => {
+      const type = filterEl.value;
+      node.style('opacity', d => (type === 'all' || d.type === type) ? 1 : 0.1);
+      link.style('opacity', l => {
+        if (type === 'all') return 0.5;
+        const sNode = nodes.find(n => n.id === (l.source?.id || l.source));
+        const tNode = nodes.find(n => n.id === (l.target?.id || l.target));
+        return (sNode?.type === type || tNode?.type === type) ? 0.5 : 0.05;
+      });
+    });
+  }
 
   sim.on('tick', () => {
     link
@@ -495,21 +671,43 @@ function renderGraph(data, containerEl) {
       .attr('y1', d => d.source.y)
       .attr('x2', d => d.target.x)
       .attr('y2', d => d.target.y);
-
     node.attr('transform', d => `translate(${d.x},${d.y})`);
   });
 }
 
 function renderGraphMetrics(data) {
-  const m = data.metrics || {};
+  const m  = data.metrics || {};
   const el = $('#graph-metrics');
   if (!el) return;
-  el.innerHTML = `
-    <span class="text-muted">Nodos: <span class="text-accent">${m.n_nodes || 0}</span></span>
-    <span class="text-muted">Links: <span class="text-accent">${m.n_links || 0}</span></span>
-    <span class="text-muted">Proyectos: <span class="text-accent">${m.n_projects || 0}</span></span>
-    <span class="text-muted">Deg.avg: <span class="text-accent">${m.avg_degree || 0}</span></span>
-  `;
+
+  const pills = [
+    ['Nodos', m.n_nodes || 0],
+    ['Links', m.n_links || 0],
+    ['Proyectos', m.n_projects || 0],
+    ['Deg.avg', m.avg_degree || 0],
+  ];
+
+  el.innerHTML = pills.map(([label, val]) =>
+    `<div class="graph-metric-pill">${label}: <span>${val}</span></div>`
+  ).join('');
+}
+
+function renderGraphLegend(data) {
+  const el = $('#graph-legend');
+  if (!el) return;
+  const colorMap = {};
+  (data.nodes || []).forEach(n => {
+    const type = n[1];
+    const color = n[3];
+    if (type && color && !colorMap[type]) colorMap[type] = color;
+  });
+
+  el.innerHTML = Object.entries(colorMap).map(([type, color]) =>
+    `<div class="graph-legend-item">
+      <div class="graph-legend-dot" style="background:${escHtml(color)}"></div>
+      <span>${escHtml(type)}</span>
+    </div>`
+  ).join('');
 }
 
 /* =========================================================================
@@ -520,8 +718,12 @@ async function loadInferenceList() {
     const r = await fetch('/api/inference');
     const d = await r.json();
     renderInferenceList(d.estudios || []);
+
     const metaEl = $('#inference-meta');
     if (metaEl) metaEl.textContent = `${d.total} estudios`;
+
+    const nc = $('#nav-count-inference');
+    if (nc) nc.textContent = d.total || 0;
   } catch (e) {
     console.error('loadInferenceList:', e);
   }
@@ -533,23 +735,24 @@ function renderInferenceList(estudios) {
   listEl.innerHTML = '';
 
   if (!estudios.length) {
-    listEl.innerHTML = `<li class="file-item"><span class="file-item__name text-muted">[ sin estudios MD ]</span></li>`;
+    listEl.innerHTML = `<li class="file-item file-item--loading"><span class="file-item__name text-muted">[ sin estudios MD ]</span></li>`;
     return;
   }
 
   estudios.forEach(e => {
     const li = document.createElement('li');
     li.className = 'file-item';
+    li.setAttribute('role', 'option');
     const ready = e.md_ready;
     li.innerHTML = `
       <span class="file-item__name" title="${escHtml(e.pdf_name)}">${escHtml(e.pdf_name)}</span>
-      <span class="file-item__badge ${ready ? 'text-ok' : 'text-muted'}">${ready ? '◈ MD' : '○ --'}</span>
+      <span class="file-item__badge ${ready ? 'text-ok' : 'text-muted'}">${ready ? '◈' : '○'}</span>
     `;
     if (ready) {
       li.addEventListener('click', () => runInference(e.md_name, li));
     } else {
-      li.style.opacity = '0.5';
-      li.style.cursor = 'default';
+      li.style.opacity = '0.45';
+      li.style.cursor  = 'default';
     }
     listEl.appendChild(li);
   });
@@ -559,68 +762,63 @@ async function runInference(mdName, li) {
   $$('#inference-list .file-item').forEach(el => el.classList.remove('selected'));
   li.classList.add('selected');
 
-  const reportEl  = $('#inference-report');
-  const headerEl  = $('#inference-selected');
+  const reportEl = $('#inference-report');
+  const headerEl = $('#inference-selected');
   if (headerEl) headerEl.textContent = mdName;
-  if (reportEl) reportEl.innerHTML = '<div class="text-muted">Analizando... <span class="cursor-blink"></span></div>';
+  if (reportEl) reportEl.innerHTML = '<div class="inference-placeholder text-muted">Analizando... <span class="cursor-blink"></span></div>';
 
   try {
     const r = await fetch(`/api/inference/${encodeURIComponent(mdName)}`);
     const d = await r.json();
     renderInferenceReport(d, reportEl);
   } catch (e) {
-    if (reportEl) reportEl.innerHTML = `<div class="text-alert">Error: ${escHtml(e.message)}</div>`;
+    if (reportEl) reportEl.innerHTML = `<div class="text-alert" style="padding:24px;">Error: ${escHtml(e.message)}</div>`;
   }
 }
 
 function renderInferenceReport(report, container) {
   if (!container) return;
 
-  const v = report.veredicto || 'CONDICIONADO';
-  const score = Math.round((report.score || 0) * 100);
-  const confianza = report.confianza_pct || 0;
+  const v          = report.veredicto || 'CONDICIONADO';
+  const score      = Math.round((report.score || 0) * 100);
+  const confianza  = report.confianza_pct || 0;
 
-  const yesSignals = (report.yes_signals || []).map(s =>
-    `<li class="signal-item signal-item--yes">${escHtml(s)}</li>`).join('');
-  const noSignals = (report.no_signals || []).map(s =>
-    `<li class="signal-item signal-item--no">${escHtml(s)}</li>`).join('');
-  const knockouts = (report.knockouts || []).map(s =>
-    `<li class="signal-item"><span class="badge badge--warn">KO</span> ${escHtml(s)}</li>`).join('');
-  const condicionantes = (report.condicionantes || []).map(s =>
-    `<li class="signal-item">${escHtml(s)}</li>`).join('');
+  const yesSignals     = (report.yes_signals || []).map(s => `<li class="signal-item signal-item--yes">${escHtml(s)}</li>`).join('');
+  const noSignals      = (report.no_signals || []).map(s => `<li class="signal-item signal-item--no">${escHtml(s)}</li>`).join('');
+  const knockouts      = (report.knockouts || []).map(s => `<li class="signal-item"><span class="badge badge--warn">KO</span> ${escHtml(s)}</li>`).join('');
+  const condicionantes = (report.condicionantes || []).map(s => `<li class="signal-item">${escHtml(s)}</li>`).join('');
 
   container.innerHTML = `
-    <div class="verdict-card">
+    <div class="verdict-card verdict-card--${v}">
       <div class="verdict-card__header">
         <div class="verdict-label verdict-label--${v}">${v}</div>
         <div class="text-muted text-xs">Confianza: ${confianza}%</div>
       </div>
-
       <div class="text-xs text-muted">Score: ${score}%</div>
       <div class="score-bar mt-1">
-        <div class="score-bar__fill" style="width:${score}%"></div>
+        <div class="score-bar__fill" style="width:0%" data-target="${score}%"></div>
       </div>
     </div>
 
     ${knockouts ? `
     <div class="mt-2">
-      <div class="text-xs text-alert" style="letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px;">▸ Knockouts</div>
+      <div class="text-xs text-alert" style="letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;">▸ Knockouts</div>
       <ul class="signal-list">${knockouts}</ul>
     </div>` : ''}
 
     <div class="mt-2">
-      <div class="text-xs text-ok" style="letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px;">▸ Por Qué Sí</div>
+      <div class="text-xs text-ok" style="letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;">▸ Señales Favorables</div>
       <ul class="signal-list">${yesSignals || '<li class="signal-item signal-item--yes text-muted">─</li>'}</ul>
     </div>
 
     <div class="mt-2">
-      <div class="text-xs text-alert" style="letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px;">▸ Por Qué No</div>
+      <div class="text-xs text-alert" style="letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;">▸ Señales Desfavorables</div>
       <ul class="signal-list">${noSignals || '<li class="signal-item signal-item--no text-muted">─</li>'}</ul>
     </div>
 
     ${condicionantes ? `
     <div class="mt-2">
-      <div class="text-xs text-warn" style="letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px;">▸ Condicionantes</div>
+      <div class="text-xs text-warn" style="letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;">▸ Condicionantes</div>
       <ul class="signal-list">${condicionantes}</ul>
     </div>` : ''}
 
@@ -629,52 +827,66 @@ function renderInferenceReport(report, container) {
       Archivo: ${escHtml(report.meta?.file?.split('/').pop() || '─')}
     </div>
   `;
+
+  // Animate score bar
+  requestAnimationFrame(() => {
+    const fill = container.querySelector('.score-bar__fill');
+    if (fill) fill.style.width = fill.dataset.target || '0%';
+  });
 }
 
 /* =========================================================================
-   SCRAPER SSE ACTIONS (Panel contextual del Sidebar)
+   SCRAPER SSE ACTIONS
    ========================================================================= */
 function initScraperActions() {
-  const btnExtractKeys  = $('#btn-extract-keys');
-  const btnRunPipeline  = $('#btn-run-pipeline');
-  const logEl           = $('#scraper-log');
-  const progressEl      = $('#scraper-progress');
+  const btnExtractKeys = $('#btn-extract-keys');
+  const btnRunPipeline = $('#btn-run-pipeline');
+  const logEl          = $('#scraper-log');
+  const progressEl     = $('#scraper-progress');
+  const pctEl          = $('#scraper-pct');
 
   function runSse(url, label) {
-    if (State.sseSource) {
-      State.sseSource.close();
-      State.sseSource = null;
-    }
-
+    if (State.sseSource) { State.sseSource.close(); State.sseSource = null; }
     appendLog(logEl, `Iniciando: ${label}`, 'info');
     setProgress(progressEl, 0);
+    if (pctEl) pctEl.textContent = '0%';
 
     const es = new EventSource(url);
     State.sseSource = es;
-
-    if (btnExtractKeys)  btnExtractKeys.disabled = true;
-    if (btnRunPipeline)  btnRunPipeline.disabled = true;
+    if (btnExtractKeys) btnExtractKeys.disabled = true;
+    if (btnRunPipeline) btnRunPipeline.disabled = true;
 
     es.onmessage = e => {
       const evt = JSON.parse(e.data);
-      if (evt.pct !== undefined) setProgress(progressEl, evt.pct);
+      if (evt.pct !== undefined) {
+        setProgress(progressEl, evt.pct);
+        if (pctEl) pctEl.textContent = `${Math.round(evt.pct)}%`;
+      }
       const level = evt.level === 'warning' ? 'warn'
                   : evt.status === 'complete' ? 'ok'
                   : evt.status === 'error' ? 'error' : 'info';
       appendLog(logEl, evt.msg || evt.status, level);
 
-      if (evt.status === 'complete' || evt.status === 'error') {
+      if (evt.status === 'complete') {
         es.close();
-        if (btnExtractKeys)  btnExtractKeys.disabled = false;
-        if (btnRunPipeline)  btnRunPipeline.disabled = false;
+        if (btnExtractKeys) btnExtractKeys.disabled = false;
+        if (btnRunPipeline) btnRunPipeline.disabled = false;
+        showToast(`✓ ${label} completado`, 'ok');
+        loadCorpus();
+        loadMdList();
+      } else if (evt.status === 'error') {
+        es.close();
+        if (btnExtractKeys) btnExtractKeys.disabled = false;
+        if (btnRunPipeline) btnRunPipeline.disabled = false;
+        showToast(`Error en ${label}`, 'error');
       }
     };
 
     es.onerror = () => {
       appendLog(logEl, 'SSE desconectado', 'error');
       es.close();
-      if (btnExtractKeys)  btnExtractKeys.disabled = false;
-      if (btnRunPipeline)  btnRunPipeline.disabled = false;
+      if (btnExtractKeys) btnExtractKeys.disabled = false;
+      if (btnRunPipeline) btnRunPipeline.disabled = false;
     };
   }
 
@@ -694,22 +906,21 @@ function initScraperActions() {
 }
 
 /* =========================================================================
-   TAB 5 — SECOND_BRAIN ACTIONS
+   TAB 5 — SECOND_BRAIN
    ========================================================================= */
 function updateSecondBrainUI(statusData) {
+  if (!statusData) return;
   const sb = statusData.second_brain;
   if (!sb) return;
 
   const totalEl = $('#sb-total-notes');
-  if (totalEl) totalEl.textContent = `${sb.total_notes} notas`;
+  if (totalEl) totalEl.textContent = sb.total_notes || 0;
 
-  if (sb.total_notes > 0) {
-    const lastSyncEl = $('#sb-last-sync');
-    if (lastSyncEl && lastSyncEl.textContent === 'No sincronizado') {
-      lastSyncEl.textContent = 'Bóveda activa';
-      lastSyncEl.style.color = 'var(--color-status-active)';
-    }
-  }
+  const nc = $('#nav-count-sb');
+  if (nc) nc.textContent = sb.total_notes || 0;
+
+  const noteEl = $('#sb-stat-notes');
+  if (noteEl) noteEl.textContent = sb.total_notes || 0;
 }
 
 async function loadWikiNotesList() {
@@ -721,46 +932,59 @@ async function loadWikiNotesList() {
     const d = await r.json();
     listEl.innerHTML = '';
 
-    if (!d.notes || d.notes.length === 0) {
-      listEl.innerHTML = '<li class="file-item"><span class="file-item__name text-muted">[ sin notas — sincroniza la bóveda ]</span></li>';
+    if (!d.notes || !d.notes.length) {
+      listEl.innerHTML = '<li class="file-item file-item--loading"><span class="file-item__name text-muted">[ sin notas — sincroniza ]</span></li>';
       return;
     }
 
-    d.notes.forEach(note => {
-      const li = document.createElement('li');
-      li.className = 'file-item';
-      li.dataset.title = note.title;
-      
-      // Prefijo representativo por categoría
-      let prefix = '▸ ';
-      if (note.category === 'root') prefix = '◆ ';
+    const nc = $('#nav-count-sb');
+    if (nc) nc.textContent = d.notes.length;
 
-      li.innerHTML = `
-        <span class="file-item__name" title="${escHtml(note.name)}">${prefix}${escHtml(note.title)}</span>
-      `;
-      li.addEventListener('click', () => {
-        listEl.querySelectorAll('.file-item').forEach(item => item.classList.remove('selected'));
-        li.classList.add('selected');
-        loadWikiNote(note.title);
+    const metaEl = $('#sb-meta');
+    if (metaEl) metaEl.textContent = `${d.notes.length} notas`;
+
+    const sbSearch = $('#sb-search');
+    let allNotes = d.notes;
+
+    function renderNoteList(notes) {
+      listEl.innerHTML = '';
+      notes.forEach(note => {
+        const li = document.createElement('li');
+        li.className = 'file-item';
+        li.dataset.title = note.title;
+        li.setAttribute('role', 'option');
+        const prefix = note.category === 'root' ? '◆ ' : '▸ ';
+        li.innerHTML = `<span class="file-item__name" title="${escHtml(note.name)}">${prefix}${escHtml(note.title)}</span>`;
+        li.addEventListener('click', () => {
+          listEl.querySelectorAll('.file-item').forEach(i => i.classList.remove('selected'));
+          li.classList.add('selected');
+          loadWikiNote(note.title);
+        });
+        listEl.appendChild(li);
       });
-      listEl.appendChild(li);
-    });
-
-    // Cargar 00_Index por defecto si existe
-    const indexItem = listEl.querySelector('[data-title="00_Index"]');
-    if (indexItem) {
-      indexItem.classList.add('selected');
-      loadWikiNote('00_Index');
-    } else if (d.notes.length > 0) {
-      // Si no hay index, seleccionar la primera de la lista
-      const first = listEl.querySelector('.file-item');
-      if (first) {
-        first.classList.add('selected');
-        loadWikiNote(d.notes[0].title);
-      }
     }
+
+    renderNoteList(allNotes);
+
+    if (sbSearch) {
+      sbSearch.addEventListener('input', () => {
+        const q = sbSearch.value.toLowerCase();
+        renderNoteList(allNotes.filter(n => n.title.toLowerCase().includes(q)));
+      });
+    }
+
+    // Stats strip
+    const projEl = $('#sb-stat-proyectos');
+    const gacEl  = $('#sb-stat-gacetas-sb');
+    if (projEl) projEl.textContent = d.notes.filter(n => n.category === '02_Entities').length;
+    if (gacEl)  gacEl.textContent  = d.notes.filter(n => n.category === '01_Sources').length;
+
+    const indexItem = listEl.querySelector('[data-title="00_Index"]');
+    if (indexItem) { indexItem.classList.add('selected'); loadWikiNote('00_Index'); }
+    else if (allNotes.length) { listEl.querySelector('.file-item')?.click(); }
+
   } catch (err) {
-    console.error('Error cargando lista de notas wiki:', err);
+    console.error('Error cargando notas wiki:', err);
   }
 }
 
@@ -775,17 +999,14 @@ async function loadWikiNote(title) {
   try {
     const r = await fetch(`/api/second_brain/note?name=${encodeURIComponent(title)}`);
     if (!r.ok) {
-      if (viewerEl) viewerEl.innerHTML = `<span class="text-alert">[ ERROR: Nota '${escHtml(title)}' no encontrada en la bóveda ]</span>`;
+      if (viewerEl) viewerEl.innerHTML = `<span class="text-alert">[ Nota '${escHtml(title)}' no encontrada ]</span>`;
       return;
     }
     const d = await r.json();
     if (categoryEl) categoryEl.textContent = d.category;
+    if (viewerEl)   viewerEl.innerHTML = renderMarkdownWithWikiLinks(d.content);
 
-    // Renderizar Markdown simple con enlaces de wiki
-    let renderedHtml = renderMarkdownWithWikiLinks(d.content);
-    if (viewerEl) viewerEl.innerHTML = renderedHtml;
-
-    // Resaltar en la lista lateral
+    // Highlight in list
     const listEl = $('#sb-notes-list');
     if (listEl) {
       listEl.querySelectorAll('.file-item').forEach(item => {
@@ -793,45 +1014,34 @@ async function loadWikiNote(title) {
       });
     }
   } catch (err) {
-    if (viewerEl) viewerEl.innerHTML = `<span class="text-alert">[ ERROR al recuperar nota: ${escHtml(err)} ]</span>`;
+    if (viewerEl) viewerEl.innerHTML = `<span class="text-alert">[ Error: ${escHtml(String(err))} ]</span>`;
   }
 }
 
 function renderMarkdownWithWikiLinks(mdText) {
-  // 1. Escapar HTML base para seguridad
   let html = escHtml(mdText);
-
-  // 2. Parsear títulos Markdown (# , ## , ### )
-  html = html.replace(/^# (.*)$/gm, '<h1 style="color:var(--color-accent); font-size:15px; margin: 12px 0 6px;">$1</h1>');
-  html = html.replace(/^## (.*)$/gm, '<h2 style="color:var(--color-accent); font-size:13px; margin: 10px 0 4px; font-weight:700;">$1</h2>');
-  html = html.replace(/^### (.*)$/gm, '<h3 style="color:var(--color-text-primary); font-size:11px; margin: 8px 0 4px; font-weight:700;">$1</h3>');
-
-  // 3. Parsear líneas divisorias (---)
+  // Headings
+  html = html.replace(/^# (.*)$/gm, '<h1>$1</h1>');
+  html = html.replace(/^## (.*)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^### (.*)$/gm, '<h3>$1</h3>');
+  // HR
   html = html.replace(/^---$/gm, '<div class="ascii-divider"></div>');
-
-  // 4. Parsear texto en negrita (**texto**)
+  // Bold
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--color-text-primary);">$1</strong>');
-
-  // 5. Parsear citas de bloque (> )
-  html = html.replace(/^&gt;\s?(.*)$/gm, '<blockquote style="border-left: 2px solid var(--color-accent); padding-left: 8px; color: var(--color-text-muted); margin: 6px 0;">$1</blockquote>');
-
-  // 6. Parsear listas viñetas (- )
-  html = html.replace(/^-\s?(.*)$/gm, '<div style="padding-left: 10px;">▸ $1</div>');
-
-  // 7. Parsear bloques de código inline (`code`)
-  html = html.replace(/`(.*?)`/g, '<code style="background:var(--color-surface-2); padding:0 4px; color:var(--color-text-primary); font-size:11px;">$1</code>');
-
-  // 8. RESOLVEDOR DE WIKI-LINKS: [[Nota|Alias]] o [[Nota]]
+  // Blockquotes
+  html = html.replace(/^&gt;\s?(.*)$/gm, '<blockquote>$1</blockquote>');
+  // Lists
+  html = html.replace(/^-\s?(.*)$/gm, '<div style="padding-left:10px;">▸ $1</div>');
+  // Inline code
+  html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+  // Wiki links [[Note|Alias]] and [[Note]]
   html = html.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '<span class="wiki-link" onclick="loadWikiNote(\'$1\')">$2</span>');
   html = html.replace(/\[\[([^\]]+)\]\]/g, '<span class="wiki-link" onclick="loadWikiNote(\'$1\')">$1</span>');
-
-  // 9. Enlaces de archivos locales de tipo [nombre](file://path)
+  // External file links
   html = html.replace(/\[(.*?)\]\(file:\/\/(.*?)\)/g, '<a href="file://$2" class="text-accent" style="text-decoration:underline;" target="_blank" onclick="event.stopPropagation()">$1</a>');
-
   return html;
 }
 
-// Exponer loadWikiNote globalmente para eventos onclick
 window.loadWikiNote = loadWikiNote;
 
 function initSecondBrainActions() {
@@ -842,43 +1052,35 @@ function initSecondBrainActions() {
   if (btnSync) {
     btnSync.addEventListener('click', async () => {
       btnSync.disabled = true;
-      if (progEl) {
-        progEl.style.display = 'block';
-        setProgress(progEl, 30);
-      }
-      appendLog(logEl, 'Iniciando compilación de la bóveda de Obsidian...', 'info');
+      if (progEl) { progEl.classList.remove('hidden'); setProgress(progEl, 20); }
+      appendLog(logEl, 'Compilando bóveda del Second Brain...', 'info');
 
       try {
         const r = await fetch('/api/second_brain/build', { method: 'POST' });
         if (progEl) setProgress(progEl, 70);
-        
         const d = await r.json();
-        
+
         if (progEl) {
           setProgress(progEl, 100);
-          setTimeout(() => { progEl.style.display = 'none'; }, 2000);
+          setTimeout(() => progEl.classList.add('hidden'), 1500);
         }
 
         if (r.ok && d.status === 'ok') {
-          appendLog(logEl, '¡Bóveda sincronizada correctamente!', 'ok');
-          appendLog(logEl, `Resultados: ${d.stats.total_proyectos} proyectos, ${d.stats.total_gacetas} gacetas, ${d.stats.total_municipios} entidades.`, 'ok');
-          
-          const lastSyncEl = $('#sb-last-sync');
-          if (lastSyncEl) {
-            const now = new Date().toLocaleTimeString();
-            lastSyncEl.textContent = `Sincronizado: ${now}`;
-            lastSyncEl.style.color = 'var(--color-status-active)';
-          }
+          appendLog(logEl, `Bóveda sincronizada: ${d.stats.total_proyectos} proyectos`, 'ok');
+          showToast(`Second Brain: ${d.stats.total_proyectos} proyectos`, 'ok');
 
-          // Recargar status del sistema y volver a renderizar la lista de notas
+          const lastSyncEl = $('#sb-last-sync');
+          if (lastSyncEl) lastSyncEl.textContent = new Date().toLocaleTimeString();
+
           await loadStatus();
           await loadWikiNotesList();
         } else {
           appendLog(logEl, `Error: ${d.detail || 'Fallo desconocido'}`, 'error');
+          showToast('Error sincronizando bóveda', 'error');
         }
       } catch (err) {
-        appendLog(logEl, `Fallo de red al conectar con API: ${err}`, 'error');
-        if (progEl) progEl.style.display = 'none';
+        appendLog(logEl, `Fallo de red: ${err}`, 'error');
+        if (progEl) progEl.classList.add('hidden');
       } finally {
         btnSync.disabled = false;
       }
@@ -887,74 +1089,65 @@ function initSecondBrainActions() {
 }
 
 /* =========================================================================
-   INIT
-   ========================================================================= */
-document.addEventListener('DOMContentLoaded', () => {
-  initTabs();
-  initCorpusActions();
-  initScraperActions();
-  initSecondBrainActions();
-
-  // Activar pestaña por defecto
-  activateTab('CORPUS_PDF');
-
-  // Cargar status del sistema y refrescar cada 30s
-  loadStatus();
-  setInterval(loadStatus, 30_000);
-});
-
-/* =========================================================================
    WORKFLOW MODULE
    ========================================================================= */
 async function loadWorkflowGacetas() {
   const listEl = $('#wf-gacetas-list');
   if (!listEl) return;
-
-  listEl.innerHTML = '<li class="file-item"><span class="file-item__name text-muted">[ cargando gacetas... ]</span></li>';
+  listEl.innerHTML = '<li class="file-item file-item--loading"><span class="file-item__name text-muted">[ cargando gacetas... ]</span></li>';
 
   try {
-    const year = $('#scraper-year')?.value || 2026;
-    const r = await fetch(`/api/scraper/gacetas-summary?year=${year}`);
-    const d = await r.json();
+    const year   = $('#scraper-year')?.value || 2026;
+    const source = $('#wf-filter-source')?.value || 'all';
+    const r      = await fetch(`/api/scraper/gacetas-summary?year=${year}&source=${source}`);
+    const d      = await r.json();
     listEl.innerHTML = '';
 
-    if (!d.gacetas || d.gacetas.length === 0) {
-      listEl.innerHTML = '<li class="file-item"><span class="file-item__name text-muted">[ sin gacetas en el corpus ]</span></li>';
+    if (!d.gacetas?.length) {
+      listEl.innerHTML = '<li class="file-item file-item--loading"><span class="file-item__name text-muted">[ sin gacetas en el corpus ]</span></li>';
       return;
     }
 
-    // Ordenar gacetas por nombre descendente
     d.gacetas.sort((a, b) => b.name.localeCompare(a.name));
+    let allGacetas = d.gacetas;
 
-    d.gacetas.forEach(gaceta => {
-      const li = document.createElement('li');
-      li.className = 'file-item';
-      li.dataset.name = gaceta.name;
-      
-      const sizeKB = gaceta.size_bytes ? `(${(gaceta.size_bytes / 1024).toFixed(0)}KB)` : '';
-      const countLabel = gaceta.clave_count > 0 ? `[${gaceta.clave_count} claves]` : '[sin claves]';
-
-      li.innerHTML = `
-        <span class="file-item__name" title="${escHtml(gaceta.name)}">▫ ${escHtml(gaceta.name)}</span>
-        <span class="file-item__size text-muted" style="margin-left:auto; font-size:9px; font-family:var(--font-mono);">${countLabel} ${sizeKB}</span>
-      `;
-
-      li.addEventListener('click', () => {
-        listEl.querySelectorAll('.file-item').forEach(item => item.classList.remove('selected'));
-        li.classList.add('selected');
-        loadWorkflowGacetaKeys(gaceta.name);
+    function renderGacetas(gacetas) {
+      listEl.innerHTML = '';
+      gacetas.forEach(gaceta => {
+        const li = document.createElement('li');
+        li.className = 'file-item';
+        li.dataset.name = gaceta.name;
+        li.setAttribute('role', 'option');
+        const countLabel = gaceta.clave_count > 0 ? `[${gaceta.clave_count}]` : '[─]';
+        const sizeKB = gaceta.size_bytes ? `${(gaceta.size_bytes/1024).toFixed(0)}KB` : '';
+        li.innerHTML = `
+          <span class="file-item__name" title="${escHtml(gaceta.name)}">▫ ${escHtml(gaceta.name)}</span>
+          <span class="file-item__badge text-muted">${countLabel} ${sizeKB}</span>
+        `;
+        li.addEventListener('click', () => {
+          listEl.querySelectorAll('.file-item').forEach(i => i.classList.remove('selected'));
+          li.classList.add('selected');
+          loadWorkflowGacetaKeys(gaceta.name);
+        });
+        listEl.appendChild(li);
       });
-
-      listEl.appendChild(li);
-    });
-
-    // Cargar la primera por defecto
-    const first = listEl.querySelector('.file-item');
-    if (first) {
-      first.click();
     }
+
+    renderGacetas(allGacetas);
+
+    const wfSearch = $('#wf-search');
+    if (wfSearch) {
+      wfSearch.oninput = () => {
+        const q = wfSearch.value.toLowerCase();
+        renderGacetas(allGacetas.filter(g => g.name.toLowerCase().includes(q)));
+      };
+    }
+
+    const first = listEl.querySelector('.file-item');
+    if (first) first.click();
+
   } catch (err) {
-    listEl.innerHTML = `<li class="file-item"><span class="file-item__name text-error">[ error: ${err} ]</span></li>`;
+    listEl.innerHTML = `<li class="file-item"><span class="file-item__name text-alert">[ error: ${escHtml(String(err))} ]</span></li>`;
   }
 }
 
@@ -964,51 +1157,95 @@ async function loadWorkflowGacetaKeys(gacetaName) {
   const tbodyEl = $('#wf-keys-tbody');
 
   if (titleEl) titleEl.textContent = gacetaName;
-  if (tbodyEl) tbodyEl.innerHTML = '<tr><td colspan="5" class="text-muted text-center" style="padding:20px;">[ cargando claves de la gaceta... ]</td></tr>';
+  if (tbodyEl) tbodyEl.innerHTML = '<tr><td colspan="6" class="text-muted text-center" style="padding:24px;">[ cargando claves... ]</td></tr>';
 
   try {
     const year = $('#scraper-year')?.value || 2026;
-    const r = await fetch(`/api/scraper/gaceta-keys?gaceta_name=${encodeURIComponent(gacetaName)}&year=${year}`);
-    const d = await r.json();
+    const r    = await fetch(`/api/scraper/gaceta-keys?gaceta_name=${encodeURIComponent(gacetaName)}&year=${year}`);
+    const d    = await r.json();
 
-    if (countEl) countEl.textContent = `${d.claves ? d.claves.length : 0} claves extraídas`;
+    if (countEl) countEl.textContent = `${d.claves?.length || 0} claves extraídas`;
     tbodyEl.innerHTML = '';
 
-    if (!d.claves || d.claves.length === 0) {
-      tbodyEl.innerHTML = '<tr><td colspan="5" class="text-muted text-center" style="padding:20px;">[ no se extrajeron claves SINAT de esta gaceta, o ejecuta la conversión a MD primero ]</td></tr>';
+    if (!d.claves?.length) {
+      tbodyEl.innerHTML = '<tr><td colspan="6" class="text-muted text-center" style="padding:24px;">[ sin claves SINAT — ejecuta conversión MD primero ]</td></tr>';
       return;
     }
 
     d.claves.forEach(item => {
       const tr = document.createElement('tr');
-      tr.style.borderBottom = '1px solid var(--color-border)';
-
-      const estudioStatus = item.has_pdf_estudio 
-        ? '<span class="text-accent" style="font-weight:700;">[ SI ]</span>' 
-        : '<span class="text-muted">[ NO ]</span>';
-
-      const resolutivoStatus = item.has_pdf_resolutivo 
-        ? '<span class="text-accent" style="font-weight:700;">[ SI ]</span>' 
-        : '<span class="text-muted">[ NO ]</span>';
-
-      const extractionStatus = item.has_extraction 
-        ? '<span class="text-accent" style="font-weight:700;">[ SI ]</span>' 
-        : '<span class="text-muted">[ NO ]</span>';
-
-      const inferenceStatus = item.has_inference 
-        ? '<span class="text-accent" style="font-weight:700;">[ SI ]</span>' 
-        : '<span class="text-muted">[ NO ]</span>';
+      const cell = (has) => has
+        ? '<span class="text-ok" style="font-weight:700;">[ ✓ ]</span>'
+        : '<span class="text-muted">[ ─ ]</span>';
 
       tr.innerHTML = `
-        <td style="padding:6px; font-family:var(--font-mono); font-weight:700; color:var(--color-accent);">${escHtml(item.clave)}</td>
-        <td style="padding:6px; font-family:var(--font-mono);">${estudioStatus}</td>
-        <td style="padding:6px; font-family:var(--font-mono);">${resolutivoStatus}</td>
-        <td style="padding:6px; font-family:var(--font-mono);">${extractionStatus}</td>
-        <td style="padding:6px; font-family:var(--font-mono);">${inferenceStatus}</td>
+        <td style="font-family:var(--font-mono); font-weight:700; color:var(--color-amber);">${escHtml(item.clave)}</td>
+        <td>${cell(item.has_pdf_estudio)}</td>
+        <td>${cell(item.has_pdf_resolutivo)}</td>
+        <td>${cell(item.has_extraction)}</td>
+        <td>${cell(item.has_inference)}</td>
+        <td>
+          <a class="btn" style="font-size:9px; padding:2px 6px;" href="/api/scraper/download-clave?clave=${encodeURIComponent(item.clave)}" onclick="event.preventDefault(); triggerDownload('${escHtml(item.clave)}')" aria-label="Descargar clave ${escHtml(item.clave)}">▸ DL</a>
+        </td>
       `;
       tbodyEl.appendChild(tr);
     });
   } catch (err) {
-    tbodyEl.innerHTML = `<tr><td colspan="5" class="text-error text-center" style="padding:20px;">[ error cargando claves: ${err} ]</td></tr>`;
+    tbodyEl.innerHTML = `<tr><td colspan="6" class="text-alert text-center" style="padding:24px;">[ error: ${escHtml(String(err))} ]</td></tr>`;
   }
 }
+
+function triggerDownload(clave) {
+  const year    = $('#scraper-year')?.value || '2026';
+  const logEl   = $('#scraper-log');
+  const progEl  = $('#scraper-progress');
+  const pctEl   = $('#scraper-pct');
+
+  showToast(`Iniciando descarga: ${clave}`, 'info');
+  appendLog(logEl, `Descargando clave: ${clave}`, 'info');
+  setProgress(progEl, 0);
+
+  const es = new EventSource(`/api/scraper/download-clave?clave=${encodeURIComponent(clave)}&year=${year}`);
+
+  es.onmessage = e => {
+    const evt = JSON.parse(e.data);
+    if (evt.pct !== undefined) {
+      setProgress(progEl, evt.pct);
+      if (pctEl) pctEl.textContent = `${Math.round(evt.pct)}%`;
+    }
+    const level = evt.level === 'warning' ? 'warn'
+                : evt.status === 'complete' ? 'ok'
+                : evt.status === 'error' ? 'error' : 'info';
+    appendLog(logEl, evt.msg || evt.status, level);
+    if (evt.status === 'complete' || evt.status === 'error') {
+      es.close();
+      if (evt.status === 'complete') {
+        showToast(`✓ Descarga completada: ${clave}`, 'ok');
+        loadWorkflowGacetas();
+      } else {
+        showToast(`Error descargando ${clave}`, 'error');
+      }
+    }
+  };
+
+  es.onerror = () => { es.close(); };
+}
+
+window.triggerDownload = triggerDownload;
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+document.addEventListener('DOMContentLoaded', () => {
+  startClock();
+  initTabs();
+  initCorpusActions();
+  initMdLabActions();
+  initScraperActions();
+  initSecondBrainActions();
+
+  activateTab('CORPUS_PDF');
+
+  loadStatus();
+  setInterval(loadStatus, 30_000);
+});

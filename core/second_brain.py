@@ -26,8 +26,7 @@ class SecondBrainBuilder:
         self.inference_cache_dir = self.data_dir / "inference_cache"
         self.sb_dir = self.base_dir / "second_brain"
 
-        # Regex para claves SINAT
-        self.clave_re = re.compile(r"\b(\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})\b")
+        self.clave_re = re.compile(r"(?<![A-Z0-9])(\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})(?![A-Z0-9])")
 
     def build_vault(self) -> dict:
         """
@@ -217,7 +216,7 @@ class SecondBrainBuilder:
         """Encuentra gacetas y busca qué proyectos están asociados a ellas."""
         gacetas = {}
 
-        # 1. Indexar gacetas en PDFs
+        # 1. Indexar gacetas en PDFs (tanto de SINAT en "gacetas" como de ASEA en "asea")
         for pdf in pdfs.get("gacetas", []):
             stem = Path(pdf["name"]).stem
             gacetas[stem] = {
@@ -226,9 +225,17 @@ class SecondBrainBuilder:
                 "proyectos": [],
             }
 
-        # 2. Si no hay PDFs pero hay extractions de gacetas
+        for pdf in pdfs.get("asea", []):
+            stem = Path(pdf["name"]).stem
+            gacetas[stem] = {
+                "pdf": pdf,
+                "extraction": extractions.get(stem),
+                "proyectos": [],
+            }
+
+        # 2. Si no hay PDFs pero hay extractions de gacetas o archivos de la ASEA
         for name, md in extractions.items():
-            if "gaceta" in name.lower() and name not in gacetas:
+            if ("gaceta" in name.lower() or name.startswith("ASEA_")) and name not in gacetas:
                 gacetas[name] = {
                     "pdf": None,
                     "extraction": md,
@@ -277,7 +284,9 @@ class SecondBrainBuilder:
 
     def _write_gaceta_note(self, dest_dir: Path, name: str, info: dict):
         """Escribe una nota para una gaceta."""
-        note_path = dest_dir / f"Gaceta - {name}.md"
+        is_asea = name.upper().startswith("ASEA_")
+        prefix = "Gaceta ASEA" if is_asea else "Gaceta"
+        note_path = dest_dir / f"{prefix} - {name}.md"
         pdf_link = f"[{info['pdf']['name']}](file://{info['pdf']['path']})" if info.get("pdf") else "No disponible"
         md_link = f"[{info['extraction']['name']}](file://{info['extraction']['path']})" if info.get("extraction") else "No extraído"
 
@@ -294,7 +303,7 @@ name: {name}
 date_generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 ---
 
-# Gaceta Ecológica: {name}
+# {"Gaceta Ecológica ASEA" if is_asea else "Gaceta Ecológica"}: {name}
 
 ## [ARCHIVOS] Relacionados
 - **PDF Original:** {pdf_link}
@@ -329,7 +338,10 @@ Esta gaceta anuncia los siguientes proyectos ecológicos evaluados:
         # Enlace a Gaceta
         gaceta_sec = ""
         if proj.get("gaceta_origen"):
-            gaceta_sec = f"- **Gaceta de Anuncio:** [[Gaceta - {proj['gaceta_origen']}]]"
+            orig = proj['gaceta_origen']
+            is_asea = orig.upper().startswith("ASEA_")
+            prefix = "Gaceta ASEA" if is_asea else "Gaceta"
+            gaceta_sec = f"- **Gaceta de Anuncio:** [[{prefix} - {orig}]]"
         else:
             gaceta_sec = "- **Gaceta de Anuncio:** _No detectada en el corpus local._"
 
@@ -470,7 +482,12 @@ Se registran `{len(projects_list)}` proyectos vinculados a esta categoría en el
         total_inferencias = sum(1 for p in projects.values() if p.get("inference"))
 
         # Lista de gacetas
-        gacetas_sec = "\n".join(f"- [[Gaceta - {g}]] (`{len(info['proyectos'])}` proyectos)" for g, info in sorted(gacetas.items())) or "_Ninguna gaceta indexada_"
+        gacetas_lines = []
+        for g, info in sorted(gacetas.items()):
+            is_asea = g.upper().startswith("ASEA_")
+            prefix = "Gaceta ASEA" if is_asea else "Gaceta"
+            gacetas_lines.append(f"- [[{prefix} - {g}]] (`{len(info['proyectos'])}` proyectos)")
+        gacetas_sec = "\n".join(gacetas_lines) or "_Ninguna gaceta indexada_"
 
         # Lista de proyectos recientes (últimos 15)
         recientes_sec = "\n".join(f"- [[Proyecto - {c}]] (Ubicación: {p.get('estado_nombre', 'Desconocida')} | Dictamen: **{p['inference'].get('veredicto', 'SIN EVALUAR') if p.get('inference') else 'PENDIENTE'}**)" for c, p in sorted(projects.items(), key=lambda x: x[0], reverse=True)[:15]) or "_Ningún proyecto indexado_"

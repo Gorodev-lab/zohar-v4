@@ -39,6 +39,7 @@ TIPO_MIA = {
     "H": "MIA Particular", "G": "MIA Regional",
     "I": "Informe Preventivo", "T": "Cambio de Uso de Suelo",
     "D": "Estudio de Riesgo",
+    "X": "Trámite Sector Hidrocarburos (X)",
 }
 
 # Colores del grafo por tipo de nodo
