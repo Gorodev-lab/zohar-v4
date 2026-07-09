@@ -955,17 +955,41 @@ async def download_clave(clave: str = Query(..., description="Clave SINAT a desc
 async def build_second_brain():
     """Ejecuta la sincronización completa del Second Brain de Obsidian."""
     from core.second_brain import SecondBrainBuilder
+    from core.semantic_search import SemanticSearchEngine
     builder = SecondBrainBuilder(BASE_DIR)
+    engine = SemanticSearchEngine(BASE_DIR)
     try:
         stats = builder.build_vault()
+        # Generar o actualizar embeddings para las notas creadas
+        try:
+            embed_stats = engine.build_index()
+            stats["semantic_index"] = embed_stats
+        except Exception as emb_exc:
+            logger.warning("Error construyendo índice semántico: %s", emb_exc)
+            stats["semantic_index"] = {"status": "error", "reason": str(emb_exc)}
+            
         return {
             "status": "ok",
-            "msg": "Second Brain sincronizado correctamente",
+            "msg": "Second Brain sincronizado e indexado correctamente",
             "stats": stats
         }
     except Exception as exc:
         logger.error("Error construyendo Second Brain: %s", exc)
         raise HTTPException(500, detail=f"Error en Second Brain: {exc}")
+
+
+@app.get("/api/second_brain/search", tags=["second_brain"])
+async def search_second_brain(q: str = Query(..., description="Consulta de búsqueda semántica")):
+    """Realiza una búsqueda semántica de notas del Second Brain."""
+    from core.semantic_search import SemanticSearchEngine
+    engine = SemanticSearchEngine(BASE_DIR)
+    try:
+        results = engine.search(q)
+        return {"results": results}
+    except Exception as exc:
+        logger.error("Error en búsqueda semántica: %s", exc)
+        raise HTTPException(500, detail=f"Error buscando notas semánticamente: {exc}")
+
 
 
 @app.get("/api/second_brain/notes", tags=["second_brain"])

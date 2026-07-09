@@ -251,16 +251,18 @@ class TestSINATButtonCount:
 
     WAIT_TIMEOUT = 60  # segundos — Angular puede tardar en renderizar
 
-    def _wait_for_buttons(self, driver, css_selector: str, timeout: int = 60):
+    def _wait_for_buttons(self, driver, css_selector: str, timeout: int = 60, bitacora_value: str = ""):
         """
         Espera con polling hasta que aparezcan botones en .descargas,
         con fallback a XPath si el CSS selector no encuentra nada.
+        Si redirige a la página principal, ingresa la clave de bitácora en el input y busca.
         """
         from selenium.webdriver.common.by import By
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
         from scrapers.semarnat_downloader import BUTTON_XPATH_TEMPLATE
         import time
+        import re
 
         # Esperar que Angular termine de cargar (readyState + ng-version)
         WebDriverWait(driver, timeout).until(
@@ -268,8 +270,21 @@ class TestSINATButtonCount:
         )
         time.sleep(2)  # micro-pausa para hydration de Angular
 
+        # Intentar extraer la clave de bitácora si no se proveyó
+        if not bitacora_value:
+            original_url = driver.current_url
+            m = re.search(r"consulta-tramite/(09/[A-Z]{2}-\d{4}/\d{2}/\d{2})", original_url)
+            if m:
+                bitacora_value = m.group(1)
+            else:
+                parts = original_url.split("consulta-tramite/")
+                if len(parts) > 1:
+                    bitacora_value = parts[-1].strip()
+
         # Polling activo hasta que aparezcan los botones
         deadline = time.time() + timeout
+        tried_search = False
+
         while time.time() < deadline:
             buttons = driver.find_elements(By.CSS_SELECTOR, css_selector)
             if buttons:
@@ -284,6 +299,57 @@ class TestSINATButtonCount:
             buttons = driver.find_elements(By.XPATH, xpath)
             if buttons:
                 return buttons
+
+            # Si no hay botones y no hemos intentado buscar, y está en el portal-consulta sin resultados
+            if not tried_search and bitacora_value and (
+                "#/portal-consulta" in driver.current_url and "consulta-tramite/" not in driver.current_url
+                or not driver.find_elements(By.CSS_SELECTOR, ".descargas")
+            ):
+                # Intentar localizar el input de búsqueda e ingresar la clave
+                search_input = None
+                for sel in [
+                    (By.CSS_SELECTOR, "input[placeholder*='bitácora']"),
+                    (By.CSS_SELECTOR, "input[placeholder*='clave']"),
+                    (By.CSS_SELECTOR, "input[type='text']"),
+                    (By.XPATH, "//input")
+                ]:
+                    try:
+                        if driver.find_elements(*sel):
+                            search_input = driver.find_element(*sel)
+                            break
+                    except Exception:
+                        pass
+
+                if search_input:
+                    try:
+                        search_input.clear()
+                        time.sleep(0.3)
+                        search_input.send_keys(bitacora_value)
+
+                        # Buscar botón
+                        search_btn = None
+                        for btn_sel in [
+                            (By.XPATH, "//button[contains(., 'Buscar')]"),
+                            (By.XPATH, "//button[contains(text(), 'Buscar')]"),
+                            (By.CSS_SELECTOR, "button"),
+                            (By.XPATH, "//*[contains(text(), 'Buscar')]")
+                        ]:
+                            try:
+                                if driver.find_elements(*btn_sel):
+                                    search_btn = driver.find_element(*btn_sel)
+                                    break
+                            except Exception:
+                                pass
+
+                        if search_btn:
+                            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", search_btn)
+                            time.sleep(0.3)
+                            search_btn.click()
+                            tried_search = True
+                            time.sleep(4)  # esperar recarga
+                    except Exception:
+                        pass
+
             time.sleep(1.5)
 
         # Último intento — devolver lo que haya
@@ -303,7 +369,7 @@ class TestSINATButtonCount:
                 f"#/portal-consulta/consulta-tramite/{info['bitacora']}"
             )
             driver.get(url)
-            buttons = self._wait_for_buttons(driver, BUTTON_CSS_SELECTOR, self.WAIT_TIMEOUT)
+            buttons = self._wait_for_buttons(driver, BUTTON_CSS_SELECTOR, self.WAIT_TIMEOUT, info['bitacora'])
             assert len(buttons) == 3, (
                 f"Esperado 3 botones, encontrado {len(buttons)}.\n"
                 f"URL: {url}\n"
@@ -327,7 +393,7 @@ class TestSINATButtonCount:
                 f"#/portal-consulta/consulta-tramite/{info['bitacora']}"
             )
             driver.get(url)
-            buttons = self._wait_for_buttons(driver, BUTTON_CSS_SELECTOR, self.WAIT_TIMEOUT)
+            buttons = self._wait_for_buttons(driver, BUTTON_CSS_SELECTOR, self.WAIT_TIMEOUT, info['bitacora'])
             assert len(buttons) == 2, (
                 f"Esperado 2 botones, encontrado {len(buttons)}.\n"
                 f"URL: {url}\n"

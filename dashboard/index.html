@@ -453,8 +453,22 @@
               </div>
             </div>
             <!-- Listado de Notas -->
-            <div class="panel-split__search">
-              <input type="search" class="input input--search" id="sb-search" placeholder="buscar nota..." aria-label="Buscar nota del Second Brain">
+            <div class="panel-split__search" style="display:flex; flex-direction:column; gap:6px; padding:8px 10px; border-bottom:1px solid var(--border-color); flex-shrink:0;">
+              <div style="display:flex; gap:6px;">
+                <input type="search" class="input input--search" id="sb-search" placeholder="filtrar notas localmente..." aria-label="Filtrar notas del Second Brain" style="flex:1;">
+              </div>
+              <div style="display:flex; gap:6px;">
+                <input type="text" class="input" id="sb-semantic-search-input" placeholder="búsqueda semántica por IA..." style="flex:1; height:28px; font-size:11px; padding:0 8px; border-color:var(--border-color-dim);" aria-label="Búsqueda semántica por IA">
+                <button id="btn-sb-semantic-search" class="btn btn--secondary" style="padding:0 8px; height:28px; font-size:10px;" aria-label="Ejecutar búsqueda semántica">
+                  <span aria-hidden="true">▸</span> BUSCAR IA
+                </button>
+              </div>
+              <div id="sb-search-status-bar" class="text-xs text-muted hidden" style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+                <span id="sb-search-status-text">Resultados semánticos:</span>
+                <button id="btn-sb-clear-search" class="btn btn--link" style="font-size:10px; padding:0; text-decoration:none; border:none; background:none; color:var(--accent-color); cursor:pointer;">
+                  [ Limpiar ]
+                </button>
+              </div>
             </div>
             <ul class="file-list" id="sb-notes-list" role="listbox" aria-label="Lista de notas del Second Brain" style="flex:1; overflow-y:auto;">
               <li class="file-item file-item--loading">

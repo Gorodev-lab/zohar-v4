@@ -946,6 +946,13 @@ async function loadWikiNotesList() {
     const sbSearch = $('#sb-search');
     let allNotes = d.notes;
 
+    const logEl = $('#sb-log');
+    const btnSemanticSearch = $('#btn-sb-semantic-search');
+    const inputSemanticSearch = $('#sb-semantic-search-input');
+    const searchStatusBar = $('#sb-search-status-bar');
+    const searchStatusText = $('#sb-search-status-text');
+    const btnClearSearch = $('#btn-sb-clear-search');
+
     function renderNoteList(notes) {
       listEl.innerHTML = '';
       notes.forEach(note => {
@@ -971,6 +978,93 @@ async function loadWikiNotesList() {
         const q = sbSearch.value.toLowerCase();
         renderNoteList(allNotes.filter(n => n.title.toLowerCase().includes(q)));
       });
+    }
+
+    if (btnSemanticSearch && inputSemanticSearch) {
+      btnSemanticSearch.onclick = async () => {
+        const query = inputSemanticSearch.value.trim();
+        if (!query) {
+          showToast('Ingresa una consulta de búsqueda', 'error');
+          return;
+        }
+
+        btnSemanticSearch.disabled = true;
+        btnSemanticSearch.innerHTML = '<span aria-hidden="true">⏳</span>...';
+        appendLog(logEl, `Búsqueda semántica: "${query}"...`, 'info');
+
+        try {
+          const res = await fetch(`/api/second_brain/search?q=${encodeURIComponent(query)}`);
+          if (!res.ok) throw new Error('Error en el endpoint de búsqueda semántica');
+          const searchData = await res.json();
+          
+          if (!searchData.results || searchData.results.length === 0) {
+            appendLog(logEl, 'No se encontraron notas similares.', 'info');
+            listEl.innerHTML = '<li class="file-item file-item--loading"><span class="file-item__name text-muted">[ sin resultados semánticos ]</span></li>';
+            if (searchStatusBar) searchStatusBar.classList.remove('hidden');
+            if (searchStatusText) searchStatusText.textContent = `0 resultados para: "${query.substring(0, 15)}..."`;
+            return;
+          }
+
+          appendLog(logEl, `Búsqueda semántica completada: ${searchData.results.length} coincidencias`, 'ok');
+          
+          // Renderizar los resultados semánticos
+          listEl.innerHTML = '';
+          searchData.results.forEach(result => {
+            const li = document.createElement('li');
+            li.className = 'file-item';
+            li.dataset.title = result.title;
+            li.setAttribute('role', 'option');
+            const prefix = result.category === 'root' ? '◆ ' : '▸ ';
+            li.innerHTML = `
+              <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                <span class="file-item__name" title="${escHtml(result.name)}">${prefix}${escHtml(result.title)}</span>
+                <span class="text-xs" style="color:var(--accent-color); font-family:var(--font-mono); font-weight:bold; opacity:0.8;">${result.pct}%</span>
+              </div>
+            `;
+            li.addEventListener('click', () => {
+              listEl.querySelectorAll('.file-item').forEach(i => i.classList.remove('selected'));
+              li.classList.add('selected');
+              loadWikiNote(result.title);
+            });
+            listEl.appendChild(li);
+          });
+
+          if (searchStatusBar) searchStatusBar.classList.remove('hidden');
+          if (searchStatusText) searchStatusText.textContent = `Semántica para: "${query.substring(0, 12)}..."`;
+
+          // Cargar la primera nota del resultado semántico
+          if (searchData.results.length > 0) {
+            loadWikiNote(searchData.results[0].title);
+          }
+
+        } catch (err) {
+          appendLog(logEl, `Error de búsqueda semántica: ${err.message}`, 'error');
+          showToast('Error en búsqueda semántica', 'error');
+        } finally {
+          btnSemanticSearch.disabled = false;
+          btnSemanticSearch.innerHTML = '<span aria-hidden="true">▸</span> BUSCAR IA';
+        }
+      };
+
+      inputSemanticSearch.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          btnSemanticSearch.click();
+        }
+      };
+    }
+
+    if (btnClearSearch) {
+      btnClearSearch.onclick = () => {
+        if (inputSemanticSearch) inputSemanticSearch.value = '';
+        if (sbSearch) sbSearch.value = '';
+        if (searchStatusBar) searchStatusBar.classList.add('hidden');
+        renderNoteList(allNotes);
+        
+        // Cargar index o primera nota
+        const indexItem = listEl.querySelector('[data-title="00_Index"]');
+        if (indexItem) { indexItem.classList.add('selected'); loadWikiNote('00_Index'); }
+        else if (allNotes.length) { listEl.querySelector('.file-item')?.click(); }
+      };
     }
 
     // Stats strip

@@ -456,13 +456,93 @@ class SemarnatDownloader:
 
             # Detectar botones de descarga
             locator = (By.CSS_SELECTOR, BUTTON_CSS_SELECTOR)
-            if not element_exists(driver, locator, timeout=15):
-                yield {
-                    "status": "not_found",
-                    "msg": f"Clave no encontrada en SINAT: {bitacora_value}",
-                    "level": "warning",
-                }
-                return
+            if not element_exists(driver, locator, timeout=8):
+                yield {"status": "log", "msg": "Botones de descarga no encontrados de inmediato. Intentando buscar mediante el formulario...", "level": "info"}
+                
+                # Intentar localizar el input de búsqueda
+                input_found = False
+                search_input = None
+                for selector in [
+                    (By.CSS_SELECTOR, "input[placeholder*='bitácora']"),
+                    (By.CSS_SELECTOR, "input[placeholder*='clave']"),
+                    (By.XPATH, "//input[contains(@placeholder, 'proyecto') or contains(@placeholder, 'bitácora') or contains(@placeholder, 'clave')]"),
+                    (By.CSS_SELECTOR, "input[type='text']"),
+                    (By.XPATH, "//input")
+                ]:
+                    try:
+                        if element_exists(driver, selector, timeout=2):
+                            search_input = driver.find_element(*selector)
+                            input_found = True
+                            break
+                    except Exception:
+                        pass
+                
+                if input_found and search_input:
+                    try:
+                        search_input.clear()
+                        time.sleep(0.3)
+                        search_input.send_keys(bitacora_value)
+                        yield {"status": "log", "msg": f"Clave ingresada en el buscador: {bitacora_value}", "level": "info"}
+                        
+                        # Localizar y hacer clic en el botón de búsqueda
+                        btn_found = False
+                        search_btn = None
+                        for btn_selector in [
+                            (By.XPATH, "//button[contains(., 'Buscar')]"),
+                            (By.XPATH, "//button[contains(text(), 'Buscar')]"),
+                            (By.CSS_SELECTOR, "button.btn-primary"),
+                            (By.CSS_SELECTOR, "button"),
+                            (By.XPATH, "//*[contains(text(), 'Buscar')]")
+                        ]:
+                            try:
+                                if element_exists(driver, btn_selector, timeout=2):
+                                    search_btn = driver.find_element(*btn_selector)
+                                    btn_found = True
+                                    break
+                            except Exception:
+                                pass
+                        
+                        if btn_found and search_btn:
+                            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", search_btn)
+                            time.sleep(0.3)
+                            search_btn.click()
+                            yield {"status": "log", "msg": "Botón de búsqueda cliqueado. Esperando resultados...", "level": "info"}
+                            
+                            # Esperar a que los botones de descarga aparezcan
+                            time.sleep(5)
+                            if element_exists(driver, locator, timeout=12):
+                                yield {"status": "log", "msg": "Botones de descarga localizados con éxito tras búsqueda.", "level": "info"}
+                            else:
+                                yield {
+                                    "status": "not_found",
+                                    "msg": f"Clave no encontrada en SINAT tras búsqueda: {bitacora_value}",
+                                    "level": "warning",
+                                }
+                                return
+                        else:
+                            yield {"status": "log", "msg": "No se pudo encontrar el botón de búsqueda.", "level": "warning"}
+                            yield {
+                                "status": "not_found",
+                                "msg": f"Clave no encontrada en SINAT: {bitacora_value}",
+                                "level": "warning",
+                            }
+                            return
+                    except Exception as e:
+                        yield {"status": "log", "msg": f"Error interactuando con el formulario de búsqueda: {e}", "level": "warning"}
+                        yield {
+                            "status": "not_found",
+                            "msg": f"Clave no encontrada en SINAT: {bitacora_value}",
+                            "level": "warning",
+                        }
+                        return
+                else:
+                    yield {
+                        "status": "not_found",
+                        "msg": f"Clave no encontrada en SINAT y formulario de búsqueda inaccesible: {bitacora_value}",
+                        "level": "warning",
+                    }
+                    return
+
 
             buttons = driver.find_elements(*locator)
             n_buttons = len(buttons)
