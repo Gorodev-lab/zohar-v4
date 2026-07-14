@@ -34,7 +34,7 @@ KNOCKOUT_PATTERNS = [
     },
 ]
 
-SYSTEM_PROMPT = """
+SYSTEM_PROMPT_GEMINI = """
 Eres un evaluador experto de Estudios de Impacto Ambiental (EIA) para proyectos en México,
 bajo el marco de la LGEEPA y normas SEMARNAT. Tu tarea es analizar el texto de un estudio
 y emitir un veredicto estructurado.
@@ -56,6 +56,28 @@ Responde SIEMPRE en JSON con esta estructura exacta:
   "condicionantes": ["..."],
   "confianza_pct": 85,
   "meta": {"modelo": "...", "tokens_entrada": 0}
+}
+"""
+
+SYSTEM_PROMPT_LOCAL = """
+Eres un evaluador experto de Estudios de Impacto Ambiental (EIA) en México.
+Analiza el texto de un estudio y emite un veredicto estructurado (FAVORABLE, DESFAVORABLE o CONDICIONADO).
+
+Reglas:
+- Emite DESFAVORABLE si hay impactos graves irreversibles o knockouts.
+- Emite CONDICIONADO si hay impactos mitigables con medidas.
+- Emite FAVORABLE si los impactos son mínimos.
+- Sé conciso y técnico.
+
+Responde ÚNICAMENTE en JSON con esta estructura exacta:
+{
+  "veredicto": "FAVORABLE|DESFAVORABLE|CONDICIONADO",
+  "score": 0.0,
+  "yes_signals": ["señal positiva 1", "señal positiva 2"],
+  "no_signals": ["señal negativa 1"],
+  "knockouts": [],
+  "condicionantes": [],
+  "confianza_pct": 80
 }
 """
 
@@ -124,40 +146,38 @@ def generate_report(md_path: Path) -> dict:
             "meta": {"source": "knockout_rule", "file": str(md_path)},
         }
 
-    # Llamada a Gemini
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        return _fallback_report(text, md_path)
-
+    # Llamar al cliente de abstracción de modelos
     try:
-        from google import genai
-
-        client = genai.Client(api_key=api_key)
-        truncated = _truncate_text(text)
-
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[
-                {"role": "user", "parts": [{"text": SYSTEM_PROMPT + "\n\nTEXTO:\n" + truncated}]}
-            ],
+        from core.llm_client import detect_active_backend, generate_completion
+        provider, model_name = detect_active_backend()
+        
+        if provider in ("heuristic", "fallback_heuristic"):
+            return _fallback_report(text, md_path)
+            
+        # Prompts y truncados diferenciados
+        if provider in ("llama-server", "ollama"):
+            sys_prompt = SYSTEM_PROMPT_LOCAL
+            max_chars = 40_000
+        else:
+            sys_prompt = SYSTEM_PROMPT_GEMINI
+            max_chars = 120_000
+            
+        truncated = _truncate_text(text, max_chars=max_chars)
+        result = generate_completion(
+            prompt=truncated,
+            system_prompt=sys_prompt,
+            response_json=True
         )
-
-        raw = response.text.strip()
-        # Limpiar posibles bloques ```json ... ```
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
-
-        result = json.loads(raw)
+        
+        if result.get("is_fallback"):
+            return _fallback_report(text, md_path)
+            
         result.setdefault("meta", {})
         result["meta"]["file"] = str(md_path)
-        result["meta"]["modelo"] = "gemini-2.0-flash"
+        # El campo meta.modelo ya lo rellena generate_completion
         return result
-
     except Exception as exc:
-        logger.error("Error en generate_report: %s", exc)
+        logger.error("Error en generate_report con llm_client: %s", exc)
         return _fallback_report(text, md_path, error=str(exc))
 
 

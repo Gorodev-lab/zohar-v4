@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: maritime_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: maritime_dw
+    command: postgres -c shared_buffers=256MB -c work_mem=16MB -c maintenance_work_mem=64MB -c effective_cache_size=768MB -c max_wal_size=1GB
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/10_schema.sql
+      - ../migrations/001_static_snapshot.sql:/docker-entrypoint-initdb.d/20_static_snapshot.sql
+      - ../migrations/002_local_supabase_compat.sql:/docker-entrypoint-initdb.d/30_local_supabase_compat.sql
+      - ../ml/jepa/migration_pgvector.sql:/docker-entrypoint-initdb.d/40_migration_pgvector.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d maritime_dw"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: maritime_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5.12-community
+    container_name: maritime_neo4j
+    restart: always
+    ports:
+      - "7474:7474" # Interfaz web (HTTP)
+      - "7687:7687" # Protocolo Bolt
+    environment:
+      # Definimos el usuario y contraseña por defecto
+      - NEO4J_AUTH=neo4j/maritime_secret_pass
+      # Habilitamos APOC (plugins útiles para algoritmos de grafos)
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+
+  download-model:
+    image: alpine:latest
+    container_name: download_gemma_model
+    volumes:
+      - ../models:/models
+    command: >
+      sh -c "
+      if [ ! -f /models/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf ]; then
+        echo 'Model not found. Downloading Gemma 4 E2B GGUF...';
+        apk add --no-cache wget;
+        wget -q --show-progress -O /models/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf;
+        echo 'Download complete.';
+      else
+        echo 'Model already exists. Skipping download.';
+      fi
+      "
+
+  llama-cpp:
+    image: ghcr.io/ggml-org/llama.cpp:server-vulkan
+    container_name: maritime_llama_cpp
+    restart: always
+    depends_on:
+      download-model:
+        condition: service_completed_successfully
+    ports:
+      - "8083:8083"
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - ../models:/models
+    command: -m /models/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf -c 32768 --host 0.0.0.0 --port 8083 -ngl 99 --jinja --chat-template gemma
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: zohar_api
+    restart: always
+    ports:
+      - "8004:8004"
+    volumes:
+      - ..:/app
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/maritime_dw
+      - LOCAL_LLM_URL=http://llama-cpp:8083
+    depends_on:
+      db:
+        condition: service_healthy
+      llama-cpp:
+        condition: service_started
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: maritime_cloudflared
+    restart: always
+    depends_on:
+      - llama-cpp
+    command: tunnel --url http://llama-cpp:8083
+
+volumes:
+  postgres_data:
+  redis_data:
+  neo4j_data:
+  neo4j_logs:
+
+
+

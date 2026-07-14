@@ -62,15 +62,25 @@ def run():
     new_rows = [r for r in existing_rows if "gaceta_0001-26" not in Path(r.get("FILE", "")).name]
     
     # Agregar las nuevas claves extraídas
+    try:
+        sys.path.append(str(BASE_DIR))
+        from api.main import extract_project_info_from_text
+    except Exception:
+        def extract_project_info_from_text(c, t):
+            return f"Proyecto {c}", "Puebla"
+
     for clave in found_keys:
+        proj_name, loc = extract_project_info_from_text(clave, content)
         new_rows.append({
             "CLAVE": clave,
             "YEAR": 2026,
-            "FILE": str(gaceta_pdf_path)
+            "FILE": str(gaceta_pdf_path),
+            "PROJECT_NAME": proj_name,
+            "LOCATION": loc
         })
 
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE"])
+        writer = csv.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION"])
         writer.writeheader()
         writer.writerows(new_rows)
     print(f"CSV de claves actualizado con {len(found_keys)} proyectos para gaceta_0001-26.")

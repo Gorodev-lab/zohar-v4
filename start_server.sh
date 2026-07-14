@@ -1,8 +1,9 @@
 #!/bin/bash
 # start_server.sh - Inicia el servidor Zohar v4 y abre el dashboard en el navegador.
 
-PROJECT_DIR="/home/gorops/.gemini/antigravity/scratch/zohar-v4"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR" || exit 1
+
 
 # Activar el entorno virtual
 if [ -f ".venv/bin/activate" ]; then

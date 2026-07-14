@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Constantes fijas del portal
 # ---------------------------------------------------------------------------
-SEMARNAT_URL = (
-    "https://app.semarnat.gob.mx/consulta-tramite/"
-    "#/portal-consulta/consulta-tramite/"
-)
+SEMARNAT_URL = "https://app.semarnat.gob.mx/consulta-tramite/"
+
+# URL base del portal — el router Angular siempre aterriza aquí
+SEMARNAT_PORTAL_BASE = "https://app.semarnat.gob.mx/consulta-tramite/#/portal-consulta"
 
 TEMP_SUFFIXES = (".part", ".tmp", ".crdownload", ".download", ".~download")
 
@@ -432,6 +432,16 @@ class SemarnatDownloader:
             "complete"  — descarga finalizada exitosamente
             "not_found" — clave no existe en SINAT
             "error"     — error inesperado
+
+        NOTA: El portal SEMARNAT es una Angular v18 SPA. El router Angular
+        IGNORA el hash fragment al inicio y SIEMPRE aterriza en el home
+        con formulario de búsqueda (#/portal-consulta). El flujo correcto:
+          1. Ir al home base
+          2. Escribir la clave en el <input>
+          3. Clic en btn-primary "Buscar"
+          4. Esperar a que Angular enrute a los resultados
+          5. Clic en botones de descarga
+          6. Fallback: interceptar URLs de PDF del network log CDP
         """
         from selenium.webdriver.common.by import By
         from selenium.webdriver.support.ui import WebDriverWait
@@ -442,109 +452,212 @@ class SemarnatDownloader:
         driver = self._get_driver()
 
         try:
-            # Navegar al portal
-            url = SEMARNAT_URL + bitacora_value
-            driver.get(url)
-            yield {"status": "log", "msg": f"Navegando a: {url}", "level": "info"}
-            yield {"status": "progress", "msg": "Cargando portal...", "level": "info", "pct": 10}
+            # ----------------------------------------------------------------
+            # PASO 1: Navegar al portal BASE — no al URL con la clave.
+            # El router Angular v18 ignora el hash fragment al arrancar;
+            # siempre aterriza en #/portal-consulta (home con formulario).
+            # ----------------------------------------------------------------
+            driver.get(SEMARNAT_URL)
+            yield {"status": "log", "msg": f"Navegando al portal base: {SEMARNAT_URL}", "level": "info"}
+            yield {"status": "progress", "msg": "Cargando portal Angular...", "level": "info", "pct": 5}
 
-            # Esperar que cargue la página (hasta 20s)
-            time.sleep(3)
-            WebDriverWait(driver, 20).until(
-                lambda d: d.execute_script("return document.readyState") == "complete"
-            )
+            # Esperar a que Angular monte el formulario de búsqueda (hasta 30s)
+            try:
+                WebDriverWait(driver, 30).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, "input[type='text'], input[type='search']")
+                    )
+                )
+                yield {"status": "log", "msg": "Formulario de búsqueda detectado.", "level": "info"}
+            except Exception:
+                yield {"status": "log", "msg": "Timeout esperando formulario. Continuando...", "level": "warning"}
+                time.sleep(5)
 
-            # Detectar botones de descarga
+            yield {"status": "progress", "msg": "Portal cargado.", "level": "info", "pct": 15}
+
+            # ----------------------------------------------------------------
+            # PASO 2: Localizar el input de búsqueda y escribir la clave.
+            # DOM real: <input type="text" placeholder="Ingresa el número de
+            #            bitácora o clave de proyecto">
+            # ----------------------------------------------------------------
+            search_input = None
+            for _sel in [
+                (By.CSS_SELECTOR, "input[type='text']"),
+                (By.CSS_SELECTOR, "input[type='search']"),
+                (By.XPATH, "//input[contains(@placeholder,'bitácora') or contains(@placeholder,'clave') or contains(@placeholder,'proyecto')]"),
+                (By.XPATH, "//input[not(@type='hidden')]"),
+            ]:
+                try:
+                    els = driver.find_elements(*_sel)
+                    if els:
+                        search_input = els[0]
+                        break
+                except Exception:
+                    pass
+
+            if not search_input:
+                yield {
+                    "status": "not_found",
+                    "msg": "No se encontró el campo de búsqueda en el portal SEMARNAT.",
+                    "level": "warning",
+                }
+                return
+
+            try:
+                driver.execute_script("arguments[0].click();", search_input)
+                search_input.clear()
+                time.sleep(0.3)
+                search_input.send_keys(bitacora_value)
+                driver.execute_script(
+                    "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));"
+                    "arguments[0].dispatchEvent(new Event('change', { bubbles: true }));",
+                    search_input,
+                )
+                yield {"status": "log", "msg": f"Clave '{bitacora_value}' ingresada en el formulario.", "level": "info"}
+            except Exception as e:
+                yield {"status": "log", "msg": f"Error ingresando clave: {e}", "level": "warning"}
+
+            yield {"status": "progress", "msg": "Clave ingresada — buscando botón Buscar...", "pct": 20}
+
+            # ----------------------------------------------------------------
+            # PASO 3: Localizar y clic en el botón "Buscar"
+            # DOM real: <button class="btn btn-primary mt-4 float-left shadow" type="submit">
+            # ----------------------------------------------------------------
+            search_btn = None
+            for _sel in [
+                (By.CSS_SELECTOR, "button.btn-primary"),
+                (By.XPATH, "//button[contains(text(), 'Buscar')]"),
+                (By.CSS_SELECTOR, "button[type='submit']"),
+                (By.XPATH, "//button[@type='submit']"),
+            ]:
+                try:
+                    els = driver.find_elements(*_sel)
+                    if els:
+                        search_btn = els[0]
+                        break
+                except Exception:
+                    pass
+
+            if not search_btn:
+                yield {
+                    "status": "not_found",
+                    "msg": "No se encontró el botón 'Buscar' en el portal.",
+                    "level": "warning",
+                }
+                return
+
+            try:
+                driver.execute_script("arguments[0].scrollIntoView({block:'center'});", search_btn)
+                time.sleep(0.3)
+                try:
+                    search_btn.click()
+                except Exception:
+                    driver.execute_script("arguments[0].click();", search_btn)
+                yield {"status": "log", "msg": "Botón 'Buscar' clickeado — esperando resultados Angular...", "level": "info"}
+            except Exception as e:
+                yield {"status": "log", "msg": f"Error en clic de Buscar: {e}", "level": "warning"}
+
+            yield {"status": "progress", "msg": "Buscando en SEMARNAT...", "pct": 30}
+
+            # ----------------------------------------------------------------
+            # PASO 4: Esperar a que Angular enrute y aparezcan botones de
+            # descarga (polling hasta 60s)
+            # ----------------------------------------------------------------
             locator = (By.CSS_SELECTOR, BUTTON_CSS_SELECTOR)
-            if not element_exists(driver, locator, timeout=8):
-                yield {"status": "log", "msg": "Botones de descarga no encontrados de inmediato. Intentando buscar mediante el formulario...", "level": "info"}
-                
-                # Intentar localizar el input de búsqueda
-                input_found = False
-                search_input = None
-                for selector in [
-                    (By.CSS_SELECTOR, "input[placeholder*='bitácora']"),
-                    (By.CSS_SELECTOR, "input[placeholder*='clave']"),
-                    (By.XPATH, "//input[contains(@placeholder, 'proyecto') or contains(@placeholder, 'bitácora') or contains(@placeholder, 'clave')]"),
-                    (By.CSS_SELECTOR, "input[type='text']"),
-                    (By.XPATH, "//input")
-                ]:
-                    try:
-                        if element_exists(driver, selector, timeout=2):
-                            search_input = driver.find_element(*selector)
-                            input_found = True
+            # También buscar por selectores más amplios en caso de que el portal cambie
+            broad_locator = (By.CSS_SELECTOR, ".descargas button, .descargas .btn, [class*='descargas'] button, [class*='descarga'] button")
+            buttons_found = False
+
+            for attempt in range(1, 61):
+                if element_exists(driver, locator, timeout=1) or element_exists(driver, broad_locator, timeout=0):
+                    buttons_found = True
+                    break
+                time.sleep(1)
+                if attempt % 10 == 0:
+                    current_url = driver.current_url
+                    yield {"status": "log", "msg": f"Esperando resultados ({attempt}s)... URL: {current_url}", "level": "info"}
+                    # Si Angular enrutó a página de trámite: buscar cualquier botón de acción
+                    if attempt >= 20:
+                        all_btns = driver.find_elements(By.TAG_NAME, "button")
+                        action_btns = [
+                            b for b in all_btns
+                            if "navbar" not in (b.get_attribute("class") or "")
+                            and b.text.strip() not in ("Buscar", "")
+                        ]
+                        if action_btns:
+                            yield {"status": "log", "msg": f"{len(action_btns)} botones de acción en página de resultados.", "level": "info"}
+                            buttons_found = True
                             break
-                    except Exception:
-                        pass
-                
-                if input_found and search_input:
-                    try:
-                        search_input.clear()
-                        time.sleep(0.3)
-                        search_input.send_keys(bitacora_value)
-                        yield {"status": "log", "msg": f"Clave ingresada en el buscador: {bitacora_value}", "level": "info"}
-                        
-                        # Localizar y hacer clic en el botón de búsqueda
-                        btn_found = False
-                        search_btn = None
-                        for btn_selector in [
-                            (By.XPATH, "//button[contains(., 'Buscar')]"),
-                            (By.XPATH, "//button[contains(text(), 'Buscar')]"),
-                            (By.CSS_SELECTOR, "button.btn-primary"),
-                            (By.CSS_SELECTOR, "button"),
-                            (By.XPATH, "//*[contains(text(), 'Buscar')]")
-                        ]:
-                            try:
-                                if element_exists(driver, btn_selector, timeout=2):
-                                    search_btn = driver.find_element(*btn_selector)
-                                    btn_found = True
-                                    break
-                            except Exception:
-                                pass
-                        
-                        if btn_found and search_btn:
-                            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", search_btn)
-                            time.sleep(0.3)
-                            search_btn.click()
-                            yield {"status": "log", "msg": "Botón de búsqueda cliqueado. Esperando resultados...", "level": "info"}
-                            
-                            # Esperar a que los botones de descarga aparezcan
-                            time.sleep(5)
-                            if element_exists(driver, locator, timeout=12):
-                                yield {"status": "log", "msg": "Botones de descarga localizados con éxito tras búsqueda.", "level": "info"}
-                            else:
-                                yield {
-                                    "status": "not_found",
-                                    "msg": f"Clave no encontrada en SINAT tras búsqueda: {bitacora_value}",
-                                    "level": "warning",
-                                }
-                                return
-                        else:
-                            yield {"status": "log", "msg": "No se pudo encontrar el botón de búsqueda.", "level": "warning"}
-                            yield {
-                                "status": "not_found",
-                                "msg": f"Clave no encontrada en SINAT: {bitacora_value}",
-                                "level": "warning",
-                            }
-                            return
-                    except Exception as e:
-                        yield {"status": "log", "msg": f"Error interactuando con el formulario de búsqueda: {e}", "level": "warning"}
-                        yield {
-                            "status": "not_found",
-                            "msg": f"Clave no encontrada en SINAT: {bitacora_value}",
-                            "level": "warning",
-                        }
-                        return
-                else:
+
+            # ----------------------------------------------------------------
+            # FALLBACK: Interceptar URLs de PDF del network log CDP
+            # Si Selenium no pudo hacer click, descargar directamente vía requests
+            # ----------------------------------------------------------------
+            pdf_urls_from_log = extract_pdf_urls_from_network_log(driver)
+            if pdf_urls_from_log and not buttons_found:
+                yield {"status": "log", "msg": f"Fallback requests: {len(pdf_urls_from_log)} URL(s) de PDF en network log.", "level": "info"}
+                selenium_cookies = {c["name"]: c["value"] for c in driver.get_cookies()}
+                since_ts_direct = time.time()
+                downloaded_direct = []
+                for idx, pdf_url in enumerate(pdf_urls_from_log):
+                    raw_name = pdf_url.split("/")[-1].split("?")[0]
+                    dest_filename = raw_name if raw_name.endswith(".pdf") else f"{bitacora_value}_{idx:02d}.pdf"
+                    dest_path = self.download_dir / dest_filename
+                    yield {"status": "log", "msg": f"Descargando via requests: {dest_filename}", "level": "info"}
+                    if download_pdf_via_requests(pdf_url, dest_path, cookies=selenium_cookies):
+                        downloaded_direct.append(dest_path)
+
+                if downloaded_direct:
+                    classified = renombrar_archivos_por_clave(
+                        download_dir=self.download_dir,
+                        clave=bitacora_value,
+                        since_ts=since_ts_direct,
+                        carpeta_estudios=self.carpeta_estudios,
+                        carpeta_resolutivos=self.carpeta_resolutivos,
+                        carpeta_resumenes=self.carpeta_resumenes,
+                    )
                     yield {
-                        "status": "not_found",
-                        "msg": f"Clave no encontrada en SINAT y formulario de búsqueda inaccesible: {bitacora_value}",
-                        "level": "warning",
+                        "status": "complete",
+                        "msg": f"Descarga directa (fallback) completada: {len(downloaded_direct)} archivo(s)",
+                        "level": "success",
+                        "pct": 100,
+                        "clave": bitacora_value,
+                        "bitacora": bitacora_value,
+                        "files": classified,
+                        "n_resumenes": len(classified["resumenes"]),
+                        "n_estudios": len(classified["estudios"]),
+                        "n_resolutivos": len(classified["resolutivos"]),
+                        "method": "requests_fallback",
                     }
                     return
 
+            if not buttons_found:
+                try:
+                    page_text = driver.find_element(By.TAG_NAME, "body").text.lower()
+                except Exception:
+                    page_text = ""
+                if any(kw in page_text for kw in ("no se encontr", "no exist", "not found", "sin result")):
+                    yield {
+                        "status": "not_found",
+                        "msg": f"Clave '{bitacora_value}' no encontrada en el portal SEMARNAT.",
+                        "level": "warning",
+                    }
+                else:
+                    yield {
+                        "status": "not_found",
+                        "msg": f"Timeout (60s): sin botones de descarga para '{bitacora_value}'. Portal lento o clave inexistente.",
+                        "level": "warning",
+                    }
+                return
 
-            buttons = driver.find_elements(*locator)
+            # ----------------------------------------------------------------
+            # PASO 5: Clic en cada botón de descarga encontrado
+            # ----------------------------------------------------------------
+            buttons = driver.find_elements(*broad_locator) or driver.find_elements(*locator)
+            if not buttons:
+                all_btns = driver.find_elements(By.TAG_NAME, "button")
+                buttons = [b for b in all_btns if "navbar" not in (b.get_attribute("class") or "") and b.text.strip() not in ("Buscar", "")]
+
             n_buttons = len(buttons)
             yield {
                 "status": "log",
@@ -552,15 +665,14 @@ class SemarnatDownloader:
                 "level": "info",
                 "n_buttons": n_buttons,
             }
-            yield {"status": "progress", "msg": "Botones detectados", "level": "info", "pct": 20}
+            yield {"status": "progress", "msg": "Botones detectados — iniciando descargas", "level": "info", "pct": 60}
 
-            # Extraer clave del bitácora para renombrar
+            # Extraer clave real de la página para nombrar archivos
             clave = self._extract_clave_from_page(driver) or bitacora_value
-
             since_ts = time.time()
 
             for i in range(1, n_buttons + 1):
-                pct = 20 + int(60 * i / n_buttons)
+                pct = 60 + int(25 * i / n_buttons)
                 yield {
                     "status": "progress",
                     "msg": f"Descargando documento {i}/{n_buttons}...",
@@ -568,20 +680,47 @@ class SemarnatDownloader:
                     "pct": pct,
                 }
 
-                # Click al botón n-ésimo via XPath
-                xpath = BUTTON_XPATH_TEMPLATE.format(n=i)
-                btn_locator = (By.XPATH, xpath)
-                safe_click(driver, btn_locator)
+                # Re-obtener botones para evitar StaleElementReferenceException
+                try:
+                    fresh_btns = driver.find_elements(*broad_locator) or driver.find_elements(*locator)
+                    if not fresh_btns:
+                        all_btns = driver.find_elements(By.TAG_NAME, "button")
+                        fresh_btns = [b for b in all_btns if "navbar" not in (b.get_attribute("class") or "") and b.text.strip() not in ("Buscar", "")]
+                    if i <= len(fresh_btns):
+                        btn = fresh_btns[i - 1]
+                        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+                        time.sleep(0.3)
+                        try:
+                            btn.click()
+                        except Exception:
+                            driver.execute_script("arguments[0].click();", btn)
+                except Exception as btn_exc:
+                    yield {"status": "log", "msg": f"Error en botón {i}: {btn_exc}", "level": "warning"}
 
-                # Espera activa entre botones
+                # Pausa entre descargas
                 time.sleep(random.uniform(2.0, 4.0))
 
-            # Esperar que terminen todas las descargas
-            yield {"status": "progress", "msg": "Esperando finalización...", "level": "info", "pct": 85}
+            # ----------------------------------------------------------------
+            # PASO 6: Esperar finalización + fallback de network log post-click
+            # ----------------------------------------------------------------
+            yield {"status": "progress", "msg": "Esperando finalización de descargas...", "level": "info", "pct": 85}
+
+            # Capturar también URLs detectadas tras los clicks (por si Chrome las redirigió)
+            post_pdf_urls = extract_pdf_urls_from_network_log(driver)
+            if post_pdf_urls:
+                selenium_cookies = {c["name"]: c["value"] for c in driver.get_cookies()}
+                for pdf_url in post_pdf_urls:
+                    raw_name = pdf_url.split("/")[-1].split("?")[0]
+                    dest_filename = raw_name if raw_name.endswith(".pdf") else None
+                    if dest_filename:
+                        dest_path = self.download_dir / dest_filename
+                        if not dest_path.exists():
+                            download_pdf_via_requests(pdf_url, dest_path, cookies=selenium_cookies)
+
             new_files = wait_for_downloads(
                 self.download_dir,
                 since_ts=since_ts,
-                expect_at_least=n_buttons,
+                expect_at_least=max(1, n_buttons),
                 timeout=self.download_timeout,
             )
 
@@ -606,6 +745,7 @@ class SemarnatDownloader:
                 "n_resumenes": len(classified["resumenes"]),
                 "n_estudios": len(classified["estudios"]),
                 "n_resolutivos": len(classified["resolutivos"]),
+                "method": "selenium",
             }
 
         except Exception as exc:

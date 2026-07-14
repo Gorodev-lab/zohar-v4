@@ -23,3 +23,13 @@ data/claves_*.csv
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Screenshots and backups
+scratch/*.png
+scratch/portal_screenshot.png
+scratch/search_result.png
+data/*.json
+data/*.json.bak
+data/graph_cache.json
+data/graph_cache.json.bak
+

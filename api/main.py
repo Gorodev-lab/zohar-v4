@@ -19,14 +19,40 @@ from pathlib import Path
 from typing import AsyncGenerator, Optional
 
 import psutil
+import redis
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 load_dotenv()
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Configuración de Redis con fallback seguro
+# ---------------------------------------------------------------------------
+try:
+    redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+    redis_client.ping()
+    logger.info("Conectado exitosamente a Redis en localhost:6379")
+    REDIS_AVAILABLE = True
+except Exception as exc:
+    logger.warning("No se pudo conectar a Redis: %s. Usando fallback en disco/memoria.", exc)
+    redis_client = None
+    REDIS_AVAILABLE = False
+
+
+def invalidate_redis_cache(key: str):
+    """Invalida una llave específica en Redis si está disponible."""
+    if REDIS_AVAILABLE and redis_client:
+        try:
+            redis_client.delete(key)
+            logger.info("Caché invalidada en Redis: %s", key)
+        except Exception as e:
+            logger.warning("Error invalidando caché en Redis (%s): %s", key, e)
 
 # Regex de clave SEMARNAT válida: ej. 23QR2024TD085, 05CO2026I0001
 _CLAVE_RE = re.compile(r"(?<![A-Z0-9])(\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})(?![A-Z0-9])")
@@ -68,6 +94,155 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)
 # Montar static si existe
 if (DASHBOARD_DIR / "static").exists():
     app.mount("/static", StaticFiles(directory=str(DASHBOARD_DIR / "static")), name="static")
+
+
+# ---------------------------------------------------------------------------
+# Sistema de Notificaciones en Tiempo Real (SSE + Watchdog)
+# ---------------------------------------------------------------------------
+
+class LiveUpdateBroadcaster:
+    def __init__(self):
+        self._listeners: list[asyncio.Queue] = []
+
+    def subscribe(self) -> asyncio.Queue:
+        q = asyncio.Queue()
+        self._listeners.append(q)
+        return q
+
+    def unsubscribe(self, q: asyncio.Queue):
+        if q in self._listeners:
+            self._listeners.remove(q)
+
+    def broadcast(self, event_type: str, filename: str):
+        payload = {"type": event_type, "file": filename, "ts": time.time()}
+        logger.info("Difundiendo evento en tiempo real: %s", payload)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return  # No hay event loop corriendo
+        for q in list(self._listeners):
+            loop.call_soon_threadsafe(q.put_nowait, payload)
+
+live_broadcaster = LiveUpdateBroadcaster()
+
+
+class DataDirectoryHandler(FileSystemEventHandler):
+    def __init__(self, broadcaster: LiveUpdateBroadcaster):
+        self.broadcaster = broadcaster
+        super().__init__()
+
+    def on_created(self, event):
+        if event.is_directory:
+            return
+        self._handle_change(event.src_path)
+
+    def on_modified(self, event):
+        if event.is_directory:
+            return
+        self._handle_change(event.src_path)
+
+    def on_deleted(self, event):
+        if event.is_directory:
+            return
+        self._handle_change(event.src_path)
+
+    def _handle_change(self, path_str: str):
+        path = Path(path_str)
+        # Ignorar temporales de descargas
+        if path.name.startswith(".") or path.suffix.lower() in (".part", ".tmp", ".crdownload"):
+            return
+
+        event_type = None
+        if path.suffix.lower() == ".pdf":
+            event_type = "pdfs_updated"
+            invalidate_redis_cache("zohar:corpus:pdfs")
+            invalidate_redis_cache("zohar:analytics:summary")
+        elif path.suffix.lower() == ".md" and ("extractions" in path_str or "second_brain" in path_str):
+            event_type = "extractions_updated"
+            invalidate_redis_cache("zohar:analytics:summary")
+            invalidate_redis_cache("zohar:graph:compact")
+        elif path.suffix.lower() == ".json" and "inference_cache" in path_str:
+            event_type = "inferences_updated"
+            invalidate_redis_cache("zohar:analytics:summary")
+
+        if event_type:
+            self.broadcaster.broadcast(event_type, path.name)
+
+
+# Global Watchdog Observer reference
+_observer: Optional[Observer] = None
+
+
+@app.on_event("startup")
+async def startup_event():
+    global _observer
+    logger.info("Iniciando watcher de archivos en segundo plano...")
+    
+    # Crear directorios si no existen
+    DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    EXTRACTIONS_DIR.mkdir(parents=True, exist_ok=True)
+    (DATA_DIR / "inference_cache").mkdir(parents=True, exist_ok=True)
+    
+    handler = DataDirectoryHandler(live_broadcaster)
+    _observer = Observer()
+    
+    # Observar carpetas clave
+    if DOWNLOADS_DIR.exists():
+        _observer.schedule(handler, path=str(DOWNLOADS_DIR), recursive=True)
+    if EXTRACTIONS_DIR.exists():
+        _observer.schedule(handler, path=str(EXTRACTIONS_DIR), recursive=True)
+    
+    _observer.start()
+    logger.info("Watcher de archivos iniciado con éxito.")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global _observer
+    if _observer:
+        logger.info("Deteniendo watcher de archivos...")
+        _observer.stop()
+        _observer.join()
+        logger.info("Watcher de archivos detenido.")
+
+
+@app.get("/api/events/live-updates", tags=["analytics"])
+async def live_updates(request: Request):
+    """
+    SSE: Envía notificaciones automáticas al dashboard en tiempo real cuando hay cambios
+    en los PDFs, las extracciones o las inferencias ML en disco.
+    """
+    q = live_broadcaster.subscribe()
+
+    async def _stream():
+        try:
+            # Enviar evento de bienvenida
+            yield f"data: {json.dumps({'type': 'ping', 'msg': 'conectado'})}\n\n"
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    # Esperar evento de la cola con timeout de 25s para mantener vivo el canal
+                    event = await asyncio.wait_for(q.get(), timeout=25.0)
+                    yield f"data: {json.dumps(event)}\n\n"
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'type': 'ping'})}\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            live_broadcaster.unsubscribe(q)
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -147,27 +322,130 @@ async def api_status():
 
 @app.get("/api/corpus/pdfs", tags=["corpus"])
 async def list_pdfs():
-    """Lista todos los PDFs del corpus con metadata."""
-    pdfs = []
-    for folder_name, folder_path in [
-        ("resumenes",   RESUMENES_DIR),
-        ("estudios",    ESTUDIOS_DIR),
-        ("resolutivos", RESOLUTIVOS_DIR),
-        ("gacetas",     GACETAS_DIR),
-    ]:
-        if not folder_path.exists():
-            continue
-        for pdf in sorted(folder_path.glob("*.pdf")):
-            stat = pdf.stat()
-            pdfs.append({
-                "name":        pdf.name,
-                "folder":      folder_name,
-                "size_bytes":  stat.st_size,
-                "size_mb":     round(stat.st_size / 1e6, 2),
-                "modified_ts": stat.st_mtime,
-                "path":        _safe_relative_path(pdf),
-            })
-    return {"pdfs": pdfs, "total": len(pdfs)}
+    """Lista todos los PDFs del corpus con metadata, usando caché de Redis y carga asíncrona."""
+    # 1. Intentar cargar desde Redis
+    if REDIS_AVAILABLE and redis_client:
+        try:
+            cached = redis_client.get("zohar:corpus:pdfs")
+            if cached:
+                return json.loads(cached)
+        except Exception as e:
+            logger.warning("Error leyendo lista de PDFs de Redis: %s", e)
+
+    # 2. Fallback / Cache Miss: escanear el directorio en un hilo no bloqueante
+    def _scan():
+        pdfs = []
+        for folder_name, folder_path in [
+            ("resumenes",   RESUMENES_DIR),
+            ("estudios",    ESTUDIOS_DIR),
+            ("resolutivos", RESOLUTIVOS_DIR),
+            ("gacetas",     GACETAS_DIR),
+        ]:
+            if not folder_path.exists():
+                continue
+            for pdf in sorted(folder_path.glob("*.pdf")):
+                stat = pdf.stat()
+                pdfs.append({
+                    "name":        pdf.name,
+                    "folder":      folder_name,
+                    "size_bytes":  stat.st_size,
+                    "size_mb":     round(stat.st_size / 1e6, 2),
+                    "modified_ts": stat.st_mtime,
+                    "path":        _safe_relative_path(pdf),
+                })
+        return {"pdfs": pdfs, "total": len(pdfs)}
+
+    result = await asyncio.to_thread(_scan)
+
+    # 3. Guardar en Redis (expira en 30 minutos)
+    if REDIS_AVAILABLE and redis_client:
+        try:
+            redis_client.setex("zohar:corpus:pdfs", 1800, json.dumps(result))
+        except Exception as e:
+            logger.warning("No se pudo guardar lista de PDFs en Redis: %s", e)
+
+    return result
+
+
+@app.get("/api/analytics/cached-data", tags=["analytics"])
+async def get_cached_data_summary():
+    """
+    Retorna un resumen de todos los datos disponibles en disco para análisis.
+    Incluye conteo de gacetas, proyectos con/sin inferencia, y estado de Neo4j.
+    Usa Redis para caché e I/O no bloqueante.
+    """
+    # 1. Intentar cargar desde Redis
+    if REDIS_AVAILABLE and redis_client:
+        try:
+            cached = redis_client.get("zohar:analytics:summary")
+            if cached:
+                return {"ok": True, "data": json.loads(cached)}
+        except Exception as e:
+            logger.warning("Error leyendo analytics summary de Redis: %s", e)
+
+    # 2. Fallback / Cache Miss
+    def _get_summary():
+        from dw.neo4j_loader import get_cached_data_summary as _summary
+        return _summary()
+
+    try:
+        summary = await asyncio.to_thread(_get_summary)
+    except Exception as exc:
+        logger.warning("get_cached_data_summary error: %s", exc)
+        extractions_dir = BASE_DIR / "extractions"
+        inference_dir = DATA_DIR / "inference_cache"
+        second_brain_dir = BASE_DIR / "second_brain"
+        summary = {
+            "gacetas_md": len(list(extractions_dir.glob("*.md"))) if extractions_dir.exists() else 0,
+            "proyectos_con_inference": len(list(inference_dir.glob("*.json"))) if inference_dir.exists() else 0,
+            "total_claves": "calculando...",
+            "extractions_dir_exists": extractions_dir.exists(),
+            "second_brain_dir_exists": second_brain_dir.exists(),
+            "ready_for_neo4j": True,
+        }
+
+    # 3. Guardar en Redis (expira en 5 minutos)
+    if REDIS_AVAILABLE and redis_client:
+        try:
+            redis_client.setex("zohar:analytics:summary", 300, json.dumps(summary))
+        except Exception as e:
+            logger.warning("No se pudo guardar analytics summary en Redis: %s", e)
+
+    return {"ok": True, "data": summary}
+
+
+@app.get("/api/neo4j/sync", tags=["analytics"])
+async def neo4j_sync(
+    clear: bool = Query(False, description="Limpiar Neo4j antes de cargar"),
+    dry_run: bool = Query(False, description="Simular carga sin escribir al Neo4j"),
+):
+    """
+    Carga todos los datos en caché (extractions/, second_brain/, inference_cache/)
+    al Neo4j para análisis de grafo de entidades.
+
+    Abre Neo4j Browser en http://localhost:7474 para visualizar el grafo.
+    Cypher de ejemplo: MATCH (p:Proyecto)-[:UBICADO_EN]->(e:Estado) RETURN p, e LIMIT 100
+    """
+    async def _stream():
+        yield f"data: {json.dumps({'status': 'log', 'msg': 'Iniciando carga al Neo4j...', 'pct': 0})}\n\n"
+        try:
+            from dw.neo4j_loader import run_neo4j_loader
+            loop = asyncio.get_event_loop()
+            stats = await loop.run_in_executor(None, run_neo4j_loader, dry_run, clear)
+            if "error" in stats:
+                payload = json.dumps({"status": "error", "msg": stats["error"]})
+                yield f"data: {payload}\n\n"
+            else:
+                n_p = stats.get("n_projects", 0)
+                n_r = stats.get("n_relations", 0)
+                msg = f"Carga completada: {n_p} proyectos, {n_r} relaciones"
+                payload = json.dumps({"status": "complete", "msg": msg, "stats": stats, "pct": 100})
+                yield f"data: {payload}\n\n"
+        except Exception as exc:
+            payload = json.dumps({"status": "error", "msg": str(exc)})
+            yield f"data: {payload}\n\n"
+
+    return StreamingResponse(_stream(), media_type="text/event-stream")
 
 
 @app.get("/stream/single", tags=["corpus"])
@@ -361,40 +639,72 @@ async def download_md(filename: str = Query(..., description="Nombre del archivo
 
 @app.get("/api/graph", tags=["graph"])
 async def get_graph(format: str = Query("compact")):
-    """Retorna el grafo de conocimiento utilizando invalidación de caché reactiva."""
+    """Retorna el grafo de conocimiento utilizando caché de Redis y disco con invalidación reactiva."""
     from core.graph_builder import build_full_graph
 
-    # Calcular el mtime máximo de los archivos PDF en DOWNLOADS_DIR
-    max_pdf_mtime = 0.0
-    if DOWNLOADS_DIR.exists():
-        for pdf in DOWNLOADS_DIR.rglob("*.pdf"):
-            try:
-                mtime = pdf.stat().st_mtime
-                if mtime > max_pdf_mtime:
-                    max_pdf_mtime = mtime
-            except Exception:
-                pass
+    # 1. Intentar cargar desde Redis primero (máximo rendimiento)
+    if REDIS_AVAILABLE and redis_client:
+        try:
+            cached = redis_client.get("zohar:graph:compact")
+            if cached:
+                return JSONResponse(json.loads(cached))
+        except Exception as e:
+            logger.warning("Error leyendo grafo de Redis: %s", e)
 
-    # Intentar cargar caché si es más nueva que la última descarga/modificación
+    # 2. Calcular el mtime máximo de los PDFs para caché en disco (fallback)
+    def _get_max_pdf_mtime():
+        max_mtime = 0.0
+        if DOWNLOADS_DIR.exists():
+            for pdf in DOWNLOADS_DIR.rglob("*.pdf"):
+                try:
+                    mtime = pdf.stat().st_mtime
+                    if mtime > max_mtime:
+                        max_mtime = mtime
+                except Exception:
+                    pass
+        return max_mtime
+
+    max_pdf_mtime = await asyncio.to_thread(_get_max_pdf_mtime)
+
+    # 3. Intentar cargar caché en disco
     cache_path = DATA_DIR / "graph_cache.json"
     if cache_path.exists():
         cache_mtime = cache_path.stat().st_mtime
-        # Si la caché se modificó después del último PDF descargado, es válida
         if cache_mtime >= max_pdf_mtime:
             try:
-                return JSONResponse(json.loads(cache_path.read_text(encoding="utf-8")))
+                # Carga asíncrona de archivo disco
+                def _read_cache():
+                    return json.loads(cache_path.read_text(encoding="utf-8"))
+                graph_data = await asyncio.to_thread(_read_cache)
+
+                # Guardar en Redis para futuras consultas rápidas
+                if REDIS_AVAILABLE and redis_client:
+                    redis_client.set("zohar:graph:compact", json.dumps(graph_data))
+
+                return JSONResponse(graph_data)
             except Exception as exc:
-                logger.warning("Error leyendo cache de grafo, se regenerará: %s", exc)
+                logger.warning("Error leyendo cache de grafo en disco: %s", exc)
 
-    logger.info("Regenerando grafo de conocimiento (cache expirada o no existe)")
-    graph = build_full_graph(DOWNLOADS_DIR)
+    logger.info("Regenerando grafo de conocimiento (cache expirada o no existe)...")
+    
+    # 4. Generar el grafo en segundo plano (ThreadPool)
+    graph = await asyncio.to_thread(build_full_graph, DOWNLOADS_DIR)
 
-    # Guardar caché
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    try:
+    # 5. Persistir caché en disco y Redis de forma asíncrona
+    def _write_cache():
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(json.dumps(graph, ensure_ascii=False), encoding="utf-8")
+
+    try:
+        await asyncio.to_thread(_write_cache)
     except Exception as exc:
-        logger.error("No se pudo escribir cache de grafo: %s", exc)
+        logger.error("No se pudo escribir cache de grafo en disco: %s", exc)
+
+    if REDIS_AVAILABLE and redis_client:
+        try:
+            redis_client.set("zohar:graph:compact", json.dumps(graph))
+        except Exception as exc:
+            logger.warning("No se pudo escribir cache de grafo en Redis: %s", exc)
 
     return graph
 
@@ -479,6 +789,148 @@ def _extract_year_from_name(name: str) -> Optional[int]:
     return None
 
 
+def extract_project_info_from_text(clave: str, text: str) -> tuple[str, str]:
+    """
+    Extrae el nombre y la ubicación de un proyecto en el texto
+    alrededor de la clave SINAT dada, intentando usar LLM o heurística.
+    Retorna (project_name, location).
+    """
+    from core.graph_builder import parse_semarnat_key
+    parsed = parse_semarnat_key(clave)
+    state_fallback = parsed.get("estado_nombre", "Desconocida")
+
+    project_name = f"Proyecto {clave}"
+    location = state_fallback
+
+    # 1. Intentar extracción con LLM si hay backend activo
+    try:
+        from core.llm_client import detect_active_backend, generate_completion
+        provider, _ = detect_active_backend()
+        if provider not in ("heuristic", "fallback_heuristic"):
+            lines = text.split("\n")
+            clave_upper = clave.upper()
+            target_idx = -1
+            for idx, line in enumerate(lines):
+                if clave_upper in line.upper():
+                    target_idx = idx
+                    break
+            
+            fragment = ""
+            if target_idx != -1:
+                start_idx = max(0, target_idx - 10)
+                end_idx = min(len(lines), target_idx + 10)
+                fragment = "\n".join(lines[start_idx:end_idx])
+            else:
+                fragment = text[:3000]
+
+            sys_prompt = """
+            Eres un asistente que extrae información de gacetas ambientales.
+            Dada una clave de proyecto y un texto, extrae:
+            1. El nombre del proyecto (denominación del proyecto).
+            2. La ubicación (Estado y Municipio, si están disponibles).
+            
+            Responde ÚNICAMENTE en JSON con esta estructura exacta:
+            {
+              "project_name": "Nombre completo del proyecto",
+              "location": "Municipio, Estado"
+            }
+            """
+            
+            prompt = f"CLAVE DEL PROYECTO: {clave}\n\nTEXTO:\n{fragment}"
+            res = generate_completion(
+                prompt=prompt,
+                system_prompt=sys_prompt,
+                response_json=True
+            )
+            if not res.get("is_fallback") and ("project_name" in res or "location" in res):
+                extracted_name = res.get("project_name", project_name).strip()
+                extracted_loc = res.get("location", location).strip()
+                if len(extracted_name) > 3 and extracted_name != f"Proyecto {clave}":
+                    project_name = extracted_name
+                if len(extracted_loc) > 3:
+                    location = extracted_loc
+                return project_name, location
+    except Exception as e:
+        logger.warning(f"Error extrayendo info con LLM para clave {clave}: {e}. Usando heurística.")
+
+    # 2. Heurística fallback (regex / tablas)
+    lines = text.split("\n")
+    clave_upper = clave.upper()
+    target_idx = -1
+    for idx, line in enumerate(lines):
+        if clave_upper in line.upper():
+            target_idx = idx
+            break
+
+    if target_idx != -1:
+        line = lines[target_idx]
+        if "|" in line:
+            parts = [p.strip() for p in line.split("|")]
+            if parts and not parts[0]:
+                parts.pop(0)
+            if parts and not parts[-1]:
+                parts.pop()
+
+            clave_col_idx = -1
+            for col_idx, part in enumerate(parts):
+                if clave_upper in part.upper():
+                    clave_col_idx = col_idx
+                    break
+
+            if clave_col_idx != -1:
+                candidates = []
+                for col_idx, part in enumerate(parts):
+                    if col_idx == clave_col_idx:
+                        continue
+                    part_clean = part.strip()
+                    if not part_clean or len(part_clean) < 4 or part_clean.isdigit():
+                        continue
+                    candidates.append((col_idx, part_clean))
+
+                if candidates:
+                    candidates.sort(key=lambda x: len(x[1]), reverse=True)
+                    project_name = candidates[0][1]
+                    if len(candidates) > 1:
+                        location = candidates[1][1]
+        else:
+            start_idx = max(0, target_idx - 3)
+            end_idx = min(len(lines), target_idx + 4)
+            surrounding_text = "\n".join(lines[start_idx:end_idx])
+
+            name_patterns = [
+                r"(?:nombre\s+del\s+proyecto|proyecto|nombre|denominación)\s*:\s*([^\n|]+)",
+                r"(?:nombre\s+del\s+proyecto|proyecto|nombre|denominación)\s+is\s+([^\n|]+)",
+            ]
+            for pat in name_patterns:
+                m = re.search(pat, surrounding_text, re.IGNORECASE)
+                if m:
+                    proj_name_cand = m.group(1).strip()
+                    proj_name_cand = re.sub(r"[*`_#]+", "", proj_name_cand)
+                    if len(proj_name_cand) > 3:
+                        project_name = proj_name_cand
+                        break
+
+            loc_patterns = [
+                r"(?:ubicación|estado|municipio|localidad)\s*:\s*([^\n|]+)",
+            ]
+            for pat in loc_patterns:
+                m = re.search(pat, surrounding_text, re.IGNORECASE)
+                if m:
+                    loc_cand = m.group(1).strip()
+                    loc_cand = re.sub(r"[*`_#]+", "", loc_cand)
+                    if len(loc_cand) > 3:
+                        location = loc_cand
+                        break
+
+    project_name = project_name.strip().strip('"\'[]()')
+    location = location.strip().strip('"\'[]()')
+
+    if len(project_name) > 200:
+        project_name = project_name[:197] + "..."
+
+    return project_name, location
+
+
 @app.get("/api/scraper/extract-keys", tags=["scraper"])
 async def extract_keys(year: int = Query(2026), source: str = Query("sinat", description="sinat | asea | all")):
     r"""
@@ -504,16 +956,25 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
                     header = next(reader, None)
                     for row in reader:
                         if len(row) >= 3:
-                            row_clave, row_year, row_file = row
+                            row_clave, row_year, row_file = row[:3]
+                            row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
+                            row_loc = row[4] if len(row) > 4 else ""
                             # Si es placeholder huérfano, omitirlo
                             if row_clave == "23QR2024TD085" and not row_file:
                                 continue
                             is_row_asea = row_file and ("asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_"))
+                            item = {
+                                "CLAVE": row_clave,
+                                "YEAR": int(row_year),
+                                "FILE": row_file,
+                                "PROJECT_NAME": row_proj_name,
+                                "LOCATION": row_loc
+                            }
                             if source == "sinat" and is_row_asea:
-                                existing_claves.append({"CLAVE": row_clave, "YEAR": int(row_year), "FILE": row_file})
+                                existing_claves.append(item)
                                 seen_claves.add(row_clave)
                             elif source == "asea" and not is_row_asea:
-                                existing_claves.append({"CLAVE": row_clave, "YEAR": int(row_year), "FILE": row_file})
+                                existing_claves.append(item)
                                 seen_claves.add(row_clave)
             except Exception as exc:
                 logger.warning("Error leyendo CSV existente para preservar claves: %s", exc)
@@ -603,7 +1064,14 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
             for clave in found_keys:
                 if clave not in seen_claves:
                     seen_claves.add(clave)
-                    new_claves.append({"CLAVE": clave, "YEAR": year, "FILE": str(g_pdf_path)})
+                    proj_name, loc = extract_project_info_from_text(clave, text_content)
+                    new_claves.append({
+                        "CLAVE": clave,
+                        "YEAR": year,
+                        "FILE": str(g_pdf_path),
+                        "PROJECT_NAME": proj_name,
+                        "LOCATION": loc
+                    })
                     gaceta_count += 1
 
             if gaceta_count > 0:
@@ -616,19 +1084,26 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
         # Generar CSV combinando existentes y nuevas
         final_claves = existing_claves + new_claves
         DATA_DIR.mkdir(parents=True, exist_ok=True)
+        fieldnames = ["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION"]
         if final_claves:
             # Ordenar para consistencia
             final_claves.sort(key=lambda x: (x.get("FILE", ""), x.get("CLAVE", "")))
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE"])
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(final_claves)
         else:
             # CSV mínimo para tests
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE"])
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
-                writer.writerow({"CLAVE": "23QR2024TD085", "YEAR": year, "FILE": ""})
+                writer.writerow({
+                    "CLAVE": "23QR2024TD085",
+                    "YEAR": year,
+                    "FILE": "",
+                    "PROJECT_NAME": "Proyecto 23QR2024TD085",
+                    "LOCATION": "Desconocida"
+                })
 
         yield {
             "status": "complete",
@@ -800,15 +1275,24 @@ async def run_pipeline(year: int = Query(2026), source: str = Query("all", descr
                     header = next(reader, None)
                     for row in reader:
                         if len(row) >= 3:
-                            row_clave, row_year, row_file = row
+                            row_clave, row_year, row_file = row[:3]
+                            row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
+                            row_loc = row[4] if len(row) > 4 else ""
                             if row_clave == "23QR2024TD085" and not row_file:
                                 continue
                             is_row_asea = row_file and ("asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_"))
+                            item = {
+                                "CLAVE": row_clave,
+                                "YEAR": int(row_year),
+                                "FILE": row_file,
+                                "PROJECT_NAME": row_proj_name,
+                                "LOCATION": row_loc
+                            }
                             if source == "sinat" and is_row_asea:
-                                existing_claves.append({"CLAVE": row_clave, "YEAR": int(row_year), "FILE": row_file})
+                                existing_claves.append(item)
                                 seen_claves.add(row_clave)
                             elif source == "asea" and not is_row_asea:
-                                existing_claves.append({"CLAVE": row_clave, "YEAR": int(row_year), "FILE": row_file})
+                                existing_claves.append(item)
                                 seen_claves.add(row_clave)
             except Exception as exc:
                 logger.warning("Error leyendo CSV existente para preservar claves en run_pipeline: %s", exc)
@@ -821,14 +1305,21 @@ async def run_pipeline(year: int = Query(2026), source: str = Query("all", descr
                 for clave in _CLAVE_RE.findall(text.upper()):
                     if clave not in seen_claves:
                         seen_claves.add(clave)
-                        new_claves.append({"CLAVE": clave, "YEAR": year, "FILE": str(g_pdf)})
+                        proj_name, loc = extract_project_info_from_text(clave, text)
+                        new_claves.append({
+                            "CLAVE": clave,
+                            "YEAR": year,
+                            "FILE": str(g_pdf),
+                            "PROJECT_NAME": proj_name,
+                            "LOCATION": loc
+                        })
                         
         final_claves = existing_claves + new_claves
         if final_claves:
             final_claves.sort(key=lambda x: (x.get("FILE", ""), x.get("CLAVE", "")))
             DATA_DIR.mkdir(parents=True, exist_ok=True)
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv_module.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE"])
+                writer = csv_module.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION"])
                 writer.writeheader()
                 writer.writerows(final_claves)
         yield {"status": "progress", "msg": f"Claves: {len(final_claves)} encontradas en total ({len(all_pdfs)} gacetas procesadas)", "pct": 65, "stage": "keys"}
@@ -930,11 +1421,17 @@ async def download_clave(clave: str = Query(..., description="Clave SINAT a desc
             except Exception as exc:
                 yield {"status": "progress", "msg": f"Inferencia warning: {exc}", "pct": 88, "level": "warning"}
 
-        # Etapa 4: Actualizar Second Brain
-        yield {"status": "progress", "msg": "Actualizando base de conocimiento...", "pct": 90}
+        # Etapa 4: Actualizar Second Brain y Buscador Semántico
+        yield {"status": "progress", "msg": "Actualizando base de conocimiento y buscador semántico...", "pct": 90}
         try:
             from core.second_brain import SecondBrainBuilder
+            from core.semantic_search import SemanticSearchEngine
             stats = SecondBrainBuilder(BASE_DIR).build_vault()
+            try:
+                engine = SemanticSearchEngine(BASE_DIR)
+                engine.build_index()
+            except Exception as emb_exc:
+                logger.warning("Error construyendo índice semántico: %s", emb_exc)
             yield {"status": "progress", "msg": f"Second Brain actualizado: {stats['total_proyectos']} proyectos", "pct": 97}
         except Exception as exc:
             yield {"status": "progress", "msg": f"Second Brain warning: {exc}", "pct": 97, "level": "warning"}
@@ -1081,7 +1578,7 @@ async def get_gacetas_summary(year: int = Query(2026), source: str = Query("all"
                 f.readline()
                 for row in csv.reader(f):
                     if len(row) >= 3:
-                        row_clave, _, row_file = row
+                        row_clave, _, row_file = row[:3]
                         if row_file:
                             stem = Path(row_file).stem.upper()
                             is_file_asea = "asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_")
@@ -1128,7 +1625,9 @@ async def get_gaceta_keys(gaceta_name: str, year: int = Query(2026)):
             f.readline()
             for row in reader:
                 if len(row) >= 3:
-                    row_clave, _, row_file = row
+                    row_clave, _, row_file = row[:3]
+                    row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
+                    row_loc = row[4] if len(row) > 4 else "Desconocida"
                     
                     # Comprobar si pertenece a la gaceta consultada
                     if row_file and Path(row_file).stem.upper() == target_stem:
@@ -1141,6 +1640,8 @@ async def get_gaceta_keys(gaceta_name: str, year: int = Query(2026)):
 
                         claves_info.append({
                             "clave": row_clave,
+                            "project_name": row_proj_name,
+                            "location": row_loc,
                             "has_pdf_estudio": estudio_pdf.exists(),
                             "has_pdf_resumen": resumen_pdf.exists(),
                             "has_pdf_resolutivo": resolutivo_pdf.exists(),
@@ -1151,6 +1652,278 @@ async def get_gaceta_keys(gaceta_name: str, year: int = Query(2026)):
         logger.error("Error leyendo claves para gaceta %s: %s", gaceta_name, exc)
 
     return {"gaceta": gaceta_name, "claves": claves_info}
+
+
+@app.get("/api/llm/status", tags=["llm"])
+async def get_llm_status():
+    """
+    Retorna el backend de LLM activo en este momento.
+    """
+    try:
+        from core.llm_client import detect_active_backend
+        provider, model = detect_active_backend()
+        return {"status": "ok", "provider": provider, "model": model}
+    except Exception as exc:
+        return {"status": "error", "provider": "heuristic", "model": "none", "error": str(exc)}
+
+
+# ---------------------------------------------------------------------------
+# Rutas — Automated Data Warehouse & Quality Auditor
+# ---------------------------------------------------------------------------
+
+@app.get("/api/dw/status", tags=["dw"])
+async def get_dw_status():
+    """
+    Retorna el estado de la base de datos de DW y el reporte de calidad.
+    """
+    import json
+    from sqlalchemy import create_engine, text
+
+    db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/maritime_dw")
+    db_status = {
+        "connected": False,
+        "latency_ms": 0,
+        "tables": {},
+        "error": None
+    }
+    
+    # 1. Verificar conexión a base de datos y obtener cantidad de registros
+    t_start = time.time()
+    try:
+        engine = create_engine(db_url, connect_args={"connect_timeout": 3})
+        with engine.connect() as conn:
+            db_status["latency_ms"] = int((time.time() - t_start) * 1000)
+            db_status["connected"] = True
+            
+            # Consultar cantidad de filas en las tablas del DW
+            for table in ["semarnat_projects", "project_evaluations"]:
+                try:
+                    res = conn.execute(text(f"SELECT COUNT(*) FROM public.{table}"))
+                    db_status["tables"][table] = {"count": res.scalar()}
+                except Exception as tbl_exc:
+                    db_status["tables"][table] = {"count": 0, "error": str(tbl_exc)}
+    except Exception as exc:
+        db_status["error"] = str(exc)
+
+    # 2. Leer reporte de calidad de datos
+    json_path = BASE_DIR / "dw" / "audit_report.json"
+    audit_report = {}
+    if json_path.exists():
+        try:
+            audit_report = json.loads(json_path.read_text(encoding="utf-8"))
+        except Exception as err:
+            logger.error("Error leyendo audit_report.json: %s", err)
+
+    return {
+        "db": db_status,
+        "quality": audit_report
+    }
+
+
+@app.get("/api/dw/run-pipeline", tags=["dw"])
+async def run_dw_pipeline():
+    """
+    SSE: Ejecuta el pipeline completo del Data Warehouse y transmite el progreso en tiempo real.
+    """
+    import subprocess
+    import sys
+
+    # Ubicación del script de python en el entorno virtual
+    python_exe = sys.executable
+
+    def gen():
+        yield {"status": "progress", "msg": "Iniciando Data Warehouse Pipeline...", "pct": 5, "stage": "init"}
+
+        pipeline_path = BASE_DIR / "dw" / "pipeline.py"
+        if not pipeline_path.exists():
+            yield {"status": "error", "msg": "Script dw/pipeline.py no encontrado", "pct": 100}
+            return
+
+        cmd = [python_exe, str(pipeline_path)]
+        logger.info("Iniciando pipeline DW: %s", " ".join(cmd))
+
+        try:
+            # Iniciamos el proceso y leemos su stdout línea a línea
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                cwd=str(BASE_DIR)
+            )
+
+            # Mapeo de frases clave del log a etapas y porcentajes de progreso
+            stages_map = [
+                ("=== LOGR DATA WAREHOUSE PIPELINE RUN ===", 8, "init", "Iniciando Data Warehouse Pipeline..."),
+                ("[Schema] Executing schema.sql...", 15, "schema", "Inicializando esquema de base de datos..."),
+                ("[Claves] Loading target environmental claves...", 30, "claves", "Cargando claves de interés..."),
+                ("[SEMARNAT] Querying portal and downloading missing files...", 45, "semarnat", "Consultando portal SEMARNAT..."),
+                ("[Markdown] Converting study PDFs to Markdown...", 60, "markdown", "Extrayendo texto Markdown de estudios..."),
+                ("[Inferencia] Running AI environmental viability evaluations...", 75, "inference", "Evaluando viabilidad ambiental (Gemini/IA)..."),
+                ("[Auditor] Gathering data and running Quality Auditor...", 85, "auditor", "Ejecutando auditoría de calidad de datos..."),
+                ("[Ingest] Ingesting audited records into database...", 92, "ingest", "Ingiriendo registros limpios en PostgreSQL..."),
+                ("[Second Brain] Sincronizando notas del Second Brain...", 97, "second_brain", "Sincronizando notas del Second Brain..."),
+                ("=== PIPELINE RUN COMPLETED SUCCESSFULLY ===", 100, "done", "¡Pipeline completado con éxito!"),
+            ]
+
+            while True:
+                line = proc.stdout.readline()
+                if not line:
+                    break
+                
+                line_clean = line.strip()
+                if not line_clean:
+                    continue
+                
+                # Reportar el log crudo al frontend
+                event = {"status": "log", "msg": line_clean}
+                
+                # Detectar etapas de progreso
+                for pattern, pct, stage, friendly_msg in stages_map:
+                    if pattern in line_clean:
+                        event["status"] = "progress"
+                        event["pct"] = pct
+                        event["stage"] = stage
+                        event["msg"] = friendly_msg
+                        break
+                
+                yield event
+            
+            proc.wait()
+            if proc.returncode == 0:
+                yield {"status": "complete", "msg": "Pipeline completado con éxito", "pct": 100}
+            else:
+                yield {"status": "error", "msg": f"El pipeline falló con código de salida {proc.returncode}", "pct": 100}
+        
+        except Exception as exc:
+            logger.error("Error ejecutando pipeline: %s", exc)
+            yield {"status": "error", "msg": f"Error: {exc}", "pct": 100}
+
+    return _sse_response(gen(), "dw_pipeline")
+
+
+# ---------------------------------------------------------------------------
+# Rutas — AI Agent Chat Playground & Tools
+# ---------------------------------------------------------------------------
+
+@app.get("/api/model/tools", tags=["system"])
+async def list_model_tools():
+    """Retorna la lista de herramientas disponibles para el modelo de IA."""
+    return {
+        "tools": [
+            {
+                "name": "database_query",
+                "description": "Realiza consultas de lectura (SELECT) en las tablas 'semarnat_projects' y 'project_evaluations' para obtener estadísticas, conteos y estados de trámites.",
+                "parameters": {"sql_query": "Consulta SQL de tipo SELECT a ejecutar."}
+            },
+            {
+                "name": "second_brain_search",
+                "description": "Realiza una búsqueda semántica de alta precisión en las fichas Markdown del Second Brain utilizando embeddings locales.",
+                "parameters": {"query": "Texto o concepto de búsqueda."}
+            },
+            {
+                "name": "ocr_extraction",
+                "description": "Extrae el texto de un PDF page-by-page aplicando OCR híbrido mediante RapidOCR cuando el texto digital sea insuficiente.",
+                "parameters": {"pdf_name": "Nombre del archivo PDF en el corpus."}
+            },
+            {
+                "name": "second_brain_sync",
+                "description": "Sincroniza la bóveda del Second Brain regenerando todas las notas Markdown vinculadas y actualizando la base de datos.",
+                "parameters": {}
+            }
+        ]
+    }
+@app.get("/api/model/status", tags=["system"])
+async def get_model_status():
+    """Retorna el estado de conexión y el modelo de IA activo."""
+    from core.llm_client import detect_active_backend
+    provider, model_name = detect_active_backend()
+    return {"provider": provider, "model": model_name}
+
+
+@app.post("/api/chat", tags=["system"])
+async def api_chat(payload: dict):
+    """
+    Endpoint de chat interactivo con el modelo activo.
+    Acepta: { "message": "...", "clave": "...", "history": [...] }
+    """
+    from core.llm_client import generate_completion, detect_active_backend
+    
+    message = payload.get("message", "").strip()
+    clave = payload.get("clave", "").strip()
+    history = payload.get("history", [])
+
+    if not message:
+        raise HTTPException(400, detail="Mensaje vacío")
+
+    # Obtener contexto del Second Brain si hay una clave de proyecto seleccionada
+    context = ""
+    if clave:
+        sb_note_path = BASE_DIR / "second_brain" / "02_Entities" / f"{clave}.md"
+        if sb_note_path.exists():
+            try:
+                context = sb_note_path.read_text(encoding="utf-8")
+                logger.info("Contexto del Second Brain inyectado para clave %s", clave)
+            except Exception as exc:
+                logger.warning("Error leyendo nota para contexto: %s", exc)
+
+    # Construir el prompt con el historial de la conversación y el contexto de RAG
+    sys_prompt = (
+        "Eres Zohar-v4-AI, un motor de análisis e inferencia de impacto ambiental cyberpunk.\n"
+        "Asistes al usuario en evaluar gacetas, resolutivos y estudios de SEMARNAT.\n"
+        "Sé conciso, profesional y mantén un tono técnico y resolutivo."
+    )
+    
+    if context:
+        sys_prompt += (
+            f"\n\nCONTEXTO DEL PROYECTO ACTUAL (Clave {clave}):\n"
+            f"```markdown\n{context}\n```\n"
+            "Responde a las preguntas utilizando esta información como fuente principal de verdad."
+        )
+
+    # Ensamblar prompt agregando historial básico
+    prompt_builder = []
+    for turn in history[-6:]:  # Limitar a los últimos 6 turnos
+        role = turn.get("role", "user")
+        content = turn.get("content", "")
+        if role == "user":
+            prompt_builder.append(f"Usuario: {content}")
+        else:
+            prompt_builder.append(f"Asistente: {content}")
+            
+    prompt_builder.append(f"Usuario: {message}")
+    prompt_builder.append("Asistente:")
+    
+    full_prompt = "\n".join(prompt_builder)
+
+    try:
+        # Llamamos a generate_completion con response_json=False para obtener respuesta conversacional
+        res = generate_completion(
+            prompt=full_prompt,
+            system_prompt=sys_prompt,
+            response_json=False
+        )
+        
+        # En caso de fallback heurístico
+        if res.get("is_fallback"):
+            fallback_text = (
+                f"Hola. Estoy en modo heurístico (sin conexión a LLM activo).\n"
+                f"He recibido tu consulta sobre el proyecto: '{clave or 'Ninguno seleccionado'}'.\n"
+                f"Si deseas habilitar mi capacidad conversacional completa, por favor asegúrate de levantar "
+                f"el servidor de inferencia local en el puerto 8083 o configurar GEMINI_API_KEY en tu archivo .env."
+            )
+            return {"response": fallback_text, "provider": "heuristic", "model": "none"}
+            
+        return {
+            "response": res.get("text", "").strip(),
+            "provider": res.get("meta", {}).get("modelo", "").split(":")[0],
+            "model": res.get("meta", {}).get("modelo", "")
+        }
+    except Exception as exc:
+        logger.error("Error en api_chat: %s", exc)
+        return {"response": f"[Error de Inferencia]: {exc}", "provider": "error", "model": "none"}
+
 
 
 

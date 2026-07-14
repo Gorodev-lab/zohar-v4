@@ -21,6 +21,7 @@ const State = {
   // Sparkline history
   cpuHistory:   new Array(20).fill(0),
   ramHistory:   new Array(20).fill(0),
+  chatHistory:  [],
 };
 
 /* =========================================================================
@@ -154,7 +155,8 @@ function activateTab(tabId) {
   if (tabId === 'GRAFO_RED')     loadGraph();
   if (tabId === 'INFERENCE_LAB') loadInferenceList();
   if (tabId === 'SECOND_BRAIN')  { updateSecondBrainUI(State.systemStatus); loadWikiNotesList(); }
-  if (tabId === 'WORKFLOW')      loadWorkflowGacetas();
+  if (tabId === 'WORKFLOW')      { loadWorkflowGacetas(); loadDataWarehouseStatus(); }
+  if (tabId === 'MODEL_CHAT')    activateModelChatTab();
 }
 
 /* =========================================================================
@@ -1262,7 +1264,7 @@ async function loadWorkflowGacetaKeys(gacetaName) {
     tbodyEl.innerHTML = '';
 
     if (!d.claves?.length) {
-      tbodyEl.innerHTML = '<tr><td colspan="6" class="text-muted text-center" style="padding:24px;">[ sin claves SINAT — ejecuta conversión MD primero ]</td></tr>';
+      tbodyEl.innerHTML = '<tr><td colspan="8" class="text-muted text-center" style="padding:24px;">[ sin claves SINAT — ejecuta conversión MD primero ]</td></tr>';
       return;
     }
 
@@ -1272,8 +1274,13 @@ async function loadWorkflowGacetaKeys(gacetaName) {
         ? '<span class="text-ok" style="font-weight:700;">[ ✓ ]</span>'
         : '<span class="text-muted">[ ─ ]</span>';
 
+      const projName = item.project_name || `Proyecto ${item.clave}`;
+      const location = item.location || 'Desconocida';
+
       tr.innerHTML = `
         <td style="font-family:var(--font-mono); font-weight:700; color:var(--color-amber);">${escHtml(item.clave)}</td>
+        <td style="font-size:11px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(projName)}">${escHtml(projName)}</td>
+        <td style="font-size:11px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(location)}">${escHtml(location)}</td>
         <td>${cell(item.has_pdf_estudio)}</td>
         <td>${cell(item.has_pdf_resolutivo)}</td>
         <td>${cell(item.has_extraction)}</td>
@@ -1285,7 +1292,7 @@ async function loadWorkflowGacetaKeys(gacetaName) {
       tbodyEl.appendChild(tr);
     });
   } catch (err) {
-    tbodyEl.innerHTML = `<tr><td colspan="6" class="text-alert text-center" style="padding:24px;">[ error: ${escHtml(String(err))} ]</td></tr>`;
+    tbodyEl.innerHTML = `<tr><td colspan="8" class="text-alert text-center" style="padding:24px;">[ error: ${escHtml(String(err))} ]</td></tr>`;
   }
 }
 
@@ -1328,6 +1335,532 @@ function triggerDownload(clave) {
 window.triggerDownload = triggerDownload;
 
 /* =========================================================================
+   AUTOMATED DATA WAREHOUSE & QUALITY AUDITOR
+   ========================================================================= */
+
+// Escape HTML utility to prevent XSS
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+}
+
+async function loadDataWarehouseStatus() {
+  const connDot = $('#dw-db-conn-dot');
+  const connText = $('#dw-db-conn-text');
+  const connBox = $('#dw-db-conn-box');
+  
+  const cntSemarnatProjects = $('#count-semarnat-projects');
+  const cntProjectEvaluations = $('#count-project-evaluations');
+  
+  const qualityNoReport = $('#dw-quality-no-report');
+  const qualityContainer = $('#dw-quality-container');
+  const qualityGrid = $('#dw-quality-grid');
+  const qualityDatasets = $('#dw-quality-datasets');
+
+  try {
+    const res = await fetch('/api/dw/status');
+    const data = await res.json();
+    
+    // 1. Render DB Status
+    if (data.db.connected) {
+      if (connDot) { connDot.style.background = 'var(--color-green)'; connDot.style.boxShadow = '0 0 8px var(--color-green)'; }
+      if (connText) connText.textContent = `Conectado (${data.db.latency_ms}ms)`;
+      if (connBox) connBox.style.borderColor = 'rgba(39, 174, 96, 0.4)';
+    } else {
+      if (connDot) { connDot.style.background = 'var(--color-red)'; connDot.style.boxShadow = 'none'; }
+      if (connText) connText.textContent = `Error de Conexión`;
+      if (connBox) connBox.style.borderColor = 'rgba(231, 76, 60, 0.4)';
+      console.error("DB Status error:", data.db.error);
+    }
+    
+    // Render counts
+    if (cntSemarnatProjects) cntSemarnatProjects.textContent = data.db.tables?.semarnat_projects?.count !== undefined ? `${data.db.tables.semarnat_projects.count} filas` : '─ filas';
+    if (cntProjectEvaluations) cntProjectEvaluations.textContent = data.db.tables?.project_evaluations?.count !== undefined ? `${data.db.tables.project_evaluations.count} filas` : '─ filas';
+
+    // 2. Render Quality Auditor
+    const qKeys = Object.keys(data.quality || {});
+    if (qKeys.length === 0) {
+      if (qualityNoReport) qualityNoReport.style.display = 'block';
+      if (qualityContainer) qualityContainer.style.display = 'none';
+      return;
+    }
+    
+    if (qualityNoReport) qualityNoReport.style.display = 'none';
+    if (qualityContainer) qualityContainer.style.display = 'flex';
+
+    // Aggregates
+    const datasets = data.quality;
+    let totalRows = 0;
+    let totalDuplicates = 0;
+    let totalRemoved = 0;
+    let totalIngested = 0;
+
+    Object.values(datasets).forEach((d) => {
+      totalRows += d.total_rows || 0;
+      totalDuplicates += d.duplicate_rows || 0;
+      totalRemoved += d.rows_removed || 0;
+      totalIngested += ((d.total_rows || 0) - (d.rows_removed || 0));
+    });
+
+    if (qualityGrid) {
+      qualityGrid.innerHTML = `
+        <div style="background:var(--bg-surface-dim); border:1px solid var(--border-color); padding:10px 12px; font-family:var(--font-mono);">
+          <span style="font-size:9px; color:var(--text-muted); display:block; text-transform:uppercase;">Datasets Auditados</span>
+          <span style="font-size:16px; font-weight:bold; color:var(--color-amber);">${qKeys.length}</span>
+        </div>
+        <div style="background:var(--bg-surface-dim); border:1px solid var(--border-color); padding:10px 12px; font-family:var(--font-mono);">
+          <span style="font-size:9px; color:var(--text-muted); display:block; text-transform:uppercase;">Registros Totales</span>
+          <span style="font-size:16px; font-weight:bold; color:var(--color-blue);">${totalRows}</span>
+        </div>
+        <div style="background:var(--bg-surface-dim); border:1px solid var(--border-color); padding:10px 12px; font-family:var(--font-mono);">
+          <span style="font-size:9px; color:var(--text-muted); display:block; text-transform:uppercase;">Duplicados Auditados</span>
+          <span style="font-size:16px; font-weight:bold; color:var(--color-red);">${totalDuplicates}</span>
+        </div>
+        <div style="background:var(--bg-surface-dim); border:1px solid var(--border-color); padding:10px 12px; font-family:var(--font-mono);">
+          <span style="font-size:9px; color:var(--text-muted); display:block; text-transform:uppercase;">Registros Ingeridos</span>
+          <span style="font-size:16px; font-weight:bold; color:var(--color-green);">${totalIngested}</span>
+        </div>
+      `;
+    }
+
+    // Breakdown lists
+    if (qualityDatasets) {
+      qualityDatasets.innerHTML = '';
+      Object.entries(datasets).forEach(([name, d]) => {
+        const ingested = d.total_rows - d.rows_removed;
+        const ingestedPct = d.total_rows > 0 ? (ingested / d.total_rows) * 100 : 0;
+        const removedPct = d.total_rows > 0 ? (d.rows_removed / d.total_rows) * 100 : 0;
+        
+        const card = document.createElement('div');
+        card.style.cssText = 'border:1px solid var(--border-color); background:var(--bg-surface-dim); padding:12px; display:flex; flex-direction:column; gap:10px;';
+        
+        let nullsHtml = '';
+        if (d.missing_values && Object.keys(d.missing_values).length > 0) {
+          nullsHtml = `
+            <div style="margin-top:6px;">
+              <span style="font-size:8px; color:var(--text-muted); text-transform:uppercase; font-family:var(--font-mono); font-weight:bold; display:block; margin-bottom:4px;">Nulos Detectados</span>
+              <div style="display:flex; flex-direction:column; gap:4px; font-family:var(--font-mono); font-size:9px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.05); padding:6px 10px;">
+                ${Object.entries(d.missing_values).map(([col, info]) => `
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:var(--color-red);">⚠️ ${escHtml(col)}</span>
+                    <span style="color:var(--text-muted);">${info.count} (${info.percentage}%)</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        } else {
+          nullsHtml = `
+            <div style="margin-top:6px; font-family:var(--font-mono); font-size:9px; color:var(--color-green); background:rgba(39,174,96,0.1); border:1px solid rgba(39,174,96,0.2); padding:6px 10px; display:flex; align-items:center; gap:6px;">
+              <span>✓ No se detectaron valores nulos o vacíos.</span>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px;">
+            <span style="font-family:var(--font-mono); font-weight:bold; font-size:11px; color:var(--color-amber);">${escHtml(name)}</span>
+            <span style="font-family:var(--font-mono); font-size:9px; padding:2px 6px; border:1px solid ${removedPct > 10 ? 'var(--color-red)' : 'var(--color-green)'}; color:${removedPct > 10 ? 'var(--color-red)' : 'var(--color-green)'}; background:rgba(0,0,0,0.2);">
+              ${removedPct > 10 ? 'ALTA ANOMALÍA' : 'SLA VERIFICADO'}
+            </span>
+          </div>
+
+          <!-- Progress Bar -->
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:9px;">
+              <span class="text-muted">Limpieza de Datos:</span>
+              <span style="color:var(--color-green); font-weight:bold;">${ingestedPct.toFixed(1)}%</span>
+            </div>
+            <div class="progress-bar" style="height:10px; border:1px solid rgba(0,0,0,0.3); background:rgba(255,255,255,0.05); display:flex; overflow:hidden;">
+              <div style="width:${ingestedPct}%; background:var(--color-green); height:100%;"></div>
+              <div style="width:${removedPct}%; background:var(--color-red); height:100%;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:8px; color:var(--text-muted); text-transform:uppercase;">
+              <span>${ingested} ingeridos</span>
+              <span>${d.rows_removed} descartados</span>
+            </div>
+          </div>
+
+          <!-- Core metrics -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-family:var(--font-mono); font-size:9px; margin-top:4px;">
+            <div style="background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.03); padding:4px 8px; display:flex; justify-content:space-between;">
+              <span class="text-muted">Total:</span>
+              <span>${d.total_rows}</span>
+            </div>
+            <div style="background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.03); padding:4px 8px; display:flex; justify-content:space-between;">
+              <span class="text-muted">Duplicados:</span>
+              <span>${d.duplicate_rows}</span>
+            </div>
+            <div style="background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.03); padding:4px 8px; display:flex; justify-content:space-between;">
+              <span class="text-muted">Rangos ERR:</span>
+              <span>${d.range_violations}</span>
+            </div>
+            <div style="background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.03); padding:4px 8px; display:flex; justify-content:space-between;">
+              <span class="text-muted">Formatos ERR:</span>
+              <span>${d.regex_violations}</span>
+            </div>
+          </div>
+
+          <!-- Null breakdown -->
+          ${nullsHtml}
+        `;
+        qualityDatasets.appendChild(card);
+      });
+    }
+
+  } catch (err) {
+    console.error("loadDataWarehouseStatus error:", err);
+  }
+}
+
+function initWorkflowSubTabs() {
+  const tabGacetas = $('#subtab-gacetas');
+  const tabDw = $('#subtab-dw');
+  const panelGacetas = $('#wf-gacetas-subpanel');
+  const panelDw = $('#wf-dw-subpanel');
+
+  if (tabGacetas && tabDw && panelGacetas && panelDw) {
+    tabGacetas.onclick = () => {
+      tabGacetas.classList.add('active');
+      tabGacetas.style.background = 'var(--bg-surface)';
+      tabGacetas.style.color = 'var(--accent-color)';
+      tabGacetas.style.borderColor = 'var(--border-color)';
+      
+      tabDw.classList.remove('active');
+      tabDw.style.background = 'none';
+      tabDw.style.color = 'var(--text-muted)';
+      tabDw.style.borderColor = 'transparent';
+      
+      panelGacetas.style.display = 'flex';
+      panelDw.style.display = 'none';
+    };
+
+    tabDw.onclick = () => {
+      tabDw.classList.add('active');
+      tabDw.style.background = 'var(--bg-surface)';
+      tabDw.style.color = 'var(--accent-color)';
+      tabDw.style.borderColor = 'var(--border-color)';
+      
+      tabGacetas.classList.remove('active');
+      tabGacetas.style.background = 'none';
+      tabGacetas.style.color = 'var(--text-muted)';
+      tabGacetas.style.borderColor = 'transparent';
+      
+      panelGacetas.style.display = 'none';
+      panelDw.style.display = 'flex';
+      
+      loadDataWarehouseStatus();
+    };
+  }
+
+  // Hook run-dw button
+  const btnRunDw = $('#btn-run-dw');
+  if (btnRunDw) {
+    btnRunDw.onclick = () => runDataWarehousePipeline();
+  }
+}
+
+function runDataWarehousePipeline() {
+  const btnRunDw = $('#btn-run-dw');
+  const progressContainer = $('#dw-progress-container');
+  const progressFill = $('#dw-progress .progress-bar__fill');
+  const stageText = $('#dw-stage-text');
+  const pctText = $('#dw-pct-text');
+  const logEl = $('#dw-log');
+
+  if (btnRunDw) btnRunDw.disabled = true;
+  if (progressContainer) progressContainer.style.display = 'flex';
+  if (progressFill) progressFill.style.width = '0%';
+  if (pctText) pctText.textContent = '0%';
+  if (stageText) stageText.textContent = 'Iniciando Pipeline...';
+  
+  if (logEl) {
+    logEl.innerHTML = '';
+    appendLog(logEl, 'Iniciando conexión con el pipeline de ingesta...', 'info');
+  }
+
+  const es = new EventSource('/api/dw/run-pipeline');
+  
+  es.onmessage = e => {
+    const evt = JSON.parse(e.data);
+    
+    if (evt.status === 'progress') {
+      if (progressFill) progressFill.style.width = `${evt.pct}%`;
+      if (pctText) pctText.textContent = `${evt.pct}%`;
+      if (stageText) stageText.textContent = evt.msg || evt.stage;
+      appendLog(logEl, `[STAGE: ${evt.stage.toUpperCase()}] ${evt.msg}`, 'info');
+    } else if (evt.status === 'log') {
+      let level = 'info';
+      if (evt.msg.includes('[Error]') || evt.msg.includes('Error')) level = 'error';
+      else if (evt.msg.includes('[Warning]') || evt.msg.includes('Warning')) level = 'warn';
+      else if (evt.msg.includes('SUCCESSFULLY') || evt.msg.includes('initialized')) level = 'ok';
+      
+      appendLog(logEl, evt.msg, level);
+    } else if (evt.status === 'complete' || evt.status === 'error') {
+      es.close();
+      if (btnRunDw) btnRunDw.disabled = false;
+      
+      if (evt.status === 'complete') {
+        showToast('✓ Pipeline DW completado con éxito', 'ok');
+        appendLog(logEl, 'PIPELINE COMPLETADO CON ÉXITO.', 'ok');
+        if (progressContainer) progressContainer.style.display = 'none';
+        loadDataWarehouseStatus();
+      } else {
+        showToast('Error en pipeline DW', 'error');
+        appendLog(logEl, `PIPELINE DETENIDO POR ERROR: ${evt.msg}`, 'error');
+      }
+    }
+  };
+
+  es.onerror = () => {
+    es.close();
+    if (btnRunDw) btnRunDw.disabled = false;
+    appendLog(logEl, 'Conexión SSE perdida con el servidor.', 'error');
+  };
+}
+
+window.triggerDownload = triggerDownload;
+
+
+/* =========================================================================
+   TAB 7 — MODEL_CHAT
+   ========================================================================= */
+let isChatInit = false;
+
+function initModelChatActions() {
+  if (isChatInit) return;
+  isChatInit = true;
+
+  const btnSend = $('#btn-chat-send');
+  const inputChat = $('#chat-user-input');
+
+  if (btnSend && inputChat) {
+    btnSend.onclick = () => sendChatMessage();
+    inputChat.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        sendChatMessage();
+      }
+    };
+  }
+}
+
+async function activateModelChatTab() {
+  initModelChatActions();
+  await loadModelChatStatus();
+  await loadModelChatTools();
+  await populateChatClaveSelect();
+}
+
+async function loadModelChatStatus() {
+  const provVal = $('#chat-provider-val');
+  const modVal = $('#chat-model-val');
+  const metaEl = $('#chat-model-meta');
+
+  try {
+    const res = await fetch('/api/model/status');
+    if (!res.ok) throw new Error('API status failure');
+    const data = await res.json();
+    if (provVal) provVal.textContent = data.provider.toUpperCase();
+    if (modVal) modVal.textContent = data.model;
+    if (metaEl) metaEl.textContent = `Proveedor: ${data.provider.toUpperCase()} (${data.model})`;
+  } catch (err) {
+    console.error('loadModelChatStatus error:', err);
+  }
+}
+
+async function loadModelChatTools() {
+  const toolsList = $('#chat-tools-list');
+  if (!toolsList) return;
+  toolsList.innerHTML = '<span class="text-muted">[ Cargando herramientas... ]</span>';
+
+  try {
+    const res = await fetch('/api/model/tools');
+    const data = await res.json();
+    toolsList.innerHTML = '';
+    
+    if (data.tools) {
+      data.tools.forEach(tool => {
+        const item = document.createElement('div');
+        item.style.cssText = 'background:var(--bg-surface-dim); border:1px solid var(--border-color); padding:8px 10px; font-family:var(--font-mono); font-size:10px; margin-bottom:8px;';
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; font-weight:bold; color:var(--color-amber);">
+            <span>⚡ ${tool.name}()</span>
+            <span style="font-size:8px; border:1px solid var(--color-green); color:var(--color-green); padding:0 4px; background:rgba(39, 174, 96, 0.1);">DISPONIBLE</span>
+          </div>
+          <span style="color:var(--text-muted); display:block; font-family:var(--font-sans); line-height:1.3;">${tool.description}</span>
+        `;
+        toolsList.appendChild(item);
+      });
+    }
+  } catch (err) {
+    toolsList.innerHTML = '<span class="text-alert">[ Error cargando herramientas ]</span>';
+  }
+}
+
+async function populateChatClaveSelect() {
+  const select = $('#chat-clave-select');
+  if (!select) return;
+
+  const firstOpt = select.options[0];
+  select.innerHTML = '';
+  select.appendChild(firstOpt);
+
+  try {
+    const res = await fetch('/api/second_brain/notes');
+    const d = await res.json();
+    
+    if (d.notes) {
+      const entities = d.notes.filter(n => n.category === '02_Entities');
+      entities.sort((a, b) => a.title.localeCompare(b.title));
+      entities.forEach(entity => {
+        const opt = document.createElement('option');
+        opt.value = entity.title;
+        opt.textContent = entity.title;
+        select.appendChild(opt);
+      });
+    }
+  } catch (err) {
+    console.error('populateChatClaveSelect error:', err);
+  }
+}
+
+async function sendChatMessage() {
+  const inputChat = $('#chat-user-input');
+  const messagesLog = $('#chat-messages-log');
+  const btnSend = $('#btn-chat-send');
+  const claveSelect = $('#chat-clave-select');
+
+  if (!inputChat || !messagesLog || !btnSend) return;
+
+  const text = inputChat.value.trim();
+  if (!text) return;
+
+  inputChat.value = '';
+  btnSend.disabled = true;
+
+  // Render User Message
+  const userDiv = document.createElement('div');
+  userDiv.className = 'log-line log-line--info';
+  userDiv.style.marginBottom = '12px';
+  userDiv.innerHTML = `<span class="log-line__ts">[USUARIO]</span> <span class="log-line__msg" style="color:var(--color-amber);">${escHtml(text)}</span>`;
+  messagesLog.appendChild(userDiv);
+  messagesLog.scrollTop = messagesLog.scrollHeight;
+
+  // Add typing placeholder
+  const systemDiv = document.createElement('div');
+  systemDiv.className = 'log-line';
+  systemDiv.style.marginBottom = '12px';
+  systemDiv.innerHTML = `<span class="log-line__ts">[ZOHAR-AI]</span> <span class="log-line__msg cursor-blink">... analizando ...</span>`;
+  messagesLog.appendChild(systemDiv);
+  messagesLog.scrollTop = messagesLog.scrollHeight;
+
+  const clave = claveSelect ? claveSelect.value : '';
+
+  try {
+    const payload = {
+      message: text,
+      clave: clave,
+      history: State.chatHistory
+    };
+
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    
+    // Remove placeholder
+    messagesLog.removeChild(systemDiv);
+
+    // Render System Response
+    const responseDiv = document.createElement('div');
+    responseDiv.className = 'log-line';
+    responseDiv.style.marginBottom = '12px';
+    responseDiv.innerHTML = `
+      <span class="log-line__ts">[ZOHAR-AI]</span>
+      <span class="log-line__msg" style="white-space:pre-wrap;">${escHtml(data.response)}</span>
+      <div style="font-size:9px; color:var(--text-muted); margin-top:4px; font-family:var(--font-mono);">
+        [ Modelo: ${data.model} ]
+      </div>
+    `;
+    messagesLog.appendChild(responseDiv);
+    messagesLog.scrollTop = messagesLog.scrollHeight;
+
+    // Update history
+    State.chatHistory.push({ role: 'user', content: text });
+    State.chatHistory.push({ role: 'assistant', content: data.response });
+
+  } catch (err) {
+    if (messagesLog.contains(systemDiv)) {
+      messagesLog.removeChild(systemDiv);
+    }
+    const errDiv = document.createElement('div');
+    errDiv.className = 'log-line log-line--error';
+    errDiv.style.marginBottom = '12px';
+    errDiv.innerHTML = `<span class="log-line__ts">[ERROR]</span> <span class="log-line__msg">Error de comunicación: ${err.message}</span>`;
+    messagesLog.appendChild(errDiv);
+    messagesLog.scrollTop = messagesLog.scrollHeight;
+  } finally {
+    btnSend.disabled = false;
+  }
+}
+
+
+/* =========================================================================
+   LIVE UPDATES SSE WATCHER
+   ========================================================================= */
+function initLiveUpdates() {
+  const sseUrl = '/api/events/live-updates';
+  console.log('Iniciando suscripción a eventos en tiempo real:', sseUrl);
+  
+  let es = new EventSource(sseUrl);
+
+  es.onmessage = (e) => {
+    try {
+      const evt = JSON.parse(e.data);
+      if (evt.type === 'ping') return; // Keep-alive
+
+      console.log('Evento en tiempo real recibido:', evt);
+      showToast(`Actualización detectada: ${evt.type}`, 'info');
+
+      if (evt.type === 'pdfs_updated') {
+        // Recargar PDFs
+        if (typeof loadCorpusPdfs === 'function') loadCorpusPdfs();
+        if (typeof loadWorkflowGacetas === 'function') loadWorkflowGacetas();
+        if (typeof loadStatus === 'function') loadStatus();
+      } else if (evt.type === 'extractions_updated') {
+        // Recargar Markdown extractions y Second Brain
+        if (typeof loadExtractions === 'function') loadExtractions();
+        if (typeof loadWikiNotesList === 'function') loadWikiNotesList();
+        if (typeof loadStatus === 'function') loadStatus();
+      } else if (evt.type === 'inferences_updated') {
+        // Recargar inferencias analíticas
+        if (typeof loadInferences === 'function') loadInferences();
+        if (typeof loadDataWarehouseStatus === 'function') loadDataWarehouseStatus();
+        if (typeof loadStatus === 'function') loadStatus();
+      }
+    } catch (err) {
+      console.error('Error parseando evento SSE:', err);
+    }
+  };
+
+  es.onerror = () => {
+    console.warn('Conexión SSE de Live Updates interrumpida. Reintentando en 5 segundos...');
+    es.close();
+    setTimeout(initLiveUpdates, 5000);
+  };
+}
+
+window.initLiveUpdates = initLiveUpdates;
+
+
+/* =========================================================================
    INIT
    ========================================================================= */
 document.addEventListener('DOMContentLoaded', () => {
@@ -1337,6 +1870,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initMdLabActions();
   initScraperActions();
   initSecondBrainActions();
+  initWorkflowSubTabs();
+  initLiveUpdates(); // Suscripción activa a SSE para cambios en archivos
 
   activateTab('CORPUS_PDF');
 
