@@ -1626,9 +1626,9 @@ async def download_clave(clave: str = Query(..., description="Clave SINAT a desc
             from concurrent.futures import ThreadPoolExecutor
             downloader = SemarnatDownloader(
                 download_dir=str(DOWNLOADS_DIR),
-                estudios_dir=str(ESTUDIOS_DIR),
-                resumenes_dir=str(RESUMENES_DIR),
-                resolutivos_dir=str(RESOLUTIVOS_DIR),
+                carpeta_estudios=str(ESTUDIOS_DIR),
+                carpeta_resumenes=str(RESUMENES_DIR),
+                carpeta_resolutivos=str(RESOLUTIVOS_DIR),
             )
             for event in downloader._descargar_clave_gen_with_retry(clave):
                 if "metadata" in event:
@@ -1690,33 +1690,47 @@ async def download_clave(clave: str = Query(..., description="Clave SINAT a desc
 
         # Etapa 2: Conversión a Markdown
         yield {"status": "progress", "msg": "Convirtiendo PDFs descargados a Markdown...", "pct": 63}
-        estudio_pdf = ESTUDIOS_DIR / f"{clave}.pdf"
-        md_path = EXTRACTIONS_DIR / f"{clave}.md"
-        if estudio_pdf.exists():
-            try:
-                pages = []
-                for _, _, md_text, _ in iter_pages_as_markdown(estudio_pdf):
-                    pages.append(md_text)
-                EXTRACTIONS_DIR.mkdir(parents=True, exist_ok=True)
-                md_path.write_text("\n".join(pages), encoding="utf-8")
-                yield {"status": "progress", "msg": f"Markdown extraido: {md_path.name} ({md_path.stat().st_size} bytes)", "pct": 75}
-            except Exception as exc:
-                yield {"status": "progress", "msg": f"Conversión MD warning: {exc}", "pct": 75, "level": "warning"}
+        
+        estudios_to_convert = []
+        if classified_files.get("estudios"):
+            estudios_to_convert = [Path(f) for f in classified_files["estudios"]]
+        else:
+            # Fallback: buscar archivos de la clave en la carpeta de estudios
+            estudios_to_convert = list(ESTUDIOS_DIR.glob(f"{clave}.estudio.*.pdf"))
+            if not estudios_to_convert and (ESTUDIOS_DIR / f"{clave}.pdf").exists():
+                estudios_to_convert = [ESTUDIOS_DIR / f"{clave}.pdf"]
+                
+        converted_md_paths = []
+        if estudios_to_convert:
+            for pdf_file in estudios_to_convert:
+                md_name = pdf_file.stem + ".md"
+                md_path = EXTRACTIONS_DIR / md_name
+                try:
+                    pages = []
+                    for _, _, md_text, _ in iter_pages_as_markdown(pdf_file):
+                        pages.append(md_text)
+                    EXTRACTIONS_DIR.mkdir(parents=True, exist_ok=True)
+                    md_path.write_text("\n".join(pages), encoding="utf-8")
+                    converted_md_paths.append(md_path)
+                    yield {"status": "progress", "msg": f"Markdown extraído: {md_path.name} ({md_path.stat().st_size} bytes)", "pct": 75}
+                except Exception as exc:
+                    yield {"status": "progress", "msg": f"Conversión MD warning para {pdf_file.name}: {exc}", "pct": 75, "level": "warning"}
         else:
             yield {"status": "progress", "msg": "Sin estudio PDF disponible para conversión", "pct": 75, "level": "warning"}
 
         # Etapa 3: Inferencia (si hay MD)
-        if md_path.exists():
+        if converted_md_paths:
             yield {"status": "progress", "msg": "Ejecutando inferencia...", "pct": 77}
-            try:
-                cache_path = DATA_DIR / "inference_cache" / f"{clave}.json"
-                report = generate_report(md_path)
-                DATA_DIR.mkdir(parents=True, exist_ok=True)
-                (DATA_DIR / "inference_cache").mkdir(parents=True, exist_ok=True)
-                cache_path.write_text(json_module.dumps(report, ensure_ascii=False), encoding="utf-8")
-                yield {"status": "progress", "msg": f"Inferencia: {report.get('veredicto', 'SIN DICTAMEN')} (score={report.get('score', 0):.2f})", "pct": 88}
-            except Exception as exc:
-                yield {"status": "progress", "msg": f"Inferencia warning: {exc}", "pct": 88, "level": "warning"}
+            for md_path in converted_md_paths:
+                try:
+                    cache_path = DATA_DIR / "inference_cache" / f"{md_path.stem}.json"
+                    report = generate_report(md_path)
+                    DATA_DIR.mkdir(parents=True, exist_ok=True)
+                    (DATA_DIR / "inference_cache").mkdir(parents=True, exist_ok=True)
+                    cache_path.write_text(json_module.dumps(report, ensure_ascii=False), encoding="utf-8")
+                    yield {"status": "progress", "msg": f"Inferencia ({md_path.name}): {report.get('veredicto', 'SIN DICTAMEN')} (score={report.get('score', 0):.2f})", "pct": 88}
+                except Exception as exc:
+                    yield {"status": "progress", "msg": f"Inferencia warning para {md_path.name}: {exc}", "pct": 88, "level": "warning"}
 
         # Etapa 4: Actualizar Second Brain y Buscador Semántico
         yield {"status": "progress", "msg": "Actualizando base de conocimiento y buscador semántico...", "pct": 90}
@@ -2154,8 +2168,6 @@ async def api_chat(payload: dict):
     Endpoint de chat interactivo con el modelo activo.
     Acepta: { "message": "...", "clave": "...", "history": [...] }
     """
-    from core.llm_client import generate_completion, detect_active_backend
-    
     message = payload.get("message", "").strip()
     clave = payload.get("clave", "").strip()
     history = payload.get("history", [])
@@ -2174,6 +2186,26 @@ async def api_chat(payload: dict):
             except Exception as exc:
                 logger.warning("Error leyendo nota para contexto: %s", exc)
 
+    # RAG Automático Inteligente si no se seleccionó clave en el dropdown
+    auto_rag_context = ""
+    if not clave:
+        try:
+            from core.semantic_search import SemanticSearchEngine
+            search_engine = SemanticSearchEngine(BASE_DIR)
+            results = search_engine.search(message, limit=2)
+            pieces = []
+            for res in results:
+                if res.get("score", 0) >= 0.35:
+                    note_path = BASE_DIR / "second_brain" / res["path"]
+                    if note_path.exists():
+                        content = note_path.read_text(encoding="utf-8")
+                        pieces.append(f"### Nota: {res['title']} (Categoría: {res['category']})\n{content}")
+            if pieces:
+                auto_rag_context = "\n\nCONTEXTO RELEVANTE ENCONTRADO AUTOMÁTICAMENTE EN EL SECOND BRAIN:\n" + "\n\n".join(pieces)
+                logger.info("Auto-RAG inyectó %d notas relevantes.", len(pieces))
+        except Exception as exc:
+            logger.warning("Error en RAG automático: %s", exc)
+
     # Construir el prompt con el historial de la conversación y el contexto de RAG
     sys_prompt = (
         "Eres Zohar-v4-AI, un motor de análisis e inferencia de impacto ambiental cyberpunk.\n"
@@ -2187,48 +2219,47 @@ async def api_chat(payload: dict):
             f"```markdown\n{context}\n```\n"
             "Responde a las preguntas utilizando esta información como fuente principal de verdad."
         )
-
-    # Ensamblar prompt agregando historial básico
-    prompt_builder = []
-    for turn in history[-6:]:  # Limitar a los últimos 6 turnos
-        role = turn.get("role", "user")
-        content = turn.get("content", "")
-        if role == "user":
-            prompt_builder.append(f"Usuario: {content}")
-        else:
-            prompt_builder.append(f"Asistente: {content}")
-            
-    prompt_builder.append(f"Usuario: {message}")
-    prompt_builder.append("Asistente:")
-    
-    full_prompt = "\n".join(prompt_builder)
+    elif auto_rag_context:
+        sys_prompt += auto_rag_context
 
     try:
-        # Llamamos a generate_completion con response_json=False para obtener respuesta conversacional
-        res = generate_completion(
-            prompt=full_prompt,
-            system_prompt=sys_prompt,
-            response_json=False
-        )
+        from core.agent import ZoharAgent
+        from core.llm_client import detect_active_backend
         
-        # En caso de fallback heurístico
-        if res.get("is_fallback"):
+        # Detectar modelo activo
+        provider, model_name = detect_active_backend()
+        
+        if provider in ("heuristic", "fallback_heuristic"):
             fallback_text = (
                 f"Hola. Estoy en modo heurístico (sin conexión a LLM activo).\n"
-                f"He recibido tu consulta sobre el proyecto: '{clave or 'Ninguno seleccionado'}'.\n"
-                f"Si deseas habilitar mi capacidad conversacional completa, por favor asegúrate de levantar "
-                f"el servidor de inferencia local en el puerto 8083 o configurar GEMINI_API_KEY en tu archivo .env."
+                f"He recibido tu consulta sobre: '{message}'.\n"
+                f"Si deseas habilitar mi capacidad conversacional completa y la ejecución de herramientas, "
+                f"por favor asegúrate de levantar el servidor local en el puerto 8083."
             )
-            return {"response": fallback_text, "provider": "heuristic", "model": "none"}
+            return {
+                "response": fallback_text,
+                "tool_calls": [],
+                "provider": "heuristic",
+                "model": "none"
+            }
             
+        agent = ZoharAgent(sys_prompt=sys_prompt, history=history)
+        response, tool_calls = agent.run(message)
+        
         return {
-            "response": res.get("text", "").strip(),
-            "provider": res.get("meta", {}).get("modelo", "").split(":")[0],
-            "model": res.get("meta", {}).get("modelo", "")
+            "response": response.strip(),
+            "tool_calls": tool_calls,
+            "provider": provider,
+            "model": model_name
         }
     except Exception as exc:
-        logger.error("Error en api_chat: %s", exc)
-        return {"response": f"[Error de Inferencia]: {exc}", "provider": "error", "model": "none"}
+        logger.error("Error en api_chat con loop de agente: %s", exc)
+        return {
+            "response": f"[Error de Inferencia del Agente]: {exc}",
+            "tool_calls": [],
+            "provider": "error",
+            "model": "none"
+        }
 
 
 
