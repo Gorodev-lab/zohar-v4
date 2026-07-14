@@ -154,6 +154,25 @@
         </div>
       </div>
 
+      <!-- Llama Server Controls -->
+      <div class="sidebar__scraper-section" style="border-top: 1px solid var(--border-color-dim); padding-top: 10px; margin-top: 10px;">
+        <div class="sidebar__section-label">─ llama-server</div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+          <span class="text-xs text-muted">ESTADO:</span>
+          <span id="llama-status-badge" class="text-xs" style="color:var(--color-text-muted); font-weight:bold; font-family:var(--font-mono);">OFFLINE</span>
+        </div>
+
+        <div class="scraper-btn-group">
+          <button id="btn-start-llama" class="btn btn--secondary btn--scraper" style="height:26px; font-size:10px;" aria-label="Iniciar Llama Server">
+            <span aria-hidden="true">▸</span> INICIAR
+          </button>
+          <button id="btn-stop-llama" class="btn btn--danger btn--scraper" style="height:26px; font-size:10px;" aria-label="Detener Llama Server" disabled>
+            <span aria-hidden="true">■</span> DETENER
+          </button>
+        </div>
+      </div>
+
       <!-- Sys stats mini cards at bottom -->
       <div class="sidebar__stats">
         <div class="mini-stat" id="mini-stat-pdfs">

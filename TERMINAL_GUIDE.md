@@ -6,128 +6,200 @@ Esta guía proporciona las instrucciones detalladas y comandos de terminal neces
 
 ## 1. Configuración del Entorno
 
-Antes de ejecutar cualquier comando, asegúrate de activar el entorno virtual y configurar las variables de entorno necesarias.
-
 ### Activar el Entorno Virtual
-Desde el directorio raíz del proyecto:
 ```bash
-# Si estás en el directorio de scratch/pruebas:
-cd "/home/gorops/.gemini/antigravity/scratch/zohar-v4"
-source .venv/bin/activate
-
-# O si creaste un entorno en el directorio principal:
 cd "/home/gorops/proyectos antigravity/zohar-v4-main"
 source .venv/bin/activate
 ```
 
-### Configuración del archivo `.env`
-Copia el archivo de ejemplo y rellena las credenciales correspondientes:
+### Configurar `.env`
 ```bash
 cp .env.example .env
 nano .env
 ```
-Asegúrate de configurar los siguientes campos críticos en `.env`:
-*   `GEMINI_API_KEY`: Tu clave de API para el motor de inferencia e IA.
-*   `NEO4J_URI` (puerto 7688 por defecto para esta instancia).
-*   `SUPABASE_URL` y keys para la base de datos de gacetas.
+
+Campos críticos en `.env`:
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/maritime_dw
+LOCAL_LLM_URL=http://localhost:8083
+LOCAL_LLM_MODEL=gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
+CHROME_BINARY=/opt/google/chrome/google-chrome
+```
 
 ---
 
-## 2. Comandos Operativos y de Administración
+## 2. Comandos Operativos
 
-### Levantar el Servidor FastAPI (Uvicorn)
-Para iniciar el servidor del dashboard en el puerto `8004` con recarga automática:
-```bash
-PYTHONPATH="." uvicorn api.main:app --host 127.0.0.1 --port 8004 --reload
-```
-O de manera alternativa, puedes usar el script automatizado para levantar el servidor y abrir el dashboard en el navegador:
+### Iniciar Servidor FastAPI
 ```bash
 ./start_server.sh
+# Dashboard disponible en http://127.0.0.1:8004
 ```
 
-### Ejecutar Pruebas Unitarias
-Para correr la suite de tests (`pytest`) y verificar que todos los módulos e integraciones funcionen correctamente:
+### Iniciar Servidor LLM Local (Gemma 4 E2B + Vulkan)
+```bash
+./start_llama_server.sh
+# Escucha en http://localhost:8083
+```
+
+### Ejecutar Tests
 ```bash
 PYTHONPATH="." pytest
 ```
 
-### Verificar Estado de Puertos del Sistema
-Para comprobar si el servidor está escuchando en el puerto `8004`:
+### Verificar Puertos
 ```bash
-lsof -i :8004
+lsof -i :8004   # FastAPI
+lsof -i :8083   # llama-server
 ```
 
 ---
 
-## 3. Interacción con la API mediante `curl`
+## 3. API Endpoints — Referencia Rápida
 
-Con el servidor corriendo en `http://127.0.0.1:8004`, puedes interactuar con cada uno de los módulos utilizando comandos `curl`.
+Con el servidor en `http://127.0.0.1:8004`:
 
-### Módulo 1: Estado del Sistema e Integración
-*   **Obtener métricas del sistema** (Uptime, uso de CPU, RAM, estadísticas del Second Brain):
-    ```bash
-    curl -s http://127.0.0.1:8004/api/status | jq .
-    ```
+### Sistema
+```bash
+# Estado del sistema
+curl -s http://127.0.0.1:8004/api/status | jq .
 
-### Módulo 2: Corpus PDF
-*   **Listar todos los archivos PDF del corpus**:
-    ```bash
-    curl -s http://127.0.0.1:8004/api/corpus/pdfs | jq .
-    ```
-*   **Extraer páginas de un PDF a Markdown en tiempo real (SSE - Streaming)**:
-    *(Usa `-N` o `--no-buffer` para forzar a curl a mostrar el flujo SSE de inmediato sin guardarlo en buffer)*:
-    ```bash
-    curl -N -s "http://127.0.0.1:8004/stream/single?pdf_name=Gaceta_ECOLOGICA_2026_01.pdf"
-    ```
-*   **Detener una extracción activa de PDF**:
-    ```bash
-    curl -s "http://127.0.0.1:8004/stop_single?pdf_name=Gaceta_ECOLOGICA_2026_01.pdf"
-    ```
+# Estado del modelo local
+curl -s http://127.0.0.1:8004/api/llama/status | jq .
+```
 
-### Módulo 3: MD Lab (Lectura de Markdowns)
-*   **Listar archivos Markdown extraídos en `extractions/`**:
-    ```bash
-    curl -s http://127.0.0.1:8004/api/md/list | jq .
-    ```
-*   **Leer el contenido de un archivo Markdown específico**:
-    ```bash
-    curl -s "http://127.0.0.1:8004/api/md/read?filename=Gaceta_ECOLOGICA_2026_01.md"
-    ```
+### Scraper / Ingesta
 
-### Módulo 4: Grafo de Red (D3)
-*   **Obtener la estructura de nodos y enlaces del grafo de conocimiento**:
-    ```bash
-    curl -s http://127.0.0.1:8004/api/graph | jq .
-    ```
+```bash
+# Extraer claves SINAT de un año (SSE streaming)
+curl -N -s "http://127.0.0.1:8004/api/scraper/extract-keys?year=2026"
 
-### Módulo 5: Scraper de Gacetas SEMARNAT
-*   **Ver resumen de gacetas disponibles en base de datos**:
-    ```bash
-    curl -s http://127.0.0.1:8004/api/scraper/gacetas-summary | jq .
-    ```
-*   **Extraer claves SINAT del año seleccionado** (ejemplo: 2026):
-    ```bash
-    curl -s "http://127.0.0.1:8004/api/scraper/extract-keys?year=2026" | jq .
-    ```
-*   **Ejecutar el Pipeline completo de Ingestión en tiempo real (SSE - Streaming)**:
-    ```bash
-    curl -N -s http://127.0.0.1:8004/api/scraper/run-pipeline
-    ```
+# Descargar documentos de una clave específica (SSE streaming)
+# Incluye: DOM metadata, reintentos automáticos, enriquecimiento LLM background
+curl -N -s "http://127.0.0.1:8004/api/scraper/download-clave?clave=23QR2025T0061&year=2026"
 
-### Módulo 6: Second Brain & Inference Lab
-*   **Construir o actualizar la base de conocimiento del Second Brain**:
-    ```bash
-    curl -X POST http://127.0.0.1:8004/api/second_brain/build | jq .
-    ```
-*   **Listar todas las notas del Second Brain**:
-    ```bash
-    curl -s http://127.0.0.1:8004/api/second_brain/notes | jq .
-    ```
-*   **Leer una nota de inferencia o entidad específica**:
-    ```bash
-    curl -s "http://127.0.0.1:8004/api/second_brain/note?path=03_Inferences/clave_SINAT_ejemplo.md"
-    ```
-*   **Obtener la lista de inferencias de IA generadas**:
-    ```bash
-    curl -s http://127.0.0.1:8004/api/inference | jq .
-    ```
+# Pipeline completo (SSE streaming)
+curl -N -s http://127.0.0.1:8004/api/scraper/run-pipeline
+```
+
+**Eventos SSE que emite `download-clave`:**
+
+| `status` | Descripción |
+|----------|-------------|
+| `progress` | Actualización de progreso (con `pct` 0-100) |
+| `retry` | Reintentando descarga (con `attempt`, `max_retries`) |
+| `complete` | Descarga finalizada (con `download_status`, `n_resumenes`, `n_estudios`, `n_resolutivos`) |
+| `not_found` | Clave no encontrada en el portal |
+| `error` | Error irrecuperable |
+
+### llama-server
+
+```bash
+# Ver estado del servidor LLM
+curl -s http://127.0.0.1:8004/api/llama/status
+
+# Iniciar servidor LLM
+curl -X POST http://127.0.0.1:8004/api/llama/start
+
+# Detener servidor LLM
+curl -X POST http://127.0.0.1:8004/api/llama/stop
+```
+
+### Second Brain
+
+```bash
+# Construir / actualizar vault Obsidian
+curl -X POST http://127.0.0.1:8004/api/second_brain/build | jq .
+
+# Listar todas las notas
+curl -s http://127.0.0.1:8004/api/second_brain/notes | jq .
+
+# Leer una nota específica
+curl -s "http://127.0.0.1:8004/api/second_brain/note?name=Inferencia%20-%2023QR2025T0061"
+```
+
+### Corpus y Markdown
+
+```bash
+# Listar PDFs
+curl -s http://127.0.0.1:8004/api/corpus/pdfs | jq .
+
+# Listar archivos Markdown
+curl -s http://127.0.0.1:8004/api/md/list | jq .
+
+# Extraer PDF a Markdown (SSE)
+curl -N -s "http://127.0.0.1:8004/stream/single?pdf_name=ejemplo.pdf"
+```
+
+### Data Warehouse
+
+```bash
+# Estado de conexión y calidad
+curl -s http://127.0.0.1:8004/api/dw/status | jq .
+
+# Ejecutar pipeline de ingesta (SSE)
+curl -N -s http://127.0.0.1:8004/api/dw/run-pipeline
+```
+
+---
+
+## 4. Uso Directo del Downloader (Python)
+
+```python
+from scrapers.semarnat_downloader import SemarnatDownloader
+
+downloader = SemarnatDownloader(
+    download_dir="downloads/",
+    estudios_dir="downloads/estudios/",
+    resumenes_dir="downloads/resumenes/",
+    resolutivos_dir="downloads/resolutivos/",
+)
+
+# Con reintentos automáticos (recomendado)
+for event in downloader._descargar_clave_gen_with_retry("23QR2025T0061"):
+    print(f"[{event['status']}] {event.get('msg', '')}")
+
+# Sin reintentos (original)
+for event in downloader._descargar_clave_gen("23QR2025T0061"):
+    print(event)
+```
+
+---
+
+## 5. Uso Directo del LLM Enricher (Python)
+
+```python
+from pathlib import Path
+from core.llm_enricher import enrich_metadata_from_pdf, find_best_pdf_for_enrichment
+
+classified = {
+    "estudios": [Path("downloads/estudios/23QR2025T0061.pdf")],
+    "resumenes": [],
+    "resolutivos": []
+}
+
+existing_metadata = {
+    "project_name": "Parque Solar XYZ",
+    "fecha_ingreso": "15/01/2026",
+    "promovente": "Desconocido",   # ← LLM lo completará
+}
+
+best_pdf = find_best_pdf_for_enrichment(classified)
+enriched = enrich_metadata_from_pdf(best_pdf, existing_metadata)
+print(enriched)
+# → { "project_name": "...", "promovente": "Empresa XYZ S.A. de C.V.", "sector": "Energía", ... }
+```
+
+---
+
+## 6. Git Workflow
+
+```bash
+# Ver cambios pendientes
+git status
+
+# Commit y push
+git add -A
+git commit -m "feat: descripción del cambio"
+git push origin main
+```

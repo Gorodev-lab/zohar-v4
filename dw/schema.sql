@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.semarnat_projects (
     state VARCHAR(255),
     year INT,
     files_downloaded TEXT[],
+    promovente TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

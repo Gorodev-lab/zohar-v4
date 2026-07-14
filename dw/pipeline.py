@@ -140,9 +140,11 @@ class SemarnatDwPipeline:
                             claves.add(key)
                             proj_name = row_data.get("PROJECT_NAME")
                             loc = row_data.get("LOCATION")
+                            prom = row_data.get("PROMOVENTE")
                             self.csv_metadata[key] = {
                                 "project_name": proj_name if pd.notna(proj_name) else f"Proyecto {key}",
-                                "location": loc if pd.notna(loc) else ""
+                                "location": loc if pd.notna(loc) else "",
+                                "promovente": prom if pd.notna(prom) else "Desconocido"
                             }
                     print(f"[Claves] Loaded {len(df)} keys from {csv_path.name}")
             except Exception as exc:
@@ -351,6 +353,10 @@ class SemarnatDwPipeline:
             if clave in self.csv_metadata and self.csv_metadata[clave]["location"]:
                 state = self.csv_metadata[clave]["location"]
 
+            promovente = "Desconocido"
+            if clave in self.csv_metadata and "promovente" in self.csv_metadata[clave] and self.csv_metadata[clave]["promovente"]:
+                promovente = self.csv_metadata[clave]["promovente"]
+
             projects_data.append({
                 "clave": clave,
                 "project_name": project_name,
@@ -358,7 +364,8 @@ class SemarnatDwPipeline:
                 "sector": parsed.get("sector"),
                 "state": state,
                 "year": parsed.get("year"),
-                "files_downloaded": downloaded
+                "files_downloaded": downloaded,
+                "promovente": promovente
             })
             evaluations_data.append(eval_record)
 

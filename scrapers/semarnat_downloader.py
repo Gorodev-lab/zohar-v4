@@ -218,6 +218,7 @@ def wait_for_downloads(
     deadline = time.time() + timeout
     phase1_deadline = time.time() + 30
     saw_temp = False
+    stable_count = 0
 
     while time.time() < deadline:
         all_files = list(download_dir.iterdir())
@@ -230,6 +231,12 @@ def wait_for_downloads(
 
         if temps:
             saw_temp = True
+            stable_count = 0
+        else:
+            if new_pdfs:
+                stable_count += 1
+            else:
+                stable_count = 0
 
         # Fase 1: esperando inicio
         if time.time() < phase1_deadline:
@@ -240,6 +247,12 @@ def wait_for_downloads(
 
         # Fase 2: esperando finalización
         if not temps and len(new_pdfs) >= expect_at_least:
+            return new_pdfs
+
+        # Optimización: si ya no hay descargas activas (.part/.crdownload) por 5 segundos
+        # y tenemos al menos 1 PDF descargado, retornamos de inmediato en lugar de esperar el timeout.
+        if not temps and len(new_pdfs) > 0 and stable_count >= 5:
+            logger.info("No active downloads (.part/.crdownload) for 5s. Returning %d downloaded files.", len(new_pdfs))
             return new_pdfs
 
         # Cancelación: vimos temps, desaparecieron, pero sin nuevos PDFs
@@ -308,6 +321,138 @@ def _classify_by_keyword(filename: str) -> Optional[str]:
     return None
 
 
+def extract_initial_pages_text(pdf_path: Path, max_pages: int = 2) -> str:
+    """Extrae el texto de las primeras 1 o 2 páginas del PDF de forma perezosa."""
+    from core.pdf_processor import iter_pages_as_markdown
+    text_chunks = []
+    try:
+        for page_num, total_pages, md_text, is_scanned in iter_pages_as_markdown(pdf_path):
+            text_chunks.append(md_text)
+            if len(text_chunks) >= max_pages:
+                break
+            # Si la primera página es bastante larga y representativa, paramos
+            if page_num == 1 and len(md_text.strip()) > 300:
+                break
+    except Exception as exc:
+        logger.warning(f"Error extrayendo páginas iniciales de {pdf_path.name}: {exc}")
+    return "\n\n".join(text_chunks)
+
+
+def clasificar_pdf_con_llm(pdf_path: Path) -> Optional[str]:
+    """Usa el modelo local Gemma 4 E2B para clasificar el PDF."""
+    try:
+        from core.llm_client import detect_active_backend, generate_completion
+        provider, _ = detect_active_backend()
+        if provider in ("heuristic", "fallback_heuristic"):
+            logger.warning("No hay LLM local activo para clasificar PDF. Usando fallback.")
+            return None
+
+        text = extract_initial_pages_text(pdf_path)
+        if len(text.strip()) < 50:
+            logger.warning(f"Texto insuficiente en {pdf_path.name} para clasificar con LLM.")
+            return None
+
+        sys_prompt = """
+        Eres un asistente experto en trámites ambientales de SEMARNAT en México.
+        Tu tarea es clasificar el siguiente documento PDF a partir del texto extraído de sus páginas iniciales.
+        Debes responder ÚNICAMENTE en JSON con esta estructura exacta:
+        {
+          "tipo": "estudio" | "resumen" | "resolutivo" | "desconocido",
+          "razon": "Breve explicación de por qué pertenece a esta clase"
+        }
+
+        Guía de clasificación:
+        - "estudio": Contiene el texto técnico de la Manifestación de Impacto Ambiental (MIA), Estudio de Riesgo, etc. Suele comenzar con índices largos, capítulos, descripciones técnicas del proyecto, justificación, etc.
+        - "resumen": Dice explícitamente "RESUMEN EJECUTIVO" o "RESUMEN DEL PROYECTO". Es más corto y simplificado.
+        - "resolutivo": Es un oficio oficial firmado por delegados de SEMARNAT. Contiene la palabra "RESOLUCIÓN", "RESOLUTIVO", "OFICIO NÚMERO", "SE RESUELVE", etc. Suele tener el membrete de SEMARNAT y la Subsecretaría de Regulación Ambiental.
+        """
+
+        prompt = f"Texto del documento:\n{text[:4000]}"
+        res = generate_completion(
+            prompt=prompt,
+            system_prompt=sys_prompt,
+            response_json=True
+        )
+
+        if not res.get("is_fallback") and "tipo" in res:
+            tipo = res["tipo"].strip().lower()
+            if tipo in ("estudio", "resumen", "resolutivo"):
+                return tipo
+    except Exception as exc:
+        logger.warning(f"Error clasificando {pdf_path.name} con LLM: {exc}")
+    return None
+
+
+def extract_metadata_from_dom(driver) -> dict:
+    """
+    Intenta extraer metadatos estructurados directamente del DOM de la página de resultados.
+    """
+    from selenium.webdriver.common.by import By
+    import re
+    
+    metadata = {}
+    try:
+        # Extraer todo el texto del body
+        body_text = driver.find_element(By.TAG_NAME, "body").text
+        
+        # 1. Búsqueda por expresiones regulares en el texto de la página
+        promovente_match = re.search(r"(?:Promovente|Interesado|Empresa|Solicitante)\s*:\s*([^\n]+)", body_text, re.IGNORECASE)
+        if promovente_match:
+            metadata["promovente"] = promovente_match.group(1).strip()
+            
+        project_match = re.search(r"(?:Nombre del Proyecto|Proyecto|Trámite)\s*:\s*([^\n]+)", body_text, re.IGNORECASE)
+        if project_match:
+            metadata["project_name"] = project_match.group(1).strip()
+            
+        sector_match = re.search(r"(?:Sector|Actividad)\s*:\s*([^\n]+)", body_text, re.IGNORECASE)
+        if sector_match:
+            metadata["sector"] = sector_match.group(1).strip()
+            
+        state_match = re.search(r"(?:Estado|Entidad Federativa)\s*:\s*([^\n]+)", body_text, re.IGNORECASE)
+        if state_match:
+            metadata["state"] = state_match.group(1).strip()
+            
+        muni_match = re.search(r"(?:Municipio|Ubicación|Localidad)\s*:\s*([^\n]+)", body_text, re.IGNORECASE)
+        if muni_match:
+            metadata["municipio"] = muni_match.group(1).strip()
+            
+        fecha_match = re.search(r"(?:Fecha de Ingreso|Ingresado el|Fecha)\s*:\s*([^\n]+)", body_text, re.IGNORECASE)
+        if fecha_match:
+            metadata["fecha_ingreso"] = fecha_match.group(1).strip()
+            
+        estatus_match = re.search(r"(?:Estatus|Etapa|Estado actual)\s*:\s*([^\n]+)", body_text, re.IGNORECASE)
+        if estatus_match:
+            metadata["status"] = estatus_match.group(1).strip()
+
+        # 2. Análisis estructural de tablas del DOM para precisión exacta
+        tables = driver.find_elements(By.TAG_NAME, "table")
+        for table in tables:
+            rows = table.find_elements(By.TAG_NAME, "tr")
+            for row in rows:
+                cols = [c.text.strip() for c in row.find_elements(By.TAG_NAME, "td")]
+                if len(cols) == 2:
+                    k, v = cols[0].lower(), cols[1]
+                    if "promovente" in k or "interesado" in k:
+                        metadata["promovente"] = v
+                    elif "proyecto" in k or "nombre del trámite" in k:
+                        metadata["project_name"] = v
+                    elif "sector" in k:
+                        metadata["sector"] = v
+                    elif "estado" in k or "entidad" in k:
+                        metadata["state"] = v
+                    elif "municipio" in k or "delegación" in k:
+                        metadata["municipio"] = v
+                    elif "fecha" in k:
+                        metadata["fecha_ingreso"] = v
+                    elif "estatus" in k or "situación" in k:
+                        metadata["status"] = v
+                        
+    except Exception as e:
+        logger.warning("Error al extraer metadatos del DOM: %s", e)
+        
+    return metadata
+
+
 def renombrar_archivos_por_clave(
     download_dir: Path,
     clave: str,
@@ -319,7 +464,7 @@ def renombrar_archivos_por_clave(
     """
     Clasifica y renombra PDFs nuevos por clave SEMARNAT.
 
-    Regla de fallback posicional cuando el nombre no contiene keywords:
+    Regla de fallback posicional cuando el nombre no contiene keywords y el LLM falla:
         n=3 → [resumen, estudio, resolutivo]
         n=2 → [resumen, resolutivo]          ← NO asigna estudio al índice 1
         n=1 → [estudio]
@@ -350,7 +495,16 @@ def renombrar_archivos_por_clave(
     for idx, pdf in enumerate(new_pdfs):
         # Prioridad 1: keyword en el nombre
         tipo = _classify_by_keyword(pdf.name)
-        # Prioridad 2: posición
+        
+        # Prioridad 2: Gemma LLM clasificador
+        if tipo is None:
+            tipo = clasificar_pdf_con_llm(pdf)
+            if tipo:
+                logger.info("PDF %s clasificado por Gemma como: %s", pdf.name, tipo)
+            else:
+                logger.info("Gemma no pudo clasificar %s. Usando fallback posicional.", pdf.name)
+
+        # Prioridad 3: posición
         if tipo is None:
             tipo = pos_map.get(idx, "resumen")
 
@@ -418,6 +572,45 @@ class SemarnatDownloader:
         for event in self._descargar_clave_gen(bitacora_value):
             last_event = event
         return last_event
+
+    def _descargar_clave_gen_with_retry(
+        self, clave: str, max_retries: int = 2
+    ) -> Generator[dict, None, None]:
+        """
+        Wrapper de reintentos sobre _descargar_clave_gen.
+
+        - Reintenta hasta max_retries veces adicionales (3 intentos total).
+        - No reintenta si el último evento fue 'complete' o 'not_found' (definitivos).
+        - Entre reintentos: emite evento SSE 'retry', destruye el driver y espera 5s.
+        """
+        for attempt in range(1 + max_retries):
+            last_event: dict = {}
+            for event in self._descargar_clave_gen(clave):
+                last_event = event
+                yield event
+
+            terminal_status = last_event.get("status", "")
+
+            # Exito o 404 definitivo: no reintentar
+            if terminal_status in ("complete", "not_found"):
+                return
+
+            # Si quedan intentos, emitir aviso y reintentar
+            if attempt < max_retries:
+                retry_n = attempt + 1
+                logger.warning(
+                    "Descarga fallida para %s (intento %d/%d). Reintentando en 5s...",
+                    clave, retry_n, max_retries
+                )
+                yield {
+                    "status": "retry",
+                    "attempt": retry_n,
+                    "max_retries": max_retries,
+                    "msg": f"Reintentando ({retry_n}/{max_retries})...",
+                    "level": "warning",
+                }
+                self._quit_driver()
+                time.sleep(5)
 
     def _descargar_clave_gen(
         self, bitacora_value: str
@@ -590,6 +783,20 @@ class SemarnatDownloader:
                             break
 
             # ----------------------------------------------------------------
+            # EXTRACCIÓN DE METADATOS DEL DOM
+            # ----------------------------------------------------------------
+            metadata = extract_metadata_from_dom(driver)
+            if metadata:
+                yield {
+                    "status": "log",
+                    "msg": f"Metadatos extraídos del DOM: Promovente='{metadata.get('promovente', 'Desconocido')}', Proyecto='{metadata.get('project_name', 'Desconocido')}'",
+                    "level": "info",
+                    "metadata": metadata
+                }
+            else:
+                metadata = {}
+
+            # ----------------------------------------------------------------
             # FALLBACK: Interceptar URLs de PDF del network log CDP
             # Si Selenium no pudo hacer click, descargar directamente vía requests
             # ----------------------------------------------------------------
@@ -628,6 +835,7 @@ class SemarnatDownloader:
                         "n_estudios": len(classified["estudios"]),
                         "n_resolutivos": len(classified["resolutivos"]),
                         "method": "requests_fallback",
+                        "metadata": metadata,
                     }
                     return
 
@@ -746,6 +954,7 @@ class SemarnatDownloader:
                 "n_estudios": len(classified["estudios"]),
                 "n_resolutivos": len(classified["resolutivos"]),
                 "method": "selenium",
+                "metadata": metadata,
             }
 
         except Exception as exc:

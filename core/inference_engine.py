@@ -82,9 +82,105 @@ Responde ÚNICAMENTE en JSON con esta estructura exacta:
 """
 
 
+import math
+import re
+
+def _tokenize(text: str) -> list[str]:
+    """Tokeniza y normaliza un texto a minúsculas, quitando caracteres no alfanuméricos."""
+    return re.findall(r'\b\w+\b', text.lower())
+
+
+class SimpleBM25:
+    """Implementación local ligera de BM25 para RAG sin dependencias externas."""
+    def __init__(self, corpus: list[str], k1: float = 1.5, b: float = 0.75):
+        self.k1 = k1
+        self.b = b
+        self.corpus_size = len(corpus)
+        self.doc_lengths = [len(_tokenize(doc)) for doc in corpus]
+        self.avg_doc_len = sum(self.doc_lengths) / max(self.corpus_size, 1)
+        self.docs_tokenized = [_tokenize(doc) for doc in corpus]
+        
+        # Calcular Document Frequency (DF)
+        self.doc_freqs = {}
+        for doc_tokens in self.docs_tokenized:
+            unique_tokens = set(doc_tokens)
+            for token in unique_tokens:
+                self.doc_freqs[token] = self.doc_freqs.get(token, 0) + 1
+                
+        # Calcular Inverse Document Frequency (IDF)
+        self.idfs = {}
+        for token, df in self.doc_freqs.items():
+            self.idfs[token] = math.log((self.corpus_size - df + 0.5) / (df + 0.5) + 1.0)
+
+    def score(self, query: str, doc_idx: int) -> float:
+        query_tokens = _tokenize(query)
+        doc_tokens = self.docs_tokenized[doc_idx]
+        doc_len = self.doc_lengths[doc_idx]
+        
+        tf = {}
+        for token in doc_tokens:
+            tf[token] = tf.get(token, 0) + 1
+            
+        score = 0.0
+        for token in query_tokens:
+            if token not in self.idfs:
+                continue
+            token_tf = tf.get(token, 0)
+            idf = self.idfs[token]
+            num = token_tf * (self.k1 + 1)
+            den = token_tf + self.k1 * (1.0 - self.b + self.b * (doc_len / max(self.avg_doc_len, 1)))
+            score += idf * (num / den)
+            
+        return score
+
+
+def _chunk_text(text: str, chunk_size: int = 2000, overlap: int = 300) -> list[str]:
+    """Divide el texto en fragmentos superpuestos."""
+    chunks = []
+    if len(text) <= chunk_size:
+        return [text]
+    
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += chunk_size - overlap
+    return chunks
+
+
+def retrieve_relevant_context(text: str) -> str:
+    """Realiza búsquedas dirigidas (RAG local) para compilar el contexto más relevante."""
+    chunks = _chunk_text(text, chunk_size=2000, overlap=300)
+    if len(chunks) <= 8:
+        return text
+        
+    bm25 = SimpleBM25(chunks)
+    
+    # Consultas temáticas para peinar el estudio
+    queries = [
+        "área natural protegida reserva de la biosfera parque nacional traslape coordenadas zona núcleo",
+        "NOM-059-SEMARNAT especie en peligro amenazada sujeta a protección especial fauna flora endémica",
+        "medidas de mitigación riesgos impactos ambientales plan de manejo restauración PTAR suelo agua aire"
+    ]
+    
+    selected_indices = set()
+    for q in queries:
+        scores = []
+        for i in range(len(chunks)):
+            scores.append((bm25.score(q, i), i))
+        scores.sort(key=lambda x: x[0], reverse=True)
+        for _, idx in scores[:2]:
+            selected_indices.add(idx)
+            
+    ordered_indices = sorted(list(selected_indices))
+    retrieved_chunks = [chunks[i] for i in ordered_indices]
+    
+    logger.info("RAG Local: Seleccionados %d de %d fragmentos para análisis.", len(retrieved_chunks), len(chunks))
+    return "\n\n=== FRAGMENTO DE ESTUDIO ===\n\n".join(retrieved_chunks)
+
+
 def _check_knockouts(text: str) -> list[str]:
     """Detecta knockouts automáticos en el texto."""
-    import re
     triggered = []
     for ko in KNOCKOUT_PATTERNS:
         if re.search(ko["pattern"], text):
@@ -132,7 +228,7 @@ def generate_report(md_path: Path) -> dict:
 
     text = md_path.read_text(encoding="utf-8", errors="replace")
 
-    # Knockout check primero (sin llamada a Gemini)
+    # Knockout check primero (sin llamada a Gemini/local)
     knockouts = _check_knockouts(text)
     if knockouts:
         return {
@@ -154,17 +250,17 @@ def generate_report(md_path: Path) -> dict:
         if provider in ("heuristic", "fallback_heuristic"):
             return _fallback_report(text, md_path)
             
-        # Prompts y truncados diferenciados
+        # Prompts y RAG diferenciados
         if provider in ("llama-server", "ollama"):
             sys_prompt = SYSTEM_PROMPT_LOCAL
-            max_chars = 40_000
+            context = retrieve_relevant_context(text)
+            context = _truncate_text(context, max_chars=15_000)
         else:
             sys_prompt = SYSTEM_PROMPT_GEMINI
-            max_chars = 120_000
+            context = _truncate_text(text, max_chars=120_000)
             
-        truncated = _truncate_text(text, max_chars=max_chars)
         result = generate_completion(
-            prompt=truncated,
+            prompt=context,
             system_prompt=sys_prompt,
             response_json=True
         )
@@ -174,7 +270,6 @@ def generate_report(md_path: Path) -> dict:
             
         result.setdefault("meta", {})
         result["meta"]["file"] = str(md_path)
-        # El campo meta.modelo ya lo rellena generate_completion
         return result
     except Exception as exc:
         logger.error("Error en generate_report con llm_client: %s", exc)
