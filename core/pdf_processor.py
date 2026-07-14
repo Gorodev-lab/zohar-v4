@@ -115,6 +115,24 @@ def iter_pages_as_markdown(
                 show_progress=False,
             )
             is_scanned = len(md_text.strip()) < SCANNED_THRESHOLD
+
+            if is_scanned:
+                logger.info("Página %d de %s tiene poco texto digital. Aplicando OCR (RapidOCR/Tesseract)...", page_num, pdf_path.name)
+                try:
+                    ocr_text = pymupdf4llm.to_markdown(
+                        str(pdf_path),
+                        pages=[page_num - 1],
+                        show_progress=False,
+                        use_ocr=True,
+                        ocr_language="spa"
+                    )
+                    if len(ocr_text.strip()) > len(md_text.strip()):
+                        md_text = ocr_text
+                        is_scanned = False
+                        logger.info("OCR exitoso en página %d!", page_num)
+                except Exception as ocr_exc:
+                    logger.warning("Error aplicando OCR en página %d de %s: %s", page_num, pdf_path.name, ocr_exc)
+
             yield (page_num, total_pages, md_text, is_scanned)
         except Exception as exc:
             logger.warning("Error en página %d de %s: %s", page_num, pdf_path.name, exc)

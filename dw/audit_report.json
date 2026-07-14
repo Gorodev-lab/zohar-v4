@@ -1,0 +1,47 @@
+{
+  "CONAPESCA Permits": {
+    "dataset_name": "CONAPESCA Permits",
+    "total_rows": 2643,
+    "missing_values": {
+      "vessel_registration_number": {
+        "count": 703,
+        "percentage": 26.6
+      }
+    },
+    "type_errors": {},
+    "range_violations": 99,
+    "regex_violations": 0,
+    "duplicate_rows": 415,
+    "rows_removed": 99
+  },
+  "OBIS Occurrences": {
+    "dataset_name": "OBIS Occurrences",
+    "total_rows": 10,
+    "missing_values": {},
+    "type_errors": {},
+    "range_violations": 0,
+    "regex_violations": 0,
+    "duplicate_rows": 0,
+    "rows_removed": 0
+  },
+  "GFW Vessels": {
+    "dataset_name": "GFW Vessels",
+    "total_rows": 52,
+    "missing_values": {},
+    "type_errors": {},
+    "range_violations": 0,
+    "regex_violations": 0,
+    "duplicate_rows": 0,
+    "rows_removed": 0
+  },
+  "GFW Fishing Effort": {
+    "dataset_name": "GFW Fishing Effort",
+    "total_rows": 50,
+    "missing_values": {},
+    "type_errors": {},
+    "range_violations": 0,
+    "regex_violations": 0,
+    "duplicate_rows": 0,
+    "rows_removed": 0
+  }
+}

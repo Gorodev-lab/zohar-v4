@@ -28,6 +28,35 @@ class SecondBrainBuilder:
 
         self.clave_re = re.compile(r"(?<![A-Z0-9])(\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})(?![A-Z0-9])")
 
+    # ──────────────────────────────────────────────────────────────────────────
+    # API pública: resolución de rutas para el motor de inferencia
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def get_extraction_path(self, clave: str) -> Path | None:
+        """
+        Resuelve la ruta del archivo .md de extracción para una clave SINAT.
+
+        Prioridad:
+          1. {extractions_dir}/{clave}.estudio.00.md  (texto completo del estudio)
+          2. {extractions_dir}/{clave}.resumen.00.md  (resumen técnico)
+          3. {extractions_dir}/{clave}.md              (genérico)
+          4. None — no hay extracción disponible
+
+        IMPORTANTE: devuelve la ruta del archivo de EXTRACCIÓN, no la ficha
+        del second_brain en 02_Entities/. La ficha solo es un índice.
+        """
+        candidates = [
+            self.extractions_dir / f"{clave}.estudio.00.md",
+            self.extractions_dir / f"{clave}.resumen.00.md",
+            self.extractions_dir / f"{clave}.md",
+        ]
+        for path in candidates:
+            if path.exists():
+                logger.debug("Extracción encontrada para %s: %s", clave, path.name)
+                return path
+        logger.warning("Sin extracción disponible para clave: %s", clave)
+        return None
+
     def build_vault(self) -> dict:
         """
         Construye la bóveda completa de la Base de Conocimiento de Zohar en second_brain/.
@@ -322,30 +351,28 @@ Esta gaceta anuncia los siguientes proyectos ecológicos evaluados:
         """Escribe una nota estructurada para un proyecto (clave SINAT)."""
         note_path = dest_dir / f"Proyecto - {clave}.md"
 
-        metadata_sec = ""
+        # ── Ficha técnica ──────────────────────────────────────────────────
         if proj.get("valid"):
             metadata_sec = f"""## [FICHA] Técnica
-- **Clave de Proyecto:** {clave}
+- **Clave de Proyecto:** `{clave}`
 - **Estado/Ubicación:** [[Municipio - {proj['estado_nombre']}]]
 - **Año de Registro:** {proj['year']}
 - **Sector Productivo:** [[Sector - {proj['sector']}]]
 - **Tipo de Trámite:** [[Tipo - {proj['tipo_nombre']}]]"""
         else:
             metadata_sec = f"""## [!] Ficha Técnica (Formato Especial)
-- **Clave Identificada:** {clave}
-- _Nota: Esta clave no cumple el formato estándar de SEMARNAT de 12-14 caracteres._"""
+- **Clave Identificada:** `{clave}`
+- _Nota: Esta clave no cumple el formato estándar SEMARNAT de 12-14 caracteres._"""
 
-        # Enlace a Gaceta
-        gaceta_sec = ""
+        # ── Gaceta de origen ───────────────────────────────────────────────
         if proj.get("gaceta_origen"):
             orig = proj['gaceta_origen']
-            is_asea = orig.upper().startswith("ASEA_")
-            prefix = "Gaceta ASEA" if is_asea else "Gaceta"
+            prefix = "Gaceta ASEA" if orig.upper().startswith("ASEA_") else "Gaceta"
             gaceta_sec = f"- **Gaceta de Anuncio:** [[{prefix} - {orig}]]"
         else:
             gaceta_sec = "- **Gaceta de Anuncio:** _No detectada en el corpus local._"
 
-        # Archivos PDF
+        # ── Archivos PDF ───────────────────────────────────────────────────
         files_sec = ""
         for cat in ["estudio", "resumen", "resolutivo"]:
             field = f"{cat}_pdf"
@@ -354,24 +381,60 @@ Esta gaceta anuncia los siguientes proyectos ecológicos evaluados:
             else:
                 files_sec += f"- **PDF de {cat.capitalize()}:** _No descargado_\n"
 
-        # Extracción e inferencia
-        ext_sec = ""
-        if proj.get("extraction"):
-            ext_sec = f"- **Texto Markdown Extraído:** [{proj['extraction']['name']}](file://{proj['extraction']['path']})"
+        # ── Extracción .md ─────────────────────────────────────────────────
+        # Resuelve la ruta del archivo de extracción usando get_extraction_path().
+        # El motor de inferencia DEBE recibir esta ruta, no la ruta de esta ficha.
+        extraction_path = self.get_extraction_path(clave)
+        if extraction_path:
+            ext_size_kb = round(extraction_path.stat().st_size / 1024, 1)
+            ext_sec = (
+                f"- **Texto Extraído (.md):** [{extraction_path.name}](file://{extraction_path}) "
+                f"(`{ext_size_kb} KB`)\n"
+                f"- **Ruta para inferencia:** `{extraction_path}`"
+            )
+            # Snippet: primeras ~500 palabras del texto extraído para previsualización
+            try:
+                raw_text = extraction_path.read_text(encoding="utf-8", errors="replace")
+                words = raw_text.split()
+                snippet = " ".join(words[:500])
+                if len(words) > 500:
+                    snippet += "…"
+                snippet_sec = f"\n\n### Vista previa del texto extraído\n```\n{snippet}\n```"
+            except Exception:
+                snippet_sec = ""
+        elif proj.get("extraction"):
+            # Fallback: referencia previa sin resolución por get_extraction_path
+            ext_sec = f"- **Texto Extraído (.md):** [{proj['extraction']['name']}](file://{proj['extraction']['path']})"
+            snippet_sec = ""
         else:
-            ext_sec = "- **Texto Markdown Extraído:** _No procesado_"
+            ext_sec = (
+                "- **Texto Extraído (.md):** _No procesado — ejecuta `pdf_processor.py` "
+                "sobre el PDF del estudio para generar la extracción._"
+            )
+            snippet_sec = ""
 
-        inf_sec = ""
+        # ── Dictamen de inferencia ─────────────────────────────────────────
         if proj.get("inference"):
-            inf_sec = f"- **Reporte de Dictamen:** [[Inferencia - {clave}]] (Veredicto: **{proj['inference'].get('veredicto', 'SIN EVALUAR')}**)"
+            veredicto_badge = proj['inference'].get('veredicto', 'SIN EVALUAR')
+            score_pct = round(proj['inference'].get('score', 0) * 100, 1)
+            confianza = proj['inference'].get('confianza_pct', '?')
+            inf_sec = (
+                f"- **Reporte de Dictamen:** [[Inferencia - {clave}]]\n"
+                f"- **Veredicto:** **{veredicto_badge}** | Score: `{score_pct}%` | "
+                f"Confianza: `{confianza}%`"
+            )
         else:
-            inf_sec = f"- **Reporte de Dictamen:** _Inferencia no ejecutada. Lanza el motor de evaluación para este proyecto._"
+            inf_sec = (
+                "- **Reporte de Dictamen:** _Pendiente_\n"
+                f"- **Comando para evaluar:** `generate_report(Path('{extraction_path or 'extractions/' + clave + '.md'}'))`"
+            )
 
         content = f"""---
 type: entity
 category: proyecto
 clave: {clave}
 valid: {proj.get('valid', False)}
+extraction_path: "{extraction_path or ''}"
 date_generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 ---
 
@@ -383,7 +446,7 @@ date_generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 ## [ARCHIVOS] Documentos del Trámite
 {files_sec}
-{ext_sec}
+{ext_sec}{snippet_sec}
 
 ---
 
