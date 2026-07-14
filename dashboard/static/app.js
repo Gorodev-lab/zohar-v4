@@ -1383,7 +1383,7 @@ function triggerDownload(clave) {
 
   const es = new EventSource(`/api/scraper/download-clave?clave=${encodeURIComponent(clave)}&year=${year}`);
 
-  es.onmessage = e => {
+  es.onmessage = async e => {
     const evt = JSON.parse(e.data);
     if (evt.pct !== undefined) {
       setProgress(progEl, evt.pct);
@@ -1437,7 +1437,21 @@ function triggerDownload(clave) {
         if (logEl) logEl.appendChild(statusDiv);
 
         showToast(toastMsg, toastLevel);
-        loadWorkflowGacetas();
+
+        // Preserve selected gaceta and reload its keys after refresh
+        const selectedLi = $('#wf-gacetas-list .file-item.selected');
+        const selectedGaceta = selectedLi?.dataset?.name || null;
+        await loadWorkflowGacetas();
+        if (selectedGaceta) {
+          // Re-select the same gaceta in the refreshed list
+          const listEl = $('#wf-gacetas-list');
+          const targetLi = listEl?.querySelector(`.file-item[data-name="${CSS.escape(selectedGaceta)}"]`);
+          if (targetLi) {
+            listEl.querySelectorAll('.file-item').forEach(i => i.classList.remove('selected'));
+            targetLi.classList.add('selected');
+            await loadWorkflowGacetaKeys(selectedGaceta);
+          }
+        }
       } else {
         showToast(`❌ Error descargando ${clave}`, 'error');
       }
@@ -1892,6 +1906,24 @@ async function sendChatMessage() {
     messagesLog.removeChild(systemDiv);
 
     // Render System Response
+    if (data.tool_calls && data.tool_calls.length > 0) {
+      data.tool_calls.forEach(call => {
+        const toolDiv = document.createElement('div');
+        toolDiv.className = 'log-line';
+        toolDiv.style.cssText = 'border-left: 2px solid var(--color-amber); padding-left: var(--space-2); margin-bottom: 12px; background: rgba(243, 156, 18, 0.05);';
+        const argsStr = typeof call.arguments === 'object' ? JSON.stringify(call.arguments) : String(call.arguments);
+        toolDiv.innerHTML = `
+          <span class="log-line__ts" style="color:var(--color-amber);">[TOOL_CALL]</span>
+          <span class="log-line__msg" style="font-family:var(--font-mono); font-size:10px; color:var(--color-amber); font-weight:bold;">⚡ ${call.name}(${escHtml(argsStr)})</span>
+          <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-muted); margin-top:4px; max-height:120px; overflow-y:auto; white-space:pre-wrap; border:1px solid var(--border-color-dim); padding:6px; background:rgba(0,0,0,0.3);">
+[RESULTADO]:
+${escHtml(call.result)}
+          </div>
+        `;
+        messagesLog.appendChild(toolDiv);
+      });
+    }
+
     const responseDiv = document.createElement('div');
     responseDiv.className = 'log-line';
     responseDiv.style.marginBottom = '12px';

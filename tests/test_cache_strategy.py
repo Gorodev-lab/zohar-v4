@@ -37,7 +37,8 @@ def temp_dirs(tmp_path):
          patch("api.main.RESUMENES_DIR", downloads / "resumenes"), \
          patch("api.main.ESTUDIOS_DIR", downloads / "estudios"), \
          patch("api.main.RESOLUTIVOS_DIR", downloads / "resolutivos"), \
-         patch("api.main.GACETAS_DIR", downloads / "gacetas"):
+         patch("api.main.GACETAS_DIR", downloads / "gacetas"), \
+         patch("api.main.REDIS_AVAILABLE", False):
         yield {
             "downloads": downloads,
             "extractions": extractions,
