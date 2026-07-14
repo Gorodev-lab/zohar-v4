@@ -317,6 +317,102 @@ async def api_status():
 
 
 # ---------------------------------------------------------------------------
+# Rutas — llama-server local
+# ---------------------------------------------------------------------------
+import subprocess
+import signal
+import httpx
+
+@app.get("/api/llama/status", tags=["system"])
+async def get_llama_status():
+    """Verifica si llama-server está activo en el puerto 8083 y responde a /health."""
+    local_url = os.environ.get("LOCAL_LLM_URL", "http://127.0.0.1:8083")
+    try:
+        # Intentar conectar con el endpoint de health de llama-server
+        async with httpx.AsyncClient() as client:
+            r = await client.get(f"{local_url}/health", timeout=1.0)
+            if r.status_code == 200:
+                data = r.json()
+                return {
+                    "status": "online",
+                    "model": os.environ.get("LOCAL_LLM_MODEL", "gemma-4-e2b"),
+                    "details": data
+                }
+    except Exception as exc:
+        logger.error("Error conectando con llama-server: %s", exc)
+
+    # Si no responde al health, verificar si el archivo de PID existe
+    pid_file = Path("/tmp/zohar_llama_server.pid")
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text().strip())
+            os.kill(pid, 0)
+            return {
+                "status": "booting",
+                "model": os.environ.get("LOCAL_LLM_MODEL", "gemma-4-e2b")
+            }
+        except Exception:
+            try:
+                pid_file.unlink()
+            except Exception:
+                pass
+
+    return {
+        "status": "offline",
+        "model": os.environ.get("LOCAL_LLM_MODEL", "gemma-4-e2b")
+    }
+
+
+@app.post("/api/llama/start", tags=["system"])
+async def start_llama_server():
+    """Inicia el servidor llama-server usando el script local."""
+    status = await get_llama_status()
+    if status["status"] in ("online", "booting"):
+        return {"status": "already_running", "msg": "El servidor ya está activo o iniciándose."}
+
+    try:
+        # Spawn detached process
+        subprocess.Popen(
+            ["./start_llama_server.sh"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            cwd=str(BASE_DIR)
+        )
+        return {"status": "starting", "msg": "Iniciando llama-server en segundo plano."}
+    except Exception as exc:
+        return {"status": "error", "msg": f"Error al lanzar el script: {exc}"}
+
+
+@app.post("/api/llama/stop", tags=["system"])
+async def stop_llama_server():
+    """Detiene el servidor llama-server matando su PID y enviando SIGTERM."""
+    pid_file = Path("/tmp/zohar_llama_server.pid")
+    killed = False
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text().strip())
+            os.kill(pid, signal.SIGTERM)
+            killed = True
+            time.sleep(1.0)
+            if pid_file.exists():
+                pid_file.unlink()
+        except Exception:
+            pass
+
+    try:
+        subprocess.run(["pkill", "-f", "llama-server"], capture_output=True)
+        killed = True
+    except Exception:
+        pass
+
+    if killed:
+        return {"status": "stopped", "msg": "Servidor detenido exitosamente."}
+    else:
+        return {"status": "ignored", "msg": "No había ningún servidor activo para detener."}
+
+
+# ---------------------------------------------------------------------------
 # Rutas — Corpus PDF
 # ---------------------------------------------------------------------------
 
@@ -789,11 +885,11 @@ def _extract_year_from_name(name: str) -> Optional[int]:
     return None
 
 
-def extract_project_info_from_text(clave: str, text: str) -> tuple[str, str]:
+def extract_project_info_from_text(clave: str, text: str) -> tuple[str, str, str]:
     """
-    Extrae el nombre y la ubicación de un proyecto en el texto
+    Extrae el nombre, la ubicación y el promovente de un proyecto en el texto
     alrededor de la clave SINAT dada, intentando usar LLM o heurística.
-    Retorna (project_name, location).
+    Retorna (project_name, location, promovente).
     """
     from core.graph_builder import parse_semarnat_key
     parsed = parse_semarnat_key(clave)
@@ -801,6 +897,7 @@ def extract_project_info_from_text(clave: str, text: str) -> tuple[str, str]:
 
     project_name = f"Proyecto {clave}"
     location = state_fallback
+    promovente = "Desconocido"
 
     # 1. Intentar extracción con LLM si hay backend activo
     try:
@@ -824,15 +921,17 @@ def extract_project_info_from_text(clave: str, text: str) -> tuple[str, str]:
                 fragment = text[:3000]
 
             sys_prompt = """
-            Eres un asistente que extrae información de gacetas ambientales.
+            Eres un asistente experto que extrae información de gacetas ambientales de SEMARNAT.
             Dada una clave de proyecto y un texto, extrae:
-            1. El nombre del proyecto (denominación del proyecto).
-            2. La ubicación (Estado y Municipio, si están disponibles).
+            1. El nombre del proyecto (denominación o título del proyecto).
+            2. La ubicación (Municipio y Estado, o en su defecto solo el Estado/Región).
+            3. El promovente (persona física o moral que promueve o presenta el proyecto).
             
             Responde ÚNICAMENTE en JSON con esta estructura exacta:
             {
               "project_name": "Nombre completo del proyecto",
-              "location": "Municipio, Estado"
+              "location": "Municipio, Estado",
+              "promovente": "Nombre de la empresa o persona promotora"
             }
             """
             
@@ -842,14 +941,17 @@ def extract_project_info_from_text(clave: str, text: str) -> tuple[str, str]:
                 system_prompt=sys_prompt,
                 response_json=True
             )
-            if not res.get("is_fallback") and ("project_name" in res or "location" in res):
+            if not res.get("is_fallback") and ("project_name" in res or "location" in res or "promovente" in res):
                 extracted_name = res.get("project_name", project_name).strip()
                 extracted_loc = res.get("location", location).strip()
+                extracted_prom = res.get("promovente", promovente).strip()
                 if len(extracted_name) > 3 and extracted_name != f"Proyecto {clave}":
                     project_name = extracted_name
                 if len(extracted_loc) > 3:
                     location = extracted_loc
-                return project_name, location
+                if len(extracted_prom) > 3:
+                    promovente = extracted_prom
+                return project_name, location, promovente
     except Exception as e:
         logger.warning(f"Error extrayendo info con LLM para clave {clave}: {e}. Usando heurística.")
 
@@ -922,13 +1024,26 @@ def extract_project_info_from_text(clave: str, text: str) -> tuple[str, str]:
                         location = loc_cand
                         break
 
+            prom_patterns = [
+                r"(?:promovente|empresa|interesado|peticionario|responsable)\s*:\s*([^\n|]+)",
+            ]
+            for pat in prom_patterns:
+                m = re.search(pat, surrounding_text, re.IGNORECASE)
+                if m:
+                    prom_cand = m.group(1).strip()
+                    prom_cand = re.sub(r"[*`_#]+", "", prom_cand)
+                    if len(prom_cand) > 3:
+                        promovente = prom_cand
+                        break
+
     project_name = project_name.strip().strip('"\'[]()')
     location = location.strip().strip('"\'[]()')
+    promovente = promovente.strip().strip('"\'[]()')
 
     if len(project_name) > 200:
         project_name = project_name[:197] + "..."
 
-    return project_name, location
+    return project_name, location, promovente
 
 
 @app.get("/api/scraper/extract-keys", tags=["scraper"])
@@ -959,6 +1074,7 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
                             row_clave, row_year, row_file = row[:3]
                             row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
                             row_loc = row[4] if len(row) > 4 else ""
+                            row_prom = row[5] if len(row) > 5 else "Desconocido"
                             # Si es placeholder huérfano, omitirlo
                             if row_clave == "23QR2024TD085" and not row_file:
                                 continue
@@ -968,7 +1084,8 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
                                 "YEAR": int(row_year),
                                 "FILE": row_file,
                                 "PROJECT_NAME": row_proj_name,
-                                "LOCATION": row_loc
+                                "LOCATION": row_loc,
+                                "PROMOVENTE": row_prom
                             }
                             if source == "sinat" and is_row_asea:
                                 existing_claves.append(item)
@@ -1064,13 +1181,14 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
             for clave in found_keys:
                 if clave not in seen_claves:
                     seen_claves.add(clave)
-                    proj_name, loc = extract_project_info_from_text(clave, text_content)
+                    proj_name, loc, prom = extract_project_info_from_text(clave, text_content)
                     new_claves.append({
                         "CLAVE": clave,
                         "YEAR": year,
                         "FILE": str(g_pdf_path),
                         "PROJECT_NAME": proj_name,
-                        "LOCATION": loc
+                        "LOCATION": loc,
+                        "PROMOVENTE": prom
                     })
                     gaceta_count += 1
 
@@ -1084,7 +1202,7 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
         # Generar CSV combinando existentes y nuevas
         final_claves = existing_claves + new_claves
         DATA_DIR.mkdir(parents=True, exist_ok=True)
-        fieldnames = ["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION"]
+        fieldnames = ["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION", "PROMOVENTE"]
         if final_claves:
             # Ordenar para consistencia
             final_claves.sort(key=lambda x: (x.get("FILE", ""), x.get("CLAVE", "")))
@@ -1102,7 +1220,8 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
                     "YEAR": year,
                     "FILE": "",
                     "PROJECT_NAME": "Proyecto 23QR2024TD085",
-                    "LOCATION": "Desconocida"
+                    "LOCATION": "Desconocida",
+                    "PROMOVENTE": "Desconocido"
                 })
 
         yield {
@@ -1278,6 +1397,7 @@ async def run_pipeline(year: int = Query(2026), source: str = Query("all", descr
                             row_clave, row_year, row_file = row[:3]
                             row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
                             row_loc = row[4] if len(row) > 4 else ""
+                            row_prom = row[5] if len(row) > 5 else "Desconocido"
                             if row_clave == "23QR2024TD085" and not row_file:
                                 continue
                             is_row_asea = row_file and ("asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_"))
@@ -1286,7 +1406,8 @@ async def run_pipeline(year: int = Query(2026), source: str = Query("all", descr
                                 "YEAR": int(row_year),
                                 "FILE": row_file,
                                 "PROJECT_NAME": row_proj_name,
-                                "LOCATION": row_loc
+                                "LOCATION": row_loc,
+                                "PROMOVENTE": row_prom
                             }
                             if source == "sinat" and is_row_asea:
                                 existing_claves.append(item)
@@ -1305,13 +1426,14 @@ async def run_pipeline(year: int = Query(2026), source: str = Query("all", descr
                 for clave in _CLAVE_RE.findall(text.upper()):
                     if clave not in seen_claves:
                         seen_claves.add(clave)
-                        proj_name, loc = extract_project_info_from_text(clave, text)
+                        proj_name, loc, prom = extract_project_info_from_text(clave, text)
                         new_claves.append({
                             "CLAVE": clave,
                             "YEAR": year,
                             "FILE": str(g_pdf),
                             "PROJECT_NAME": proj_name,
-                            "LOCATION": loc
+                            "LOCATION": loc,
+                            "PROMOVENTE": prom
                         })
                         
         final_claves = existing_claves + new_claves
@@ -1319,7 +1441,7 @@ async def run_pipeline(year: int = Query(2026), source: str = Query("all", descr
             final_claves.sort(key=lambda x: (x.get("FILE", ""), x.get("CLAVE", "")))
             DATA_DIR.mkdir(parents=True, exist_ok=True)
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv_module.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION"])
+                writer = csv_module.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION", "PROMOVENTE"])
                 writer.writeheader()
                 writer.writerows(final_claves)
         yield {"status": "progress", "msg": f"Claves: {len(final_claves)} encontradas en total ({len(all_pdfs)} gacetas procesadas)", "pct": 65, "stage": "keys"}
@@ -1356,6 +1478,124 @@ async def run_pipeline(year: int = Query(2026), source: str = Query("all", descr
     return _sse_response(gen())
 
 
+def update_csv_metadata(clave: str, metadata: dict, year: int):
+    """
+    Actualiza o inserta los metadatos de un proyecto en el archivo CSV data/claves_{year}.csv.
+    """
+    import csv
+    csv_path = DATA_DIR / f"claves_{year}.csv"
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    
+    rows = []
+    found = False
+    
+    header = ["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION", "PROMOVENTE"]
+    
+    if csv_path.exists():
+        try:
+            with open(csv_path, "r", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                file_header = next(reader, None)
+                if file_header:
+                    header = file_header
+                for row in reader:
+                    if len(row) > 0 and row[0].strip().upper() == clave.strip().upper():
+                        while len(row) < 6:
+                            row.append("")
+                        if metadata.get("project_name"):
+                            row[3] = metadata["project_name"]
+                        if metadata.get("municipio") or metadata.get("state"):
+                            locs = [metadata.get("municipio", ""), metadata.get("state", "")]
+                            row[4] = ", ".join([l for l in locs if l])
+                        if metadata.get("promovente"):
+                            row[5] = metadata["promovente"]
+                        found = True
+                    rows.append(row)
+        except Exception as exc:
+            logger.warning("Error leyendo CSV de claves para actualizar: %s", exc)
+            
+    if not found:
+        locs = [metadata.get("municipio", ""), metadata.get("state", "")]
+        location = ", ".join([l for l in locs if l])
+        new_row = [
+            clave,
+            str(year),
+            "",
+            metadata.get("project_name", f"Proyecto {clave}"),
+            location,
+            metadata.get("promovente", "Desconocido")
+        ]
+        rows.append(new_row)
+        
+    try:
+        with open(csv_path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+            writer.writerows(rows)
+    except Exception as exc:
+        logger.error("Error escribiendo CSV de claves: %s", exc)
+
+
+def upsert_project_db(clave: str, metadata: dict, year: int):
+    """
+    Inserta o actualiza los metadatos de un proyecto directamente en la base de datos PostgreSQL.
+    """
+    from sqlalchemy import create_engine, text
+    db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/maritime_dw")
+    try:
+        engine = create_engine(db_url, connect_args={"connect_timeout": 3})
+        with engine.connect() as conn:
+            res = conn.execute(text("SELECT clave FROM public.semarnat_projects WHERE clave = :clave"), {"clave": clave})
+            row = res.fetchone()
+            
+            project_name = metadata.get("project_name", f"Proyecto {clave}")
+            status = metadata.get("status", "INGRESADO")
+            sector = metadata.get("sector", "Otros")
+            
+            locs = [metadata.get("municipio", ""), metadata.get("state", "")]
+            state = ", ".join([l for l in locs if l]) if any(locs) else "Desconocido"
+            
+            promovente = metadata.get("promovente", "Desconocido")
+            
+            if row:
+                query = text("""
+                    UPDATE public.semarnat_projects
+                    SET project_name = COALESCE(:name, project_name),
+                        status = COALESCE(:status, status),
+                        sector = COALESCE(:sector, sector),
+                        state = COALESCE(:state, state),
+                        promovente = COALESCE(:promovente, promovente),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE clave = :clave
+                """)
+                conn.execute(query, {
+                    "clave": clave,
+                    "name": project_name,
+                    "status": status,
+                    "sector": sector,
+                    "state": state,
+                    "promovente": promovente
+                })
+            else:
+                query = text("""
+                    INSERT INTO public.semarnat_projects (clave, project_name, status, sector, state, year, promovente)
+                    VALUES (:clave, :name, :status, :sector, :state, :year, :promovente)
+                """)
+                conn.execute(query, {
+                    "clave": clave,
+                    "name": project_name,
+                    "status": status,
+                    "sector": sector,
+                    "state": state,
+                    "year": year,
+                    "promovente": promovente
+                })
+            conn.commit()
+            logger.info("Base de datos: UPSERT completado para clave %s", clave)
+    except Exception as exc:
+        logger.warning("No se pudo realizar UPSERT en base de datos: %s", exc)
+
+
 @app.get("/api/scraper/download-clave", tags=["scraper"])
 async def download_clave(clave: str = Query(..., description="Clave SINAT a descargar (ej. 05CO2026I0001)"), year: int = Query(2026)):
     """
@@ -1376,23 +1616,80 @@ async def download_clave(clave: str = Query(..., description="Clave SINAT a desc
     def gen():
         yield {"status": "progress", "msg": f"Iniciando descarga para clave: {clave}", "pct": 0, "clave": clave}
 
-        # Etapa 1: Descarga SEMARNAT vía Selenium
+        # Etapa 1: Descarga SEMARNAT vía Selenium (con reintentos automáticos)
         yield {"status": "progress", "msg": "Conectando con portal SEMARNAT (Selenium)...", "pct": 5}
+        metadata = {}
+        classified_files = {"resumenes": [], "estudios": [], "resolutivos": []}
+        download_status = "error"
         try:
             from scrapers.semarnat_downloader import SemarnatDownloader
+            from concurrent.futures import ThreadPoolExecutor
             downloader = SemarnatDownloader(
                 download_dir=str(DOWNLOADS_DIR),
                 estudios_dir=str(ESTUDIOS_DIR),
                 resumenes_dir=str(RESUMENES_DIR),
                 resolutivos_dir=str(RESOLUTIVOS_DIR),
             )
-            for event in downloader._descargar_clave_gen(clave):
+            for event in downloader._descargar_clave_gen_with_retry(clave):
+                if "metadata" in event:
+                    metadata = event["metadata"]
+                if "files" in event:
+                    classified_files = event["files"]
                 yield {**event, "pct": min(5 + int(event.get("pct", 0) * 0.55), 60)}
+
+            # Calcular estado de completitud de la descarga
+            counts = [
+                len(classified_files.get("resumenes", [])),
+                len(classified_files.get("estudios", [])),
+                len(classified_files.get("resolutivos", [])),
+            ]
+            total_types = sum(1 for c in counts if c > 0)
+            if total_types == 3:
+                download_status = "complete"
+            elif total_types > 0:
+                download_status = "partial"
+            else:
+                download_status = "error"
+
+            # Persistir metadatos DOM en CSV y Postgres
+            if metadata:
+                try:
+                    update_csv_metadata(clave, metadata, year)
+                    upsert_project_db(clave, metadata, year)
+                    yield {"status": "progress", "msg": "Metadatos del DOM integrados exitosamente (CSV & Postgres)", "pct": 61}
+                except Exception as db_exc:
+                    yield {"status": "progress", "msg": f"Metadatos DOM warning: {db_exc}", "pct": 61, "level": "warning"}
+
+            # Enriquecimiento LLM en background (no bloquea el stream)
+            if download_status in ("complete", "partial"):
+                try:
+                    from core.llm_enricher import enrich_metadata_from_pdf, find_best_pdf_for_enrichment
+                    best_pdf = find_best_pdf_for_enrichment(classified_files)
+                    if best_pdf:
+                        _meta_snap = dict(metadata)
+                        _year_snap = year
+                        _clave_snap = clave
+                        def _enrich_and_persist(pdf_path, meta, clave_s, year_s):
+                            try:
+                                enriched = enrich_metadata_from_pdf(pdf_path, meta)
+                                if enriched != meta:
+                                    upsert_project_db(clave_s, enriched, year_s)
+                                    update_csv_metadata(clave_s, enriched, year_s)
+                                    logger.info("Enriquecimiento LLM completado para %s", clave_s)
+                            except Exception as e:
+                                logger.warning("Error en enriquecimiento background: %s", e)
+                        pool = ThreadPoolExecutor(max_workers=1)
+                        pool.submit(_enrich_and_persist, best_pdf, _meta_snap, _clave_snap, _year_snap)
+                        pool.shutdown(wait=False)
+                        yield {"status": "progress", "msg": "Enriquecimiento LLM iniciado en background (Gemma 4 E2B)...", "pct": 62, "level": "info"}
+                except Exception as enr_exc:
+                    logger.warning("No se pudo iniciar enriquecimiento LLM: %s", enr_exc)
+
         except Exception as exc:
             yield {"status": "progress", "msg": f"Descarga warning: {exc}", "pct": 60, "level": "warning"}
 
         # Etapa 2: Conversión a Markdown
-        yield {"status": "progress", "msg": "Convirtiendo PDFs descargados a Markdown...", "pct": 62}
+        yield {"status": "progress", "msg": "Convirtiendo PDFs descargados a Markdown...", "pct": 63}
         estudio_pdf = ESTUDIOS_DIR / f"{clave}.pdf"
         md_path = EXTRACTIONS_DIR / f"{clave}.md"
         if estudio_pdf.exists():
@@ -1408,7 +1705,7 @@ async def download_clave(clave: str = Query(..., description="Clave SINAT a desc
         else:
             yield {"status": "progress", "msg": "Sin estudio PDF disponible para conversión", "pct": 75, "level": "warning"}
 
-        # Etapa 3: Inferencia (si hay MD y API key)
+        # Etapa 3: Inferencia (si hay MD)
         if md_path.exists():
             yield {"status": "progress", "msg": "Ejecutando inferencia...", "pct": 77}
             try:
@@ -1436,11 +1733,20 @@ async def download_clave(clave: str = Query(..., description="Clave SINAT a desc
         except Exception as exc:
             yield {"status": "progress", "msg": f"Second Brain warning: {exc}", "pct": 97, "level": "warning"}
 
+        # Evento final con estado de descarga
+        docs_downloaded = [
+            tipo for tipo, files in classified_files.items() if files
+        ]
         yield {
             "status": "complete",
             "msg": f"Pipeline de clave {clave} completado",
             "pct": 100,
             "clave": clave,
+            "download_status": download_status,
+            "docs_downloaded": docs_downloaded,
+            "n_resumenes": len(classified_files.get("resumenes", [])),
+            "n_estudios": len(classified_files.get("estudios", [])),
+            "n_resolutivos": len(classified_files.get("resolutivos", [])),
         }
 
     return _sse_response(gen())

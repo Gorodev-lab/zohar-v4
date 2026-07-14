@@ -1,47 +1,25 @@
 {
-  "CONAPESCA Permits": {
-    "dataset_name": "CONAPESCA Permits",
-    "total_rows": 2643,
+  "SEMARNAT Projects": {
+    "dataset_name": "SEMARNAT Projects",
+    "total_rows": 3527,
     "missing_values": {
-      "vessel_registration_number": {
-        "count": 703,
-        "percentage": 26.6
+      "sector": {
+        "count": 11,
+        "percentage": 0.31
+      },
+      "state": {
+        "count": 11,
+        "percentage": 0.31
+      },
+      "year": {
+        "count": 11,
+        "percentage": 0.31
       }
     },
     "type_errors": {},
-    "range_violations": 99,
-    "regex_violations": 0,
-    "duplicate_rows": 415,
-    "rows_removed": 99
-  },
-  "OBIS Occurrences": {
-    "dataset_name": "OBIS Occurrences",
-    "total_rows": 10,
-    "missing_values": {},
-    "type_errors": {},
-    "range_violations": 0,
-    "regex_violations": 0,
+    "range_violations": 3522,
+    "regex_violations": 11,
     "duplicate_rows": 0,
-    "rows_removed": 0
-  },
-  "GFW Vessels": {
-    "dataset_name": "GFW Vessels",
-    "total_rows": 52,
-    "missing_values": {},
-    "type_errors": {},
-    "range_violations": 0,
-    "regex_violations": 0,
-    "duplicate_rows": 0,
-    "rows_removed": 0
-  },
-  "GFW Fishing Effort": {
-    "dataset_name": "GFW Fishing Effort",
-    "total_rows": 50,
-    "missing_values": {},
-    "type_errors": {},
-    "range_violations": 0,
-    "regex_violations": 0,
-    "duplicate_rows": 0,
-    "rows_removed": 0
+    "rows_removed": 11
   }
 }

@@ -1,138 +1,220 @@
 # Zohar Intelligence v4 🌌
 
-> Plataforma inteligente y reactiva para el procesamiento masivo de Gacetas Ecológicas de la SEMARNAT, extracción semántica de entidades y modelado en grafos de conocimiento.
+> Plataforma inteligente y reactiva para el procesamiento masivo de proyectos ambientales de la SEMARNAT, extracción semántica de entidades y construcción de un Second Brain de conocimiento.
 
-Zohar v4 es una aplicación de datos intensiva diseñada bajo criterios de alta disponibilidad, concurrencia no bloqueante y sincronización en tiempo real. Combina scrapers inteligentes basados en navegadores headless, procesamiento híbrido de PDFs (OCR/Markdown), inferencia analítica de viabilidad ambiental (LLM) y persistencia en grafos a través de Neo4j.
+Zohar v4 es una aplicación de datos intensiva diseñada bajo criterios de alta disponibilidad, concurrencia no bloqueante y sincronización en tiempo real. Combina scrapers inteligentes basados en navegadores headless, extracción de metadatos del DOM, procesamiento híbrido de PDFs (OCR/Markdown), enriquecimiento con LLM local (Gemma 4 E2B) e inferencia analítica de viabilidad ambiental.
 
 ---
 
 ## 🏛️ Arquitectura del Sistema
 
-El ecosistema se distribuye en tres capas principales que garantizan un procesamiento asíncrono y de baja latencia:
-
 ```mermaid
 graph TD
-    A[Portal SEMARNAT] -->|Selenium Headless / CDP| B[Scrapers Engine]
+    A[Portal SEMARNAT] -->|Selenium Headless + CDP| B[Scrapers Engine]
+    B -->|DOM Metadata| M[Metadatos Estructurados]
     B -->|PDFs| C[(Downloads Dir)]
+    M -->|update_csv_metadata| CSV[(data/claves_YYYY.csv)]
+    M -->|upsert_project_db| PG[(PostgreSQL)]
     C -->|PDF Processor / OCR| D[Markdown Extractions]
     D -->|Inference Engine / LLM| E[(Inference Cache JSON)]
-    D & E -->|Neo4j Loader| F[(Neo4j Graph Database)]
-    
+    D & E -->|Second Brain Builder| F[(Second Brain / Obsidian Vault)]
+    C -->|LLM Enricher background| PG
+
     subgraph FastAPI Backend
-        G[watchdog File Monitor] -->|Invalidación Reactiva| H[(Redis Cache)]
-        G -->|SSE Broadcaster| I[Live Updates Endpoint]
+        G[watchdog File Monitor] -->|SSE Broadcaster| I[Live Updates Endpoint]
     end
-    
+
     C & D & E -->|Monitorizado por| G
     I -->|Server-Sent Events| J[Dashboard SPA]
-    H -->|Caché de baja latencia <5ms| J
 ```
 
-### Componentes de Software:
-1.  **FastAPI Backend (`api/main.py`)**: API unificada que sirve endpoints SSE, gestiona el flujo de consultas, expone endpoints de análisis e interactúa con Redis y bases de datos.
-2.  **SPA Dashboard (`dashboard/`)**: Panel de control interactivo construido con HTML5, CSS3 personalizado (Glassmorphism) y Javascript nativo, suscrito a eventos en tiempo real.
-3.  **Engine de Descargas (`scrapers/semarnat_downloader.py`)**: Downloader basado en Selenium configurado para interactuar con la SPA Angular de SEMARNAT. Incluye fallback CDP para interceptar descargas directas de PDFs.
-4.  **Cargador de Grafos (`dw/neo4j_loader.py`)**: Cargador masivo de entidades que estructura gacetas, proyectos, estados y tipos de MIA en relaciones semánticas.
-5.  **Entorno de Contenedores (`dw/docker-compose.yml`)**: Orquesta las bases de datos (PostgreSQL/PostGIS, Neo4j) y el bus de datos en memoria (Redis).
+### Componentes de Software
+
+| Componente | Archivo | Descripción |
+|-----------|---------|-------------|
+| FastAPI Backend | `api/main.py` | API unificada con endpoints SSE, gestión de descarga y persistencia |
+| SPA Dashboard | `dashboard/` | Panel interactivo Glassmorphism con badges de estado en tiempo real |
+| Engine de Descargas | `scrapers/semarnat_downloader.py` | Selenium + CDP + reintentos automáticos × 2 |
+| LLM Enricher | `core/llm_enricher.py` | Enriquecimiento de metadatos con Gemma 4 E2B desde el PDF |
+| Second Brain | `core/second_brain.py` | Constructor de vault Obsidian con wiki-links y YAML frontmatter |
+| Data Warehouse | `dw/` | Schema PostgreSQL, pipeline de ingesta y auditoría de calidad |
 
 ---
 
 ## 🚀 Guía de Inicio Rápido
 
 ### Prerrequisitos
-Asegúrate de contar con los siguientes elementos instalados en el sistema host:
-- Docker y Docker Compose
-- Python 3.11+
-- Google Chrome (para Selenium Headless en el host)
 
-### 1. Inicializar la Infraestructura (Bases de Datos + Redis)
-Levanta los servicios de docker desde el directorio `dw/`:
-```bash
-cd dw/
-docker compose up -d
-```
-Esto encenderá:
-- **PostgreSQL/PostGIS** (Puerto `5432`)
-- **Redis** (Puerto `6379`)
-- **Neo4j Browser** (Puerto `7474` HTTP / `7687` Bolt)
+- Python 3.11+ con virtualenv
+- Google Chrome instalado (Selenium Headless)
+- PostgreSQL en `localhost:5432` con base de datos `maritime_dw`
+- `llama-server` compilado con Vulkan (para enriquecimiento LLM local)
 
-### 2. Configurar el Entorno Virtual Python
-Desde la raíz del proyecto:
+### 1. Configurar entorno
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Ejecutar y Controlar el Servidor en Producción (Systemd)
-El servidor FastAPI se administra de forma persistente a nivel de usuario en Systemd.
+### 2. Configurar variables de entorno
 
-- **Verificar estado del servicio**:
-  ```bash
-  systemctl --user status zohar-server.service
-  ```
-- **Reiniciar el servidor (Redeploy)**:
-  ```bash
-  systemctl --user restart zohar-server.service
-  ```
-- **Ver logs en tiempo real**:
-  ```bash
-  journalctl --user -u zohar-server.service -f
-  ```
+Copia `.env.example` a `.env` y ajusta:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/maritime_dw
+LOCAL_LLM_URL=http://localhost:8083
+LOCAL_LLM_MODEL=gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
+CHROME_BINARY=/opt/google/chrome/google-chrome
+```
+
+### 3. Iniciar el servidor
+
+```bash
+./start_server.sh
+```
+
+El dashboard estará disponible en **http://127.0.0.1:8004**
+
+### 4. (Opcional) Iniciar el servidor LLM local
+
+```bash
+./start_llama_server.sh
+```
+
+El modelo Gemma 4 E2B se cargará en el puerto `8083` con aceleración Vulkan.
 
 ---
 
-## 🔄 Flujo de Trabajo (Ingesta de Datos Paso a Paso)
+## 🔄 Cadena de Ingesta (Paso a Paso)
 
-El procesamiento de una clave SINAT o Bitácora sigue este orden secuencial:
+### Paso 1: Descarga con Extracción de Metadatos DOM
 
-### Paso 1: Descarga del Documento
-El scraper recibe la clave y realiza la consulta en la SPA de SEMARNAT:
+El scraper recibe la clave SINAT o bitácora, navega el portal Angular de SEMARNAT, extrae metadatos directamente del DOM (fuente 100% fidedigna) y descarga los PDFs:
+
 ```python
-# Ejemplo de consumo de scraper
 from scrapers.semarnat_downloader import SemarnatDownloader
+
 downloader = SemarnatDownloader()
-downloader.descargar_clave("23QR2025T0061")
-```
-*   **Mecanismo**: El robot simula la escritura en el input Angular, hace clic en "Buscar", espera la carga de resultados y descarga los PDFs de Estudio, Resumen y Resolutivo a `downloads/`.
-*   **CDP Fallback**: Si el clic falla por superposición de capas en el portal, el motor lee el log de red de Chrome DevTools Protocol, intercepta las URLs de los PDFs y los descarga directamente con `requests`.
-
-### Paso 2: Conversión a Markdown (OCR)
-Los PDFs en `downloads/` se parsean y se extrae el texto semiestructurado a formato Markdown en `extractions/`.
-```bash
-# Correr pipeline de conversión
-python dw/pipeline.py
+for event in downloader._descargar_clave_gen_with_retry("23QR2025T0061"):
+    print(event)
 ```
 
-### Paso 3: Inferencia de Viabilidad AI
-El motor de inferencia procesa las gacetas Markdown buscando condicionantes, violaciones de áreas naturales protegidas y señales críticas ("knockouts"), guardando el resultado en `data/inference_cache/{clave}.json`.
+**Metadatos extraídos del DOM:**
+- Nombre del proyecto, fecha de ingreso, sector, estado, municipio, promovente
 
-### Paso 4: Carga al Grafo de Entidades (Neo4j)
-Carga todas las claves en disco directamente a la base de datos de grafos:
-```bash
-python dw/neo4j_loader.py --clear
+**Reintentos automáticos:** hasta 2 reintentos si hay error de red/timeout (no reintenta si el portal confirma `not_found`).
+
+**Clasificación de archivos descargados:**
+- `[R]` Resumen Ejecutivo
+- `[E]` Estudio de Impacto Ambiental
+- `[V]` Resolutivo (oficio oficial)
+
+### Paso 2: Persistencia Dual
+
+Inmediatamente después de la descarga, los metadatos DOM se persisten en:
+- **CSV** (`data/claves_{year}.csv`) — backup ligero
+- **PostgreSQL** (`public.semarnat_projects`) — fuente de verdad para queries y dashboards
+
+### Paso 3: Enriquecimiento LLM en Background
+
+Con el PDF descargado, **Gemma 4 E2B** (vía llama-server en puerto 8083) extrae en segundo plano los campos que el DOM no pudo obtener:
+
+```json
+{
+  "promovente": "...",
+  "sector": "...",
+  "estado": "...",
+  "municipio": "...",
+  "descripcion_breve": "..."
+}
 ```
-Abre tu navegador en [http://localhost:7474](http://localhost:7474) (Credenciales por defecto: `neo4j` / `zohardev2024`) y visualiza las relaciones con la consulta:
-```cypher
-MATCH (p:Proyecto)-[r]->(n) RETURN p, r, n LIMIT 100
-```
+
+Este paso ocurre en un `ThreadPoolExecutor` — **no bloquea** la siguiente descarga.
+
+### Paso 4: Conversión a Markdown + Inferencia
+
+Los PDFs se convierten a Markdown y se ejecuta la inferencia de viabilidad ambiental con el LLM local.
+
+### Paso 5: Second Brain
+
+El vault de Obsidian se actualiza automáticamente con nuevas notas de proyectos, wiki-links y frontmatter YAML.
 
 ---
 
-## ⚡ Rendimiento, Caché e Instant Updates
+## 📊 Dashboard — Estado de Descarga
+
+Cada descarga muestra un badge de estado en tiempo real:
+
+| Badge | Significado |
+|-------|-------------|
+| `✅ Completo [R][E][V]` | Los 3 tipos de documento descargados |
+| `⚠️ Parcial (N/3)` | Solo algunos documentos disponibles |
+| `❌ Fallida` | No se pudo descargar ningún archivo |
+| `⟳ Reintento N/2` | Reintentando automáticamente |
+
+---
+
+## ⚡ Características Técnicas
 
 ### Live Updates (Watchdog + SSE)
-Zohar v4 monitoriza continuamente el almacenamiento. Cuando el backend escribe un nuevo PDF en `downloads/` o un reporte en `inference_cache/`:
-1.  El watcher de `watchdog` intercepta el evento de creación/modificación.
-2.  Invalida inmediatamente las llaves correspondientes en **Redis**.
-3.  El `LiveUpdateBroadcaster` envía un Server-Sent Event (SSE) al dashboard mediante `/api/events/live-updates`.
-4.  El dashboard actualiza de forma reactiva las tablas de datos **sin que el usuario deba presionar F5**.
+Zohar monitoriza el almacenamiento continuamente. Cuando llega un nuevo PDF o reporte:
+1. `watchdog` detecta el evento de archivo
+2. El `LiveUpdateBroadcaster` envía SSE al dashboard
+3. Las tablas se actualizan **sin recargar la página**
 
 ### Concurrencia No Bloqueante
-Todas las operaciones I/O bloqueantes (lecturas de archivos MD de múltiples páginas, escaneos recursively de discos, y llamadas externas) se procesan en pools de hilos dedicados mediante `asyncio.to_thread`. Esto asegura que el hilo del event loop de FastAPI permanezca libre para responder peticiones HTTP con latencias mínimas.
+Todas las operaciones I/O pesadas (OCR, LLM, scans de disco) corren en pools de hilos dedicados via `asyncio.to_thread`, manteniendo el event loop libre.
 
-### Estrategia de Caché Redis
-Las llaves gestionadas en el servidor Redis local son:
--   `zohar:corpus:pdfs` (TTL 30m): Caché de listado de PDFs con metadata.
--   `zohar:graph:compact` (TTL 24h): Grafo optimizado de D3.js.
--   `zohar:analytics:summary` (TTL 5m): Resumen cuantitativo de carpetas de ingesta.
+### Modelo Local — Gemma 4 E2B
+- **Motor:** `llama-server` compilado con Vulkan (aceleración GPU)
+- **Puerto:** `8083`
+- **Modelo:** `gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf`
+- **Usos:** Enriquecimiento de metadatos, clasificación de PDFs, inferencia de viabilidad ambiental, chat contextual
+
+---
+
+## 🗂️ Estructura del Proyecto
+
+```
+zohar-v4-main/
+├── api/
+│   └── main.py              # FastAPI backend unificado
+├── core/
+│   ├── inference_engine.py  # Motor de inferencia ambiental
+│   ├── llm_client.py        # Cliente LLM unificado (llama-server/Ollama/Gemini)
+│   ├── llm_enricher.py      # Enriquecimiento de metadatos desde PDF (NUEVO)
+│   ├── pdf_processor.py     # Procesador OCR/Markdown de PDFs
+│   ├── second_brain.py      # Constructor del vault Obsidian
+│   └── semantic_search.py   # Búsqueda semántica en el Second Brain
+├── dashboard/
+│   ├── index.html           # SPA Dashboard Glassmorphism
+│   └── static/app.js        # Lógica de cliente con SSE y badges de estado
+├── data/
+│   └── claves_{year}.csv    # Registro de claves (fuente backup)
+├── dw/
+│   ├── schema.sql           # Schema PostgreSQL
+│   └── pipeline.py          # Pipeline de ingesta
+├── downloads/               # PDFs descargados (estudios, resúmenes, resolutivos)
+├── extractions/             # Markdown generado por OCR
+├── scrapers/
+│   └── semarnat_downloader.py  # Downloader Selenium + reintentos + DOM extractor
+├── second_brain/            # Vault Obsidian con notas de proyectos
+├── .env                     # Variables de entorno (no en git)
+├── .env.example             # Plantilla de configuración
+├── start_server.sh          # Inicio del servidor FastAPI
+└── start_llama_server.sh    # Inicio del servidor LLM local (Vulkan)
+```
+
+---
+
+## 📝 Variables de Entorno Requeridas
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/maritime_dw` | Conexión PostgreSQL |
+| `LOCAL_LLM_URL` | `http://localhost:8083` | URL del servidor llama-server |
+| `LOCAL_LLM_MODEL` | `gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf` | Nombre del modelo cargado |
+| `CHROME_BINARY` | — | Ruta al binario de Chrome (ej. `/opt/google/chrome/google-chrome`) |
+| `GEMINI_API_KEY` | — | Opcional: clave para Gemini Cloud como fallback |

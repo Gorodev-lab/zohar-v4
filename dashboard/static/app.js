@@ -908,6 +908,81 @@ function initScraperActions() {
 }
 
 /* =========================================================================
+   LLAMA SERVER ACTIONS
+   ========================================================================= */
+async function updateLlamaStatus() {
+  const badge = $('#llama-status-badge');
+  const btnStart = $('#btn-start-llama');
+  const btnStop = $('#btn-stop-llama');
+  if (!badge) return;
+
+  try {
+    const res = await fetch('/api/llama/status');
+    const data = await res.json();
+    
+    badge.textContent = data.status.toUpperCase();
+    if (data.status === 'online') {
+      badge.style.color = '#00FF66';
+      if (btnStart) btnStart.disabled = true;
+      if (btnStop) btnStop.disabled = false;
+    } else if (data.status === 'booting') {
+      badge.style.color = '#FFB000';
+      if (btnStart) btnStart.disabled = true;
+      if (btnStop) btnStop.disabled = false;
+    } else {
+      badge.style.color = '#888888';
+      if (btnStart) btnStart.disabled = false;
+      if (btnStop) btnStop.disabled = true;
+    }
+  } catch (err) {
+    badge.textContent = 'OFFLINE';
+    badge.style.color = '#888888';
+    if (btnStart) btnStart.disabled = false;
+    if (btnStop) btnStop.disabled = true;
+  }
+}
+
+function initLlamaServerActions() {
+  const btnStart = $('#btn-start-llama');
+  const btnStop = $('#btn-stop-llama');
+
+  if (btnStart) {
+    btnStart.addEventListener('click', async () => {
+      btnStart.disabled = true;
+      showToast('Iniciando llama-server local...', 'info');
+      try {
+        const res = await fetch('/api/llama/start', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.msg, data.status === 'error' ? 'error' : 'ok');
+      } catch (err) {
+        showToast('Error de comunicación con el API', 'error');
+      }
+      updateLlamaStatus();
+    });
+  }
+
+  if (btnStop) {
+    btnStop.addEventListener('click', async () => {
+      btnStop.disabled = true;
+      showToast('Deteniendo llama-server...', 'info');
+      try {
+        const res = await fetch('/api/llama/stop', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.msg, 'ok');
+      } catch (err) {
+        showToast('Error de comunicación con el API', 'error');
+      }
+      updateLlamaStatus();
+    });
+  }
+
+  // Initial update
+  updateLlamaStatus();
+  // Poll status every 5 seconds
+  setInterval(updateLlamaStatus, 5000);
+}
+
+/* =========================================================================
    TAB 5 — SECOND_BRAIN
    ========================================================================= */
 function updateSecondBrainUI(statusData) {
@@ -1303,7 +1378,7 @@ function triggerDownload(clave) {
   const pctEl   = $('#scraper-pct');
 
   showToast(`Iniciando descarga: ${clave}`, 'info');
-  appendLog(logEl, `Descargando clave: ${clave}`, 'info');
+  appendLog(logEl, `▸ Descargando clave: ${clave}`, 'info');
   setProgress(progEl, 0);
 
   const es = new EventSource(`/api/scraper/download-clave?clave=${encodeURIComponent(clave)}&year=${year}`);
@@ -1314,17 +1389,57 @@ function triggerDownload(clave) {
       setProgress(progEl, evt.pct);
       if (pctEl) pctEl.textContent = `${Math.round(evt.pct)}%`;
     }
+
+    // Evento de reintento: badge amarillo especial
+    if (evt.status === 'retry') {
+      appendLog(logEl, `⟳ Reintento ${evt.attempt}/${evt.max_retries} — ${evt.msg || ''}`, 'warn');
+      showToast(`⟳ Reintentando descarga (${evt.attempt}/${evt.max_retries})...`, 'warn');
+      return;
+    }
+
     const level = evt.level === 'warning' ? 'warn'
                 : evt.status === 'complete' ? 'ok'
                 : evt.status === 'error' ? 'error' : 'info';
     appendLog(logEl, evt.msg || evt.status, level);
+
     if (evt.status === 'complete' || evt.status === 'error') {
       es.close();
       if (evt.status === 'complete') {
-        showToast(`✓ Descarga completada: ${clave}`, 'ok');
+        // Calcular badges de tipo de documento
+        const docBadges = [
+          evt.n_resumenes  > 0 ? '<span title="Resumen Ejecutivo" style="color:var(--color-blue);font-weight:bold;">[R]</span>' : '<span style="opacity:0.3;">[R]</span>',
+          evt.n_estudios   > 0 ? '<span title="Estudio de Impacto" style="color:var(--color-green);font-weight:bold;">[E]</span>' : '<span style="opacity:0.3;">[E]</span>',
+          evt.n_resolutivos > 0 ? '<span title="Resolutivo" style="color:var(--color-amber);font-weight:bold;">[V]</span>' : '<span style="opacity:0.3;">[V]</span>',
+        ].join(' ');
+
+        // Badge de estado de completitud
+        let statusBadge, toastMsg, toastLevel;
+        if (evt.download_status === 'complete') {
+          statusBadge = `✅ Completo ${docBadges}`;
+          toastMsg = `✅ Descarga completa (3/3): ${clave}`;
+          toastLevel = 'ok';
+        } else if (evt.download_status === 'partial') {
+          const totalDocs = (evt.n_resumenes > 0 ? 1 : 0) + (evt.n_estudios > 0 ? 1 : 0) + (evt.n_resolutivos > 0 ? 1 : 0);
+          statusBadge = `⚠️ Parcial (${totalDocs}/3) ${docBadges}`;
+          toastMsg = `⚠️ Descarga parcial (${totalDocs}/3): ${clave}`;
+          toastLevel = 'warn';
+        } else {
+          statusBadge = `❌ Fallida`;
+          toastMsg = `❌ Sin archivos descargados: ${clave}`;
+          toastLevel = 'error';
+        }
+
+        // Insertar resumen de estado final en el log
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'log-line log-line--ok';
+        statusDiv.style.cssText = 'border-left:3px solid var(--accent-color); padding-left:8px; margin-top:6px; font-family:var(--font-mono); font-size:10px;';
+        statusDiv.innerHTML = `<span class="log-line__ts">[ESTADO]</span> <span class="log-line__msg">${statusBadge}</span>`;
+        if (logEl) logEl.appendChild(statusDiv);
+
+        showToast(toastMsg, toastLevel);
         loadWorkflowGacetas();
       } else {
-        showToast(`Error descargando ${clave}`, 'error');
+        showToast(`❌ Error descargando ${clave}`, 'error');
       }
     }
   };
@@ -1623,8 +1738,6 @@ function runDataWarehousePipeline() {
   };
 }
 
-window.triggerDownload = triggerDownload;
-
 
 /* =========================================================================
    TAB 7 — MODEL_CHAT
@@ -1869,6 +1982,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCorpusActions();
   initMdLabActions();
   initScraperActions();
+  initLlamaServerActions();
   initSecondBrainActions();
   initWorkflowSubTabs();
   initLiveUpdates(); // Suscripción activa a SSE para cambios en archivos

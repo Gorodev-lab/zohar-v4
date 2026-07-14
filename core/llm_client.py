@@ -79,17 +79,58 @@ def generate_completion(
         mid = max_chars // 2
         prompt = prompt[:mid] + "\n\n[...TEXTO TRUNCADO POR LIMITACIONES DEL CONTEXTO LOCAL...]\n\n" + prompt[-mid:]
 
-    # 1. Lógica para llama-server y Ollama (API OpenAI-compatible)
-    if provider in ("llama-server", "ollama"):
-        base_url = "http://localhost:8081/v1" if provider == "llama-server" else "http://localhost:11434/v1"
-        if provider == "llama-server":
-            base_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8081")
-            if not base_url.endswith("/v1"):
-                base_url = f"{base_url.rstrip('/')}/v1"
+    # 1. Lógica para llama-server (usando /completion crudo para evitar bugs de chat templates en llama.cpp)
+    if provider == "llama-server":
+        local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8083")
+        
+        # Formatear prompt con tags oficiales de Gemma
+        formatted_prompt = ""
+        if system_prompt:
+            formatted_prompt += f"<start_of_turn>user\n{system_prompt.strip()}\n\n{prompt.strip()}<end_of_turn>\n<start_of_turn>model\n"
         else:
-            base_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-            if not base_url.endswith("/v1"):
-                base_url = f"{base_url.rstrip('/')}/v1"
+            formatted_prompt += f"<start_of_turn>user\n{prompt.strip()}<end_of_turn>\n<start_of_turn>model\n"
+
+        payload = {
+            "prompt": formatted_prompt,
+            "temperature": 0.1,
+        }
+        
+        try:
+            r = httpx.post(f"{local_url.rstrip('/')}/completion", json=payload, timeout=300.0)
+            if r.status_code == 200:
+                res_data = r.json()
+                content = res_data["content"].strip()
+                
+                # Intentar parsear si se espera JSON
+                if response_json:
+                    if content.startswith("```"):
+                        lines = content.split("\n")
+                        if lines[0].startswith("```"):
+                            lines.pop(0)
+                        if lines and lines[-1].startswith("```"):
+                            lines.pop()
+                        content = "\n".join(lines).strip()
+                    try:
+                        parsed = json.loads(content)
+                        parsed.setdefault("meta", {})
+                        parsed["meta"]["modelo"] = f"{provider}:{model_name}"
+                        return parsed
+                    except json.JSONDecodeError as je:
+                        logger.error(f"Error decodificando JSON del modelo local: {je}. Contenido: {content}")
+                        raise je
+                return {"text": content, "meta": {"modelo": f"{provider}:{model_name}"}}
+            else:
+                logger.error(f"Error de llama-server: {r.status_code} - {r.text}")
+                raise RuntimeError(f"Server status {r.status_code}")
+        except Exception as exc:
+            logger.warning(f"Fallo en llama-server: {exc}. Intentando fallback a Ollama...")
+            provider = "ollama"
+
+    # 1b. Lógica para Ollama (API OpenAI-compatible)
+    if provider == "ollama":
+        base_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+        if not base_url.endswith("/v1"):
+            base_url = f"{base_url.rstrip('/')}/v1"
 
         messages = []
         if system_prompt:
@@ -112,7 +153,6 @@ def generate_completion(
                 
                 # Intentar parsear si se espera JSON
                 if response_json:
-                    # Limpiar markdown
                     if content.startswith("```"):
                         lines = content.split("\n")
                         if lines[0].startswith("```"):
@@ -126,25 +166,19 @@ def generate_completion(
                         parsed["meta"]["modelo"] = f"{provider}:{model_name}"
                         return parsed
                     except json.JSONDecodeError as je:
-                        logger.error(f"Error decodificando JSON del modelo local: {je}. Contenido: {content}")
+                        logger.error(f"Error decodificando JSON de Ollama: {je}. Contenido: {content}")
                         raise je
                 return {"text": content, "meta": {"modelo": f"{provider}:{model_name}"}}
             else:
-                logger.error(f"Error del servidor local ({provider}): {r.status_code} - {r.text}")
+                logger.error(f"Error de Ollama: {r.status_code} - {r.text}")
                 raise RuntimeError(f"Server status {r.status_code}")
         except Exception as exc:
-            logger.warning(f"Fallo en modelo local ({provider}): {exc}. Intentando fallback...")
-            # Forzar fallback degradando la prioridad
-            if provider == "llama-server":
-                # Intentar Ollama
-                provider = "ollama"
-            elif provider == "ollama":
-                # Intentar Gemini si hay clave
-                if os.environ.get("GEMINI_API_KEY"):
-                    provider = "gemini"
-                    model_name = "gemini-2.0-flash"
-                else:
-                    provider = "heuristic"
+            logger.warning(f"Fallo en Ollama: {exc}. Intentando fallback...")
+            if os.environ.get("GEMINI_API_KEY"):
+                provider = "gemini"
+                model_name = "gemini-2.0-flash"
+            else:
+                provider = "heuristic"
 
     # 2. Lógica para Gemini API
     if provider == "gemini":

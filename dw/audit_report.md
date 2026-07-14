@@ -1,77 +1,26 @@
-# Reporte de Auditoría de Calidad de Datos
-Generado el: 2026-07-09 11:42:29
+# Reporte de Auditoría de Calidad de Datos (SEMARNAT)
+Generado el: 2026-07-14 06:56:31
 
-## CONAPESCA Permits Auditor
-
-### Dataset: CONAPESCA Permits
+### Dataset: SEMARNAT Projects
 
 | Métrica | Valor |
 | :--- | :--- |
-| Total de registros iniciales | `2643` |
-| Registros duplicados | `415` |
-| Violaciones de Rango | `99` |
-| Violaciones de Formato (Regex) | `0` |
-| Registros removidos (filtrado de calidad) | `99` (3.7%) |
-| **Registros listos para ingesta** | **`2544`** (96.3%) |
+| Total de registros iniciales | `3527` |
+| Registros duplicados | `0` |
+| Violaciones de SLA (Estudios Faltantes) | `3522` |
+| Violaciones de Formato / Consistencia de Año | `11` |
+| Registros removidos (Formato corrupto) | `11` (0.3%) |
+| **Registros listos para ingesta** | **`3516`** (99.7%) |
 
 #### Valores Nulos / Faltantes Detectados
 
 | Columna | Cantidad Nulos | Porcentaje |
 | :--- | :---: | :---: |
-| `vessel_registration_number` | `703` | `26.6%` |
+| `sector` | `11` | `0.31%` |
+| `state` | `11` | `0.31%` |
+| `year` | `11` | `0.31%` |
 
 *(Nota: ⚠️ indica columna requerida obligatoria)*
-
----
-
-## OBIS Biodiversity Occurrences Auditor
-
-### Dataset: OBIS Occurrences
-
-| Métrica | Valor |
-| :--- | :--- |
-| Total de registros iniciales | `10` |
-| Registros duplicados | `0` |
-| Violaciones de Rango | `0` |
-| Violaciones de Formato (Regex) | `0` |
-| Registros removidos (filtrado de calidad) | `0` (0.0%) |
-| **Registros listos para ingesta** | **`10`** (100.0%) |
-
-✅ No se detectaron valores nulos en el dataset.
-
----
-
-## GFW Vessels Auditor
-
-### Dataset: GFW Vessels
-
-| Métrica | Valor |
-| :--- | :--- |
-| Total de registros iniciales | `52` |
-| Registros duplicados | `0` |
-| Violaciones de Rango | `0` |
-| Violaciones de Formato (Regex) | `0` |
-| Registros removidos (filtrado de calidad) | `0` (0.0%) |
-| **Registros listos para ingesta** | **`52`** (100.0%) |
-
-✅ No se detectaron valores nulos en el dataset.
-
----
-
-## GFW Fishing Effort Auditor
-
-### Dataset: GFW Fishing Effort
-
-| Métrica | Valor |
-| :--- | :--- |
-| Total de registros iniciales | `50` |
-| Registros duplicados | `0` |
-| Violaciones de Rango | `0` |
-| Violaciones de Formato (Regex) | `0` |
-| Registros removidos (filtrado de calidad) | `0` (0.0%) |
-| **Registros listos para ingesta** | **`50`** (100.0%) |
-
-✅ No se detectaron valores nulos en el dataset.
 
 ---
 
