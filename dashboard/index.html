@@ -114,6 +114,11 @@
         <span class="tab-btn__label">WORKFLOW</span>
       </button>
 
+      <button class="tab-btn" data-tab="MODEL_CHAT" id="tab-MODEL_CHAT" aria-controls="panel-MODEL_CHAT" role="tab" aria-selected="false">
+        <span class="tab-btn__icon" aria-hidden="true">✦</span>
+        <span class="tab-btn__label">MODEL_CHAT</span>
+      </button>
+
       <!-- Scraper Controls -->
       <div class="sidebar__scraper-section">
         <div class="sidebar__section-label">─ scraper</div>
@@ -511,7 +516,17 @@
           </div>
         </div>
 
-        <div class="panel-split">
+        <!-- SUB-TABS NAVIGATION -->
+        <div class="subtabs-nav" style="display:flex; gap:6px; padding: 4px 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-surface-dim);">
+          <button class="subtab-btn active" data-subtab="gacetas" id="subtab-gacetas" style="font-family:var(--font-mono); font-size:11px; padding:4px 10px; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--accent-color); cursor:pointer;">
+            [ TRAZABILIDAD GACETAS ]
+          </button>
+          <button class="subtab-btn" data-subtab="dw" id="subtab-dw" style="font-family:var(--font-mono); font-size:11px; padding:4px 10px; background:none; border:1px solid transparent; color:var(--text-muted); cursor:pointer;">
+            [ INGESTA DATA WAREHOUSE ]
+          </button>
+        </div>
+
+        <div class="panel-split" id="wf-gacetas-subpanel">
           <!-- Columna izquierda: Gacetas -->
           <div class="panel-split__left" style="display:flex; flex-direction:column; padding:0;">
             <div class="panel-split__search" style="display:flex; gap: var(--space-2); align-items:center;">
@@ -540,6 +555,8 @@
                 <thead>
                   <tr>
                     <th>Clave SINAT</th>
+                    <th>Nombre del Proyecto</th>
+                    <th>Ubicación</th>
                     <th>Estudio</th>
                     <th>Resolutivo</th>
                     <th>Markdown</th>
@@ -549,12 +566,177 @@
                 </thead>
                 <tbody id="wf-keys-tbody">
                   <tr>
-                    <td colspan="6" class="text-muted text-center" style="padding:32px;">
+                    <td colspan="8" class="text-muted text-center" style="padding:32px;">
                       [ Selecciona una gaceta del listado lateral ]
                     </td>
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-PANEL 2: DATA WAREHOUSE & QUALITY AUDITOR -->
+        <div class="panel-split" id="wf-dw-subpanel" style="display:none; flex-direction:column; padding:16px; gap:16px; overflow-y:auto; height:calc(100% - 100px); background:var(--color-bg);">
+          <!-- Control Row -->
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--color-surface); border:1px solid var(--color-border); padding:12px 16px;">
+            <div>
+              <h3 style="font-family:var(--font-mono); font-size:13px; color:var(--color-amber); margin:0;">&gt; EJECUCIÓN PIPELINE DW</h3>
+              <p style="font-size:10px; color:var(--color-text-muted); margin:2px 0 0 0;">Monitorea el portal oficial SEMARNAT, descarga y convierte documentos, y audita e ingesta metadatos y dictámenes de IA en Postgres.</p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <button class="btn btn--primary" id="btn-run-dw" style="font-size:11px;">
+                <span aria-hidden="true">▸</span> EJECUTAR DW PIPELINE
+              </button>
+            </div>
+          </div>
+
+          <!-- Progress Bar & Status -->
+          <div id="dw-progress-container" style="display:none; background:var(--color-surface); border:1px solid var(--color-border); padding:12px 16px; flex-direction:column; gap:6px;">
+            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px;">
+              <span id="dw-stage-text" style="color:var(--color-amber);">Inicializando...</span>
+              <span id="dw-pct-text" style="font-weight:bold;">0%</span>
+            </div>
+            <div class="progress-bar" id="dw-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar__fill" style="width:0%"></div>
+            </div>
+          </div>
+
+          <!-- Mid Split: Terminal Log & DB Status -->
+          <div style="display:grid; grid-template-columns: 1.8fr 1fr; gap:16px; height:280px; min-height:280px;">
+            <!-- Real-time Terminal Log -->
+            <div style="display:flex; flex-direction:column; border:1px solid var(--color-border); background:black; height:280px; max-height:280px; overflow:hidden;">
+              <div style="font-family:var(--font-mono); font-size:10px; color:var(--color-amber); padding:6px 12px; border-bottom:1px solid var(--color-border); display:flex; justify-content:space-between; background:var(--color-surface-2);">
+                <span>CONSOLE_LOGS_DW</span>
+                <span class="cursor-blink" style="margin-left:auto;">_</span>
+              </div>
+              <div class="log-console" id="dw-log" style="height:240px; max-height:240px; padding:12px; overflow-y:auto; font-family:var(--font-mono); font-size:10px; line-height:1.4; background:black; border:none;" aria-live="polite">
+                <div class="log-line log-line--info">
+                  <span class="log-line__ts">[00:00:00]</span>
+                  <span class="log-line__msg">Sistema listo para ingesta. Esperando ejecución...</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Database status -->
+            <div style="display:flex; flex-direction:column; border:1px solid var(--color-border); background:var(--color-surface); padding:12px 16px; height:280px; max-height:280px;">
+              <h4 style="font-family:var(--font-mono); font-size:11px; margin:0 0 10px 0; color:var(--color-amber);">ESTADO POSTGRESQL DW</h4>
+              <div style="display:flex; align-items:center; gap:8px; padding:8px; border:1px solid var(--color-border); background:rgba(0,0,0,0.2); margin-bottom:12px;" id="dw-db-conn-box">
+                <div style="width:8px; height:8px; border-radius:50%; background:var(--color-text-muted);" id="dw-db-conn-dot"></div>
+                <span style="font-family:var(--font-mono); font-size:10px;" id="dw-db-conn-text">Desconectado</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;" id="dw-db-tables-list">
+                <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;">
+                  <span class="text-muted">semarnat_projects:</span>
+                  <span id="count-semarnat-projects">─ filas</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;">
+                  <span class="text-muted">project_evaluations:</span>
+                  <span id="count-project-evaluations">─ filas</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom: Data Quality Auditor Report -->
+          <div style="display:flex; flex-direction:column; border:1px solid var(--color-border); background:var(--color-surface); padding:16px;">
+            <h3 style="font-family:var(--font-mono); font-size:12px; color:var(--color-amber); margin:0 0 12px 0;">REPORTES DE AUDITORÍA DE CALIDAD DE DATOS (PANDAS QUALITY AUDITOR)</h3>
+            
+            <div id="dw-quality-no-report" style="padding:24px; text-align:center; font-family:var(--font-mono); font-size:11px; color:var(--text-muted); border:1px dashed var(--border-color);">
+              [ Sin reportes de calidad generados. Corre el pipeline de datos primero para poblar el auditor ]
+            </div>
+
+            <div id="dw-quality-container" style="display:none; flex-direction:column; gap:16px;">
+              <!-- Grid of metrics -->
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;" id="dw-quality-grid">
+                <!-- Cards filled by js -->
+              </div>
+              
+              <!-- Datasets breakdowns -->
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" id="dw-quality-datasets">
+                <!-- Detailed tables for CONAPESCA, OBIS, GFW filled by js -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────────
+           TAB 7: MODEL_CHAT (LLM / Agentic Playground)
+      ───────────────────────────── -->
+      <section
+        class="tab-panel"
+        id="panel-MODEL_CHAT"
+        role="tabpanel"
+        aria-labelledby="tab-MODEL_CHAT"
+      >
+        <div class="panel-header">
+          <div class="panel-header__left">
+            <h1 class="panel-header__title"><span aria-hidden="true">✦</span> MODEL_CHAT</h1>
+            <span class="panel-header__meta" id="chat-model-meta">Proveedor: Inicializando...</span>
+          </div>
+          <div class="panel-header__actions" style="display:flex; gap:10px; align-items:center;">
+            <label class="text-xs text-muted" for="chat-clave-select">Contexto RAG:</label>
+            <select class="input input--inline" id="chat-clave-select" style="width:auto; margin:0;" aria-label="Seleccionar proyecto para contexto">
+              <option value="">-- Sin contexto (Chat General) --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="panel-split" style="height:calc(100vh - 180px); min-height:450px;">
+          <!-- Columna Izquierda: Ventana de Chat Cyberpunk -->
+          <div class="panel-split__left" style="flex:1.8; display:flex; flex-direction:column; background:black; border:1px solid var(--border-color); padding:0; overflow:hidden;">
+            <div style="font-family:var(--font-mono); font-size:10px; color:var(--color-amber); padding:8px 16px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; background:var(--color-surface-2); flex-shrink:0;">
+              <span>ZOHAR_AGENT_PLAYGROUND_V4</span>
+              <span class="cursor-blink">_</span>
+            </div>
+            
+            <!-- Chat Messages Log -->
+            <div class="log-console" id="chat-messages-log" style="flex:1; padding:16px; overflow-y:auto; font-family:var(--font-mono); font-size:11px; line-height:1.5; background:black; border:none;" aria-live="polite">
+              <div class="log-line log-line--info">
+                <span class="log-line__ts">[ZOHAR-AI]</span>
+                <span class="log-line__msg">Zohar Intelligence v4 listo. ¿En qué puedo asistirte hoy?</span>
+              </div>
+            </div>
+
+            <!-- Input Box -->
+            <div style="display:flex; padding:10px; border-top:1px solid var(--border-color); background:var(--color-surface-2); gap:8px; align-items:center; flex-shrink:0;">
+              <input type="text" class="input" id="chat-user-input" placeholder="Escribe un comando o pregunta al modelo..." style="flex:1; font-family:var(--font-mono); font-size:11px; height:34px; background:black; color:var(--accent-color); border-color:var(--border-color-dim);" aria-label="Pregunta al modelo">
+              <button id="btn-chat-send" class="btn btn--primary" style="height:34px; padding:0 16px; font-size:11px;" aria-label="Enviar mensaje">
+                <span>ENVIAR</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: Agent Tools Monitor -->
+          <div class="panel-split__right" style="flex:1; display:flex; flex-direction:column; border:1px solid var(--border-color); background:var(--color-surface); padding:16px; gap:16px; overflow-y:auto;">
+            <div>
+              <h3 style="font-family:var(--font-mono); font-size:11px; color:var(--color-amber); margin:0 0 4px 0; text-transform:uppercase;">Estado del Proveedor</h3>
+              <div style="display:flex; flex-direction:column; gap:4px; padding:8px 12px; border:1px solid var(--border-color); background:rgba(0,0,0,0.2); font-family:var(--font-mono); font-size:10px;">
+                <div style="display:flex; justify-content:space-between;">
+                  <span class="text-muted">Proveedor Activo:</span>
+                  <span id="chat-provider-val" style="color:var(--color-amber); font-weight:bold;">─</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                  <span class="text-muted">Modelo/Versión:</span>
+                  <span id="chat-model-val" style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:180px;">─</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 style="font-family:var(--font-mono); font-size:11px; color:var(--color-amber); margin:0 0 6px 0; text-transform:uppercase;">Herramientas del Agente</h3>
+              <div id="chat-tools-list" style="display:flex; flex-direction:column; gap:8px;">
+                <!-- Filled dynamically by js -->
+              </div>
+            </div>
+
+            <div style="border-top:1px dashed var(--border-color-dim); padding-top:12px; font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">
+              <span style="font-weight:bold; display:block; margin-bottom:4px; color:var(--color-amber);">💡 CONSEJOS DE USO:</span>
+              <ul style="padding-left:12px; margin:0; display:flex; flex-direction:column; gap:4px;">
+                <li>Selecciona un <strong>Contexto RAG</strong> para realizar consultas sobre un expediente específico usando la información del Second Brain.</li>
+                <li>Si estás usando el modelo local <strong>Gemma 4</strong>, las respuestas se generarán completamente sin conexión.</li>
+              </ul>
             </div>
           </div>
         </div>

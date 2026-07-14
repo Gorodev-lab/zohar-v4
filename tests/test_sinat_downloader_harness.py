@@ -322,9 +322,11 @@ class TestSINATButtonCount:
 
                 if search_input:
                     try:
+                        driver.execute_script("arguments[0].click();", search_input)
                         search_input.clear()
                         time.sleep(0.3)
                         search_input.send_keys(bitacora_value)
+                        driver.execute_script("arguments[0].dispatchEvent(new Event('input', { bubbles: true }));", search_input)
 
                         # Buscar botón
                         search_btn = None
