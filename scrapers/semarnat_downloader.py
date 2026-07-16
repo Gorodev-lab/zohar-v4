@@ -82,6 +82,9 @@ def make_chrome_driver(download_dir: Path, headless: bool = True):
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
+    opts.page_load_strategy = "none"
+    opts.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
     if chrome_binary and Path(chrome_binary).exists():
         opts.binary_location = chrome_binary
 
@@ -95,6 +98,7 @@ def make_chrome_driver(download_dir: Path, headless: bool = True):
     opts.add_experimental_option("prefs", prefs)
 
     driver = webdriver.Chrome(options=opts)
+    driver.set_page_load_timeout(30.0)
 
     # Intentar configurar CDP setDownloadBehavior (no fatal si falla)
     try:

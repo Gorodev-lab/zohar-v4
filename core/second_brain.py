@@ -167,17 +167,56 @@ class SecondBrainBuilder:
         return md_files
 
     def _scan_inferences(self) -> dict[str, dict]:
-        """Escanea la caché de reportes de inferencia en data/inference_cache/."""
+        """Escanea la caché de reportes de inferencia en data/inference_cache/ y base de datos."""
         inf_reports = {}
-        if not self.inference_cache_dir.exists():
-            return inf_reports
+        if self.inference_cache_dir.exists():
+            for js in self.inference_cache_dir.glob("*.json"):
+                try:
+                    data = json.loads(js.read_text(encoding="utf-8", errors="ignore"))
+                    inf_reports[js.stem] = data
+                except Exception as exc:
+                    logger.warning("Error leyendo reporte inferencia %s: %s", js.name, exc)
 
-        for js in self.inference_cache_dir.glob("*.json"):
-            try:
-                data = json.loads(js.read_text(encoding="utf-8", errors="ignore"))
-                inf_reports[js.stem] = data
-            except Exception as exc:
-                logger.warning("Error leyendo reporte inferencia %s: %s", js.name, exc)
+        # Cargar adicionalmente desde la base de datos PostgreSQL
+        try:
+            import os
+            import sqlalchemy as sa
+            db_url = os.getenv("DATABASE_URL")
+            if not db_url:
+                from dotenv import load_dotenv
+                from pathlib import Path
+                for env_file in [Path(".env.local"), Path(".env"), Path(__file__).parent.parent / ".env"]:
+                    if env_file.exists():
+                        load_dotenv(env_file)
+                db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/maritime_dw")
+
+            if db_url:
+                engine = sa.create_engine(db_url)
+                with engine.connect() as conn:
+                    result = conn.execute(sa.text(
+                        "SELECT clave, veredicto, score, confianza_pct, knockouts, yes_signals, no_signals, condicionantes FROM project_evaluations"
+                    ))
+                    for row in result:
+                        clave = row[0]
+                        # Evitar sobreescribir si ya está cargado desde disco
+                        if clave in inf_reports:
+                            continue
+                        
+                        # Mapear a formato esperado de reporte
+                        inf_reports[clave] = {
+                            "veredicto": row[1],
+                            "score": float(row[2]) if row[2] is not None else 0.0,
+                            "confianza_pct": int(row[3]) if row[3] is not None else 0,
+                            "knockouts": row[4] if isinstance(row[4], list) else (json.loads(row[4]) if row[4] else []),
+                            "yes_signals": row[5] if isinstance(row[5], list) else (json.loads(row[5]) if row[5] else []),
+                            "no_signals": row[6] if isinstance(row[6], list) else (json.loads(row[6]) if row[6] else []),
+                            "condicionantes": row[7] if isinstance(row[7], list) else (json.loads(row[7]) if row[7] else []),
+                            "meta": {"modelo": "db-sync"}
+                        }
+                logger.info("Cargadas %d inferencias adicionales desde la base de datos", len(inf_reports))
+        except Exception as exc:
+            logger.warning("No se pudieron cargar inferencias de la base de datos: %s", exc)
+
         return inf_reports
 
     def _index_projects(self, pdfs: dict, extractions: dict, inferences: dict) -> dict:
@@ -199,6 +238,9 @@ class SecondBrainBuilder:
                     "year": parsed.get("year"),
                     "tipo": parsed.get("tipo"),
                     "tipo_nombre": parsed.get("tipo_nombre"),
+                    "project_name": f"Proyecto {clave}",
+                    "promovente": "Desconocido",
+                    "status": "INGRESADO",
                     "estudio_pdf": None,
                     "resumen_pdf": None,
                     "resolutivo_pdf": None,
@@ -223,6 +265,9 @@ class SecondBrainBuilder:
                     "year": parsed.get("year"),
                     "tipo": parsed.get("tipo"),
                     "tipo_nombre": parsed.get("tipo_nombre"),
+                    "project_name": f"Proyecto {clave}",
+                    "promovente": "Desconocido",
+                    "status": "INGRESADO",
                     "estudio_pdf": None,
                     "resumen_pdf": None,
                     "resolutivo_pdf": None,
@@ -231,7 +276,77 @@ class SecondBrainBuilder:
                 })
                 projects[clave]["extraction"] = md
 
-        # 3. Asociar inferencias
+        # 3. Consultar la base de datos para cargar metadatos reales
+        db_metadata = {}
+        try:
+            import os
+            import sqlalchemy as sa
+            db_url = os.getenv("DATABASE_URL")
+            if not db_url:
+                from dotenv import load_dotenv
+                from pathlib import Path
+                for env_file in [Path(".env.local"), Path(".env"), Path(__file__).parent.parent / ".env"]:
+                    if env_file.exists():
+                        load_dotenv(env_file)
+                db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/maritime_dw")
+
+            if db_url:
+                engine = sa.create_engine(db_url)
+                with engine.connect() as conn:
+                    result = conn.execute(sa.text(
+                        "SELECT clave, project_name, status, sector, state, year, promovente FROM public.semarnat_projects"
+                    ))
+                    for row in result:
+                        clave = row[0]
+                        db_metadata[clave] = {
+                            "project_name": row[1],
+                            "status": row[2],
+                            "sector": row[3],
+                            "state": row[4],
+                            "year": row[5],
+                            "promovente": row[6]
+                        }
+        except Exception as exc:
+            logger.warning("No se pudo cargar metadatos de semarnat_projects: %s", exc)
+
+        # 4. Enriquecer proyectos existentes y añadir proyectos de la base de datos sin archivos locales
+        for clave, meta in db_metadata.items():
+            if clave in projects:
+                if meta.get("project_name"):
+                    projects[clave]["project_name"] = meta["project_name"]
+                if meta.get("promovente"):
+                    projects[clave]["promovente"] = meta["promovente"]
+                if meta.get("status"):
+                    projects[clave]["status"] = meta["status"]
+                if meta.get("sector"):
+                    projects[clave]["sector"] = meta["sector"]
+                if meta.get("state"):
+                    projects[clave]["estado_nombre"] = meta["state"]
+                if meta.get("year"):
+                    projects[clave]["year"] = meta["year"]
+            else:
+                # Crear ficha esqueleto enriquecida
+                parsed = parse_semarnat_key(clave + ".pdf")
+                projects[clave] = {
+                    "clave": clave,
+                    "valid": parsed.get("valid", False),
+                    "sector": meta.get("sector") or parsed.get("sector"),
+                    "estado": parsed.get("estado"),
+                    "estado_nombre": meta.get("state") or parsed.get("estado_nombre"),
+                    "year": meta.get("year") or parsed.get("year"),
+                    "tipo": parsed.get("tipo"),
+                    "tipo_nombre": parsed.get("tipo_nombre"),
+                    "project_name": meta.get("project_name") or f"Proyecto {clave}",
+                    "promovente": meta.get("promovente") or "Desconocido",
+                    "status": meta.get("status") or "PENDIENTE",
+                    "estudio_pdf": None,
+                    "resumen_pdf": None,
+                    "resolutivo_pdf": None,
+                    "extraction": None,
+                    "inference": None,
+                }
+
+        # 5. Asociar inferencias
         for name, report in inferences.items():
             parsed = parse_semarnat_key(name + ".pdf")
             if parsed.get("valid"):
@@ -354,11 +469,14 @@ Esta gaceta anuncia los siguientes proyectos ecológicos evaluados:
         # ── Ficha técnica ──────────────────────────────────────────────────
         if proj.get("valid"):
             metadata_sec = f"""## [FICHA] Técnica
+- **Nombre del Proyecto:** {proj.get('project_name', f'Proyecto {clave}')}
+- **Promovente:** {proj.get('promovente', 'Desconocido')}
+- **Estatus de Trámite:** **{proj.get('status', 'INGRESADO')}**
 - **Clave de Proyecto:** `{clave}`
-- **Estado/Ubicación:** [[Municipio - {proj['estado_nombre']}]]
-- **Año de Registro:** {proj['year']}
-- **Sector Productivo:** [[Sector - {proj['sector']}]]
-- **Tipo de Trámite:** [[Tipo - {proj['tipo_nombre']}]]"""
+- **Estado/Ubicación:** [[Municipio - {proj.get('estado_nombre') or 'Desconocido'}]]
+- **Año de Registro:** {proj.get('year')}
+- **Sector Productivo:** [[Sector - {proj.get('sector') or 'Desconocido'}]]
+- **Tipo de Trámite:** [[Tipo - {proj.get('tipo_nombre') or 'Desconocido'}]]"""
         else:
             metadata_sec = f"""## [!] Ficha Técnica (Formato Especial)
 - **Clave Identificada:** `{clave}`
@@ -382,36 +500,41 @@ Esta gaceta anuncia los siguientes proyectos ecológicos evaluados:
                 files_sec += f"- **PDF de {cat.capitalize()}:** _No descargado_\n"
 
         # ── Extracción .md ─────────────────────────────────────────────────
-        # Resuelve la ruta del archivo de extracción usando get_extraction_path().
-        # El motor de inferencia DEBE recibir esta ruta, no la ruta de esta ficha.
+        # Buscar y listar todas las extracciones disponibles por tipo de documento
+        ext_sec = ""
+        for cat in ["estudio", "resumen", "resolutivo"]:
+            candidates = [
+                self.extractions_dir / f"{clave}.{cat}.00.md",
+                self.extractions_dir / f"{clave}.{cat}.01.md",
+            ]
+            if cat == "estudio":
+                candidates.append(self.extractions_dir / f"{clave}.md")
+                
+            md_path = None
+            for cand in candidates:
+                if cand.exists():
+                    md_path = cand
+                    break
+            
+            if md_path:
+                ext_size_kb = round(md_path.stat().st_size / 1024, 1)
+                ext_sec += f"- **Texto Extraído de {cat.capitalize()} (.md):** [{md_path.name}](file://{md_path}) (`{ext_size_kb} KB`)\n"
+            else:
+                ext_sec += f"- **Texto Extraído de {cat.capitalize()} (.md):** _No extraído_\n"
+
         extraction_path = self.get_extraction_path(clave)
+        snippet_sec = ""
         if extraction_path:
-            ext_size_kb = round(extraction_path.stat().st_size / 1024, 1)
-            ext_sec = (
-                f"- **Texto Extraído (.md):** [{extraction_path.name}](file://{extraction_path}) "
-                f"(`{ext_size_kb} KB`)\n"
-                f"- **Ruta para inferencia:** `{extraction_path}`"
-            )
-            # Snippet: primeras ~500 palabras del texto extraído para previsualización
+            ext_sec += f"- **Ruta principal para inferencia:** `{extraction_path}`"
             try:
                 raw_text = extraction_path.read_text(encoding="utf-8", errors="replace")
                 words = raw_text.split()
                 snippet = " ".join(words[:500])
                 if len(words) > 500:
                     snippet += "…"
-                snippet_sec = f"\n\n### Vista previa del texto extraído\n```\n{snippet}\n```"
+                snippet_sec = f"\n\n### Vista previa del Estudio extraído\n```\n{snippet}\n```"
             except Exception:
-                snippet_sec = ""
-        elif proj.get("extraction"):
-            # Fallback: referencia previa sin resolución por get_extraction_path
-            ext_sec = f"- **Texto Extraído (.md):** [{proj['extraction']['name']}](file://{proj['extraction']['path']})"
-            snippet_sec = ""
-        else:
-            ext_sec = (
-                "- **Texto Extraído (.md):** _No procesado — ejecuta `pdf_processor.py` "
-                "sobre el PDF del estudio para generar la extracción._"
-            )
-            snippet_sec = ""
+                pass
 
         # ── Dictamen de inferencia ─────────────────────────────────────────
         if proj.get("inference"):
