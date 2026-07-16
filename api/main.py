@@ -35,9 +35,10 @@ logger = logging.getLogger(__name__)
 # Configuración de Redis con fallback seguro
 # ---------------------------------------------------------------------------
 try:
-    redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+    redis_host = os.environ.get("REDIS_HOST", "localhost")
+    redis_client = redis.Redis(host=redis_host, port=6379, db=0, decode_responses=True)
     redis_client.ping()
-    logger.info("Conectado exitosamente a Redis en localhost:6379")
+    logger.info("Conectado exitosamente a Redis en %s:6379", redis_host)
     REDIS_AVAILABLE = True
 except Exception as exc:
     logger.warning("No se pudo conectar a Redis: %s. Usando fallback en disco/memoria.", exc)
@@ -173,6 +174,43 @@ class DataDirectoryHandler(FileSystemEventHandler):
 _observer: Optional[Observer] = None
 
 
+def consume_pipeline_generator(year: int):
+    logger.info("Scheduler Progress: Iniciando consumo de run_pipeline_generator para el año %d", year)
+    try:
+        for event in run_pipeline_generator(year, "all", True):
+            status = event.get("status")
+            msg = event.get("msg")
+            pct = event.get("pct")
+            logger.info("Scheduler Progress [%s]: %s (%s%%)", status, msg, pct)
+        logger.info("Scheduler Progress: Finalizado con éxito consumo de run_pipeline_generator para el año %d", year)
+    except Exception as exc:
+        logger.error("Scheduler Progress: Error ejecutando run_pipeline_generator: %s", exc)
+
+
+async def thursday_gaceta_scheduler_loop():
+    logger.info("Scheduler: Iniciando bucle del planificador de gacetas (jueves 9:00 AM)...")
+    last_run_date = ""
+    while True:
+        try:
+            from datetime import datetime
+            now = datetime.now()
+            # 3 is Thursday (0=Monday, 6=Sunday)
+            if now.weekday() == 3 and now.hour == 9 and now.minute == 0:
+                today_str = now.strftime("%Y-%m-%d")
+                if today_str != last_run_date:
+                    last_run_date = today_str
+                    logger.info("Scheduler: Es jueves a las 9:00 AM. Iniciando pipeline automático...")
+                    
+                    # Consumir el generador en un thread executor para no bloquear el loop de asyncio
+                    loop = asyncio.get_running_loop()
+                    loop.run_in_executor(None, consume_pipeline_generator, now.year)
+        except Exception as e:
+            logger.error("Scheduler: Error en bucle de programación: %s", e)
+        
+        # Despertar cada 60 segundos
+        await asyncio.sleep(60)
+
+
 @app.on_event("startup")
 async def startup_event():
     global _observer
@@ -194,6 +232,9 @@ async def startup_event():
     
     _observer.start()
     logger.info("Watcher de archivos iniciado con éxito.")
+
+    # Registrar planificador de gacetas semanal (jueves 9:00 AM)
+    asyncio.create_task(thursday_gaceta_scheduler_loop())
 
 
 @app.on_event("shutdown")
@@ -826,6 +867,56 @@ async def list_inference():
     return {"estudios": estudios, "total": len(estudios)}
 
 
+@app.get("/api/corpus/files-status", tags=["inference"])
+async def get_corpus_files_status():
+    """
+    Retorna el estado de conversión de archivos PDF a MD en todo el corpus
+    (estudios, resumenes, resolutivos).
+    """
+    from core.graph_builder import parse_semarnat_key
+    files = []
+    
+    # Directorios a buscar
+    directories = {
+        "Estudio": ESTUDIOS_DIR,
+        "Resumen": RESUMENES_DIR,
+        "Resolutivo": RESOLUTIVOS_DIR
+    }
+    
+    for category_name, directory in directories.items():
+        if directory.exists():
+            for pdf in sorted(directory.glob("*.pdf")):
+                parsed = parse_semarnat_key(pdf.name)
+                clave = parsed.get("clave", pdf.stem)
+                
+                # Buscar candidatos de extracción .md
+                candidates = [
+                    EXTRACTIONS_DIR / f"{clave}.estudio.00.md",
+                    EXTRACTIONS_DIR / f"{clave}.resumen.00.md",
+                    EXTRACTIONS_DIR / f"{clave}.md",
+                    EXTRACTIONS_DIR / f"{pdf.stem}.md",
+                ]
+                
+                md_ready = False
+                md_filename = ""
+                for candidate in candidates:
+                    if candidate.exists():
+                        md_ready = True
+                        md_filename = candidate.name
+                        break
+                
+                files.append({
+                    "clave": clave,
+                    "category": category_name,
+                    "pdf_name": pdf.name,
+                    "md_name": md_filename or f"{clave}.md",
+                    "md_ready": md_ready,
+                    "size_mb": round(pdf.stat().st_size / 1e6, 2),
+                })
+                
+    return {"files": files, "total": len(files)}
+
+
 @app.get("/api/inference/{filename}", tags=["inference"])
 async def get_inference(filename: str):
     """
@@ -843,6 +934,15 @@ async def get_inference(filename: str):
     inference_cache_path = inference_cache_dir / (Path(filename).stem + ".json")
 
     # Intentar recuperar desde caché si es válida
+    # Fallback: buscar con la clave limpia si no existe la versión MD-stem
+    if not inference_cache_path.exists():
+        from core.graph_builder import parse_semarnat_key
+        parsed = parse_semarnat_key(filename)
+        if parsed.get("valid"):
+            fallback_path = inference_cache_dir / f"{parsed['clave']}.json"
+            if fallback_path.exists():
+                inference_cache_path = fallback_path
+
     if inference_cache_path.exists():
         try:
             cache_mtime = inference_cache_path.stat().st_mtime
@@ -1312,170 +1412,270 @@ async def extract_pipeline_md(force: bool = Query(False), source: str = Query("s
     return _sse_response(gen())
 
 
+def run_pipeline_generator(year: int, source: str, rebuild_wiki: bool = True):
+    from core.graph_builder import build_full_graph
+    from core.pdf_processor import iter_pages_as_markdown
+    import csv as csv_module
+
+    yield {"status": "progress", "msg": "Iniciando pipeline...", "pct": 0, "stage": "init"}
+
+    # Etapa 1: Gacetas ASEA
+    if source == "asea" or source == "all":
+        yield {"status": "progress", "msg": "Etapa 1/6: Gacetas ASEA", "pct": 5, "stage": "asea"}
+        try:
+            from scrapers.asea_scraper import ASEAScraper
+            asea = ASEAScraper(output_dir=str(GACETAS_DIR / "asea"), year_filter=year)
+            for event in asea.descargar_gacetas_gen():
+                yield {**event, "stage": "asea"}
+        except Exception as exc:
+            yield {"status": "progress", "msg": f"ASEA warning: {exc}", "pct": 20, "level": "warning"}
+    else:
+        yield {"status": "progress", "msg": "Saltando Etapa 1: Gacetas ASEA", "pct": 20}
+
+    # Etapa 2: Gacetas SINAT
+    if source == "sinat" or source == "all":
+        yield {"status": "progress", "msg": "Etapa 2/6: Gacetas SINAT", "pct": 22, "stage": "sinat"}
+        try:
+            from scrapers.gazette_scraper import GazetteScraper
+            sinat = GazetteScraper(output_dir=str(GACETAS_DIR))
+            for event in sinat._descargar_gacetas_ano_gen(year):
+                yield {**event, "stage": "sinat"}
+        except Exception as exc:
+            yield {"status": "progress", "msg": f"SINAT warning: {exc}", "pct": 44, "level": "warning"}
+    else:
+        yield {"status": "progress", "msg": "Saltando Etapa 2: Gacetas SINAT", "pct": 44}
+
+    # Etapa 3: Conversión MD (todas las gacetas pendientes de este origen y año)
+    yield {"status": "progress", "msg": "Etapa 3/6: Convirtiendo gacetas a Markdown...", "pct": 46, "stage": "md_extraction"}
+    EXTRACTIONS_DIR.mkdir(parents=True, exist_ok=True)
+    
+    all_pdfs = []
+    if source == "sinat" or source == "all":
+        all_pdfs.extend([f for f in GACETAS_DIR.glob("*.pdf") if _extract_year_from_name(f.name) == year])
+    if source == "asea" or source == "all":
+        asea_dir = GACETAS_DIR / "asea"
+        if asea_dir.exists():
+            all_pdfs.extend([f for f in asea_dir.glob("*.pdf") if _extract_year_from_name(f.name) == year])
+    
+    all_pdfs = sorted(all_pdfs, key=lambda x: x.name)
+    n_md_extracted = 0
+    for idx, pdf in enumerate(all_pdfs):
+        md_path = EXTRACTIONS_DIR / f"{pdf.stem}.md"
+        if not md_path.exists() or md_path.stat().st_size == 0:
+            try:
+                pages = []
+                for _, _, md_text, _ in iter_pages_as_markdown(pdf):
+                    pages.append(md_text)
+                md_path.write_text("\n".join(pages), encoding="utf-8")
+                n_md_extracted += 1
+                pct = 46 + int(8 * (idx + 1) / max(len(all_pdfs), 1))
+                yield {"status": "progress", "msg": f"MD: {pdf.name}", "pct": pct, "stage": "md_extraction"}
+            except Exception as exc:
+                logger.warning("MD warning %s: %s", pdf.name, exc)
+    yield {"status": "progress", "msg": f"MD: {n_md_extracted} nuevas extracciones", "pct": 54, "stage": "md_extraction"}
+
+    # Etapa 4: Extracción de claves SINAT
+    yield {"status": "progress", "msg": "Etapa 4/6: Extrayendo claves SINAT...", "pct": 55, "stage": "keys"}
+    csv_path = DATA_DIR / f"claves_{year}.csv"
+    
+    # Preservar claves de la otra fuente
+    existing_claves = []
+    seen_claves = set()
+    if csv_path.exists() and source != "all":
+        try:
+            with open(csv_path, "r", encoding="utf-8") as f:
+                reader = csv_module.reader(f)
+                header = next(reader, None)
+                for row in reader:
+                    if len(row) >= 3:
+                        row_clave, row_year, row_file = row[:3]
+                        row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
+                        row_loc = row[4] if len(row) > 4 else ""
+                        row_prom = row[5] if len(row) > 5 else "Desconocido"
+                        if row_clave == "23QR2024TD085" and not row_file:
+                            continue
+                        is_row_asea = row_file and ("asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_"))
+                        item = {
+                            "CLAVE": row_clave,
+                            "YEAR": int(row_year),
+                            "FILE": row_file,
+                            "PROJECT_NAME": row_proj_name,
+                            "LOCATION": row_loc,
+                            "PROMOVENTE": row_prom
+                        }
+                        if source == "sinat" and is_row_asea:
+                            existing_claves.append(item)
+                            seen_claves.add(row_clave)
+                        elif source == "asea" and not is_row_asea:
+                            existing_claves.append(item)
+                            seen_claves.add(row_clave)
+        except Exception as exc:
+            logger.warning("Error leyendo CSV existente para preservar claves en run_pipeline: %s", exc)
+
+    new_claves = []
+    for idx, g_pdf in enumerate(all_pdfs):
+        md_path = EXTRACTIONS_DIR / f"{g_pdf.stem}.md"
+        if md_path.exists() and md_path.stat().st_size > 0:
+            text = md_path.read_text(encoding="utf-8", errors="ignore")
+            for clave in _CLAVE_RE.findall(text.upper()):
+                if clave not in seen_claves:
+                    seen_claves.add(clave)
+                    proj_name, loc, prom = extract_project_info_from_text(clave, text)
+                    new_claves.append({
+                        "CLAVE": clave,
+                        "YEAR": year,
+                        "FILE": str(g_pdf),
+                        "PROJECT_NAME": proj_name,
+                        "LOCATION": loc,
+                        "PROMOVENTE": prom
+                    })
+                    
+    final_claves = existing_claves + new_claves
+    if final_claves:
+        final_claves.sort(key=lambda x: (x.get("FILE", ""), x.get("CLAVE", "")))
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv_module.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION", "PROMOVENTE"])
+            writer.writeheader()
+            writer.writerows(final_claves)
+    yield {"status": "progress", "msg": f"Claves: {len(final_claves)} encontradas en total ({len(all_pdfs)} gacetas procesadas)", "pct": 65, "stage": "keys"}
+
+    # Etapa 5: Rebuild Grafo
+    if rebuild_wiki:
+        yield {"status": "progress", "msg": "Etapa 5/6: Rebuilding grafo...", "pct": 67, "stage": "graph"}
+        try:
+            graph = build_full_graph(DOWNLOADS_DIR)
+            cache_path = DATA_DIR / "graph_cache.json"
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(json.dumps(graph, ensure_ascii=False), encoding="utf-8")
+            yield {"status": "progress", "msg": f"Grafo: {graph['metrics']['n_nodes']} nodos", "pct": 80}
+        except Exception as exc:
+            yield {"status": "progress", "msg": f"Grafo warning: {exc}", "pct": 80, "level": "warning"}
+
+        # Etapa 6: Sincronizar Second Brain
+        yield {"status": "progress", "msg": "Etapa 6/6: Sincronizando Second Brain...", "pct": 82, "stage": "second_brain"}
+        try:
+            from core.second_brain import SecondBrainBuilder
+            stats = SecondBrainBuilder(BASE_DIR).build_vault()
+            yield {"status": "progress", "msg": f"Second Brain: {stats['total_proyectos']} proyectos, {stats['total_gacetas']} gacetas", "pct": 95}
+        except Exception as exc:
+            yield {"status": "progress", "msg": f"Second Brain warning: {exc}", "pct": 95, "level": "warning"}
+
+    yield {
+        "status": "complete",
+        "msg": "Pipeline completado",
+        "pct": 100,
+        "stage": "done",
+        "year": year,
+    }
+
+
 @app.get("/api/scraper/run-pipeline", tags=["scraper"])
 async def run_pipeline(year: int = Query(2026), source: str = Query("all", description="sinat | asea | all"), rebuild_wiki: bool = Query(True)):
     """
     SSE: Ejecuta el pipeline completo de ingestión.
     Etapas: gacetas ASEA → gacetas SINAT → conversión MD → extracción claves → grafo → Second Brain.
     """
-    from core.graph_builder import build_full_graph
-    from core.pdf_processor import iter_pages_as_markdown
-    import csv as csv_module
+    return _sse_response(run_pipeline_generator(year, source, rebuild_wiki))
 
-    def gen():
-        yield {"status": "progress", "msg": "Iniciando pipeline...", "pct": 0, "stage": "init"}
 
-        # Etapa 1: Gacetas ASEA
-        if source == "asea" or source == "all":
-            yield {"status": "progress", "msg": "Etapa 1/6: Gacetas ASEA", "pct": 5, "stage": "asea"}
-            try:
-                from scrapers.asea_scraper import ASEAScraper
-                asea = ASEAScraper(output_dir=str(GACETAS_DIR / "asea"), year_filter=year)
-                for event in asea.descargar_gacetas_gen():
-                    yield {**event, "stage": "asea"}
-            except Exception as exc:
-                yield {"status": "progress", "msg": f"ASEA warning: {exc}", "pct": 20, "level": "warning"}
-        else:
-            yield {"status": "progress", "msg": "Saltando Etapa 1: Gacetas ASEA", "pct": 20}
-
-        # Etapa 2: Gacetas SINAT
-        if source == "sinat" or source == "all":
-            yield {"status": "progress", "msg": "Etapa 2/6: Gacetas SINAT", "pct": 22, "stage": "sinat"}
-            try:
-                from scrapers.gazette_scraper import GazetteScraper
-                sinat = GazetteScraper(output_dir=str(GACETAS_DIR))
-                for event in sinat._descargar_gacetas_ano_gen(year):
-                    yield {**event, "stage": "sinat"}
-            except Exception as exc:
-                yield {"status": "progress", "msg": f"SINAT warning: {exc}", "pct": 44, "level": "warning"}
-        else:
-            yield {"status": "progress", "msg": "Saltando Etapa 2: Gacetas SINAT", "pct": 44}
-
-        # Etapa 3: Conversión MD (todas las gacetas pendientes de este origen y año)
-        yield {"status": "progress", "msg": "Etapa 3/6: Convirtiendo gacetas a Markdown...", "pct": 46, "stage": "md_extraction"}
-        EXTRACTIONS_DIR.mkdir(parents=True, exist_ok=True)
+def download_remaining_generator(year: int):
+    """
+    Genera eventos SSE para descargar secuencialmente las claves que faltan en el corpus.
+    """
+    from scrapers.semarnat_downloader import SemarnatDownloader
+    from core.graph_builder import parse_semarnat_key
+    from sqlalchemy import create_engine, text
+    import os
+    
+    # 1. Obtener claves registradas en base de datos
+    db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@db:5432/maritime_dw")
+    db_claves = set()
+    try:
+        engine = create_engine(db_url)
+        with engine.connect() as conn:
+            res = conn.execute(text("SELECT clave FROM public.semarnat_projects"))
+            db_claves = {row[0].strip().upper() for row in res}
+    except Exception as exc:
+        logger.warning("Fallo al consultar base de datos para claves restantes: %s", exc)
         
-        all_pdfs = []
-        if source == "sinat" or source == "all":
-            all_pdfs.extend([f for f in GACETAS_DIR.glob("*.pdf") if _extract_year_from_name(f.name) == year])
-        if source == "asea" or source == "all":
-            asea_dir = GACETAS_DIR / "asea"
-            if asea_dir.exists():
-                all_pdfs.extend([f for f in asea_dir.glob("*.pdf") if _extract_year_from_name(f.name) == year])
-        
-        all_pdfs = sorted(all_pdfs, key=lambda x: x.name)
-        n_md_extracted = 0
-        for idx, pdf in enumerate(all_pdfs):
-            md_path = EXTRACTIONS_DIR / f"{pdf.stem}.md"
-            if not md_path.exists() or md_path.stat().st_size == 0:
+    # 2. Obtener claves de gacetas locales extraídas como fallback
+    extractions_dir = BASE_DIR / "extractions"
+    gaceta_claves = set()
+    if extractions_dir.exists():
+        from core.second_brain import SecondBrainBuilder
+        builder = SecondBrainBuilder(BASE_DIR)
+        for md_file in extractions_dir.glob("*.md"):
+            if "gaceta" in md_file.name.lower() or md_file.name.startswith("ASEA_"):
                 try:
-                    pages = []
-                    for _, _, md_text, _ in iter_pages_as_markdown(pdf):
-                        pages.append(md_text)
-                    md_path.write_text("\n".join(pages), encoding="utf-8")
-                    n_md_extracted += 1
-                    pct = 46 + int(8 * (idx + 1) / max(len(all_pdfs), 1))
-                    yield {"status": "progress", "msg": f"MD: {pdf.name}", "pct": pct, "stage": "md_extraction"}
-                except Exception as exc:
-                    logger.warning("MD warning %s: %s", pdf.name, exc)
-        yield {"status": "progress", "msg": f"MD: {n_md_extracted} nuevas extracciones", "pct": 54, "stage": "md_extraction"}
-
-        # Etapa 4: Extracción de claves SINAT
-        yield {"status": "progress", "msg": "Etapa 4/6: Extrayendo claves SINAT...", "pct": 55, "stage": "keys"}
-        csv_path = DATA_DIR / f"claves_{year}.csv"
+                    content = md_file.read_text(encoding="utf-8", errors="ignore")
+                    found = builder.clave_re.findall(content.upper())
+                    gaceta_claves.update(found)
+                except Exception:
+                    pass
+                    
+    all_known_claves = db_claves.union(gaceta_claves)
+    
+    # 3. Filtrar claves que ya tienen PDF de estudio descargado
+    # Buscamos estudios locales
+    local_study_files = set()
+    if ESTUDIOS_DIR.exists():
+        for f in ESTUDIOS_DIR.glob("*.pdf"):
+            parsed = parse_semarnat_key(f.name)
+            clave = parsed.get("clave", f.stem).upper()
+            local_study_files.add(clave)
+            
+    pending_claves = sorted(list(all_known_claves - local_study_files))
+    
+    if not pending_claves:
+        yield {"status": "complete", "msg": "No hay claves pendientes para descargar. ¡Todo al día!", "pct": 100}
+        return
         
-        # Preservar claves de la otra fuente
-        existing_claves = []
-        seen_claves = set()
-        if csv_path.exists() and source != "all":
-            try:
-                with open(csv_path, "r", encoding="utf-8") as f:
-                    reader = csv_module.reader(f)
-                    header = next(reader, None)
-                    for row in reader:
-                        if len(row) >= 3:
-                            row_clave, row_year, row_file = row[:3]
-                            row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
-                            row_loc = row[4] if len(row) > 4 else ""
-                            row_prom = row[5] if len(row) > 5 else "Desconocido"
-                            if row_clave == "23QR2024TD085" and not row_file:
-                                continue
-                            is_row_asea = row_file and ("asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_"))
-                            item = {
-                                "CLAVE": row_clave,
-                                "YEAR": int(row_year),
-                                "FILE": row_file,
-                                "PROJECT_NAME": row_proj_name,
-                                "LOCATION": row_loc,
-                                "PROMOVENTE": row_prom
-                            }
-                            if source == "sinat" and is_row_asea:
-                                existing_claves.append(item)
-                                seen_claves.add(row_clave)
-                            elif source == "asea" and not is_row_asea:
-                                existing_claves.append(item)
-                                seen_claves.add(row_clave)
-            except Exception as exc:
-                logger.warning("Error leyendo CSV existente para preservar claves en run_pipeline: %s", exc)
+    yield {"status": "progress", "msg": f"Se encontraron {len(pending_claves)} claves pendientes. Iniciando descarga secuencial...", "pct": 0, "total_pending": len(pending_claves)}
+    
+    downloader = SemarnatDownloader(
+        download_dir=str(DOWNLOADS_DIR),
+        carpeta_estudios=str(ESTUDIOS_DIR),
+        carpeta_resumenes=str(RESUMENES_DIR),
+        carpeta_resolutivos=str(RESOLUTIVOS_DIR),
+    )
+    
+    for idx, clave in enumerate(pending_claves):
+        yield {"status": "progress", "msg": f"[{idx+1}/{len(pending_claves)}] Descargando clave {clave}...", "pct": int((idx / len(pending_claves)) * 100), "clave": clave}
+        
+        try:
+            # Descargar clave vía Selenium
+            classified_files = {"resumenes": [], "estudios": [], "resolutivos": []}
+            metadata = {}
+            for event in downloader._descargar_clave_gen_with_retry(clave):
+                msg = event.get("msg", "")
+                if msg:
+                    yield {"status": "progress", "msg": f"  -> {clave}: {msg}", "pct": int((idx / len(pending_claves)) * 100) + 1}
+                if "metadata" in event:
+                    metadata = event["metadata"]
+                if "files" in event:
+                    classified_files = event["files"]
+            
+            # Persistir en DB
+            if metadata:
+                try:
+                    update_csv_metadata(clave, metadata, year)
+                    upsert_project_db(clave, metadata, year)
+                except Exception as db_exc:
+                    yield {"status": "progress", "msg": f"  -> Warning persistiendo DB para {clave}: {db_exc}", "pct": int((idx / len(pending_claves)) * 100) + 1}
+                    
+        except Exception as e:
+            yield {"status": "progress", "msg": f"  -> Error descargando clave {clave}: {e}", "pct": int((idx / len(pending_claves)) * 100) + 1}
+            
+    yield {"status": "complete", "msg": f"Proceso finalizado. Se procesaron {len(pending_claves)} claves.", "pct": 100}
 
-        new_claves = []
-        for idx, g_pdf in enumerate(all_pdfs):
-            md_path = EXTRACTIONS_DIR / f"{g_pdf.stem}.md"
-            if md_path.exists() and md_path.stat().st_size > 0:
-                text = md_path.read_text(encoding="utf-8", errors="ignore")
-                for clave in _CLAVE_RE.findall(text.upper()):
-                    if clave not in seen_claves:
-                        seen_claves.add(clave)
-                        proj_name, loc, prom = extract_project_info_from_text(clave, text)
-                        new_claves.append({
-                            "CLAVE": clave,
-                            "YEAR": year,
-                            "FILE": str(g_pdf),
-                            "PROJECT_NAME": proj_name,
-                            "LOCATION": loc,
-                            "PROMOVENTE": prom
-                        })
-                        
-        final_claves = existing_claves + new_claves
-        if final_claves:
-            final_claves.sort(key=lambda x: (x.get("FILE", ""), x.get("CLAVE", "")))
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
-            with open(csv_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv_module.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION", "PROMOVENTE"])
-                writer.writeheader()
-                writer.writerows(final_claves)
-        yield {"status": "progress", "msg": f"Claves: {len(final_claves)} encontradas en total ({len(all_pdfs)} gacetas procesadas)", "pct": 65, "stage": "keys"}
 
-        # Etapa 5: Rebuild Grafo
-        if rebuild_wiki:
-            yield {"status": "progress", "msg": "Etapa 5/6: Rebuilding grafo...", "pct": 67, "stage": "graph"}
-            try:
-                graph = build_full_graph(DOWNLOADS_DIR)
-                cache_path = DATA_DIR / "graph_cache.json"
-                DATA_DIR.mkdir(parents=True, exist_ok=True)
-                cache_path.write_text(json.dumps(graph, ensure_ascii=False), encoding="utf-8")
-                yield {"status": "progress", "msg": f"Grafo: {graph['metrics']['n_nodes']} nodos", "pct": 80}
-            except Exception as exc:
-                yield {"status": "progress", "msg": f"Grafo warning: {exc}", "pct": 80, "level": "warning"}
-
-            # Etapa 6: Sincronizar Second Brain
-            yield {"status": "progress", "msg": "Etapa 6/6: Sincronizando Second Brain...", "pct": 82, "stage": "second_brain"}
-            try:
-                from core.second_brain import SecondBrainBuilder
-                stats = SecondBrainBuilder(BASE_DIR).build_vault()
-                yield {"status": "progress", "msg": f"Second Brain: {stats['total_proyectos']} proyectos, {stats['total_gacetas']} gacetas", "pct": 95}
-            except Exception as exc:
-                yield {"status": "progress", "msg": f"Second Brain warning: {exc}", "pct": 95, "level": "warning"}
-
-        yield {
-            "status": "complete",
-            "msg": "Pipeline completado",
-            "pct": 100,
-            "stage": "done",
-            "year": year,
-        }
-
-    return _sse_response(gen())
+@app.get("/api/scraper/download-remaining", tags=["scraper"])
+async def download_remaining(year: int = Query(2026)):
+    """
+    SSE: Descarga secuencialmente todos los estudios PDF de claves registradas que falten.
+    """
+    return _sse_response(download_remaining_generator(year))
 
 
 def update_csv_metadata(clave: str, metadata: dict, year: int):
@@ -1691,18 +1891,22 @@ async def download_clave(clave: str = Query(..., description="Clave SINAT a desc
         # Etapa 2: Conversión a Markdown
         yield {"status": "progress", "msg": "Convirtiendo PDFs descargados a Markdown...", "pct": 63}
         
-        estudios_to_convert = []
-        if classified_files.get("estudios"):
-            estudios_to_convert = [Path(f) for f in classified_files["estudios"]]
-        else:
-            # Fallback: buscar archivos de la clave en la carpeta de estudios
-            estudios_to_convert = list(ESTUDIOS_DIR.glob(f"{clave}.estudio.*.pdf"))
-            if not estudios_to_convert and (ESTUDIOS_DIR / f"{clave}.pdf").exists():
-                estudios_to_convert = [ESTUDIOS_DIR / f"{clave}.pdf"]
+        files_to_convert = []
+        for doc_cat, doc_dir in [("estudios", ESTUDIOS_DIR), ("resumenes", RESUMENES_DIR), ("resolutivos", RESOLUTIVOS_DIR)]:
+            if classified_files.get(doc_cat):
+                files_to_convert.extend([Path(f) for f in classified_files[doc_cat]])
+            else:
+                # Fallback: buscar archivos de la clave en la carpeta correspondiente
+                tipo_singular = doc_cat[:-2]  # estudios -> estudio, etc.
+                found = list(doc_dir.glob(f"{clave}.{tipo_singular}.*.pdf"))
+                if not found and (doc_dir / f"{clave}.pdf").exists() and doc_cat == "estudios":
+                    found = [doc_dir / f"{clave}.pdf"]
+                files_to_convert.extend(found)
                 
         converted_md_paths = []
-        if estudios_to_convert:
-            for pdf_file in estudios_to_convert:
+        estudios_md_paths = []
+        if files_to_convert:
+            for pdf_file in files_to_convert:
                 md_name = pdf_file.stem + ".md"
                 md_path = EXTRACTIONS_DIR / md_name
                 try:
@@ -1712,16 +1916,18 @@ async def download_clave(clave: str = Query(..., description="Clave SINAT a desc
                     EXTRACTIONS_DIR.mkdir(parents=True, exist_ok=True)
                     md_path.write_text("\n".join(pages), encoding="utf-8")
                     converted_md_paths.append(md_path)
+                    if "estudio" in pdf_file.name.lower() or pdf_file.name == f"{clave}.pdf":
+                        estudios_md_paths.append(md_path)
                     yield {"status": "progress", "msg": f"Markdown extraído: {md_path.name} ({md_path.stat().st_size} bytes)", "pct": 75}
                 except Exception as exc:
                     yield {"status": "progress", "msg": f"Conversión MD warning para {pdf_file.name}: {exc}", "pct": 75, "level": "warning"}
         else:
-            yield {"status": "progress", "msg": "Sin estudio PDF disponible para conversión", "pct": 75, "level": "warning"}
+            yield {"status": "progress", "msg": "Sin archivos PDF disponibles para conversión", "pct": 75, "level": "warning"}
 
-        # Etapa 3: Inferencia (si hay MD)
-        if converted_md_paths:
-            yield {"status": "progress", "msg": "Ejecutando inferencia...", "pct": 77}
-            for md_path in converted_md_paths:
+        # Etapa 3: Inferencia (si hay MD de estudio)
+        if estudios_md_paths:
+            yield {"status": "progress", "msg": "Ejecutando inferencia sobre el estudio...", "pct": 77}
+            for md_path in estudios_md_paths:
                 try:
                     cache_path = DATA_DIR / "inference_cache" / f"{md_path.stem}.json"
                     report = generate_report(md_path)
@@ -1951,22 +2157,30 @@ async def get_gaceta_keys(gaceta_name: str, year: int = Query(2026)):
                     
                     # Comprobar si pertenece a la gaceta consultada
                     if row_file and Path(row_file).stem.upper() == target_stem:
-                        # Comprobar estado de archivos en disco para esta clave
-                        estudio_pdf = DOWNLOADS_DIR / "estudios" / f"{row_clave}.pdf"
-                        resumen_pdf = DOWNLOADS_DIR / "resumenes" / f"{row_clave}.pdf"
-                        resolutivo_pdf = DOWNLOADS_DIR / "resolutivos" / f"{row_clave}.pdf"
-                        extraction_md = EXTRACTIONS_DIR / f"{row_clave}.md"
+                        # Comprobar estado de archivos en disco para esta clave (soporta legado y nuevo renombrado)
+                        has_pdf_estudio = (DOWNLOADS_DIR / "estudios" / f"{row_clave}.pdf").exists() or bool(list((DOWNLOADS_DIR / "estudios").glob(f"{row_clave}.estudio.*.pdf")))
+                        has_pdf_resumen = (DOWNLOADS_DIR / "resumenes" / f"{row_clave}.pdf").exists() or bool(list((DOWNLOADS_DIR / "resumenes").glob(f"{row_clave}.resumen.*.pdf")))
+                        has_pdf_resolutivo = (DOWNLOADS_DIR / "resolutivos" / f"{row_clave}.pdf").exists() or bool(list((DOWNLOADS_DIR / "resolutivos").glob(f"{row_clave}.resolutivo.*.pdf")))
+                        
+                        has_md_estudio = (EXTRACTIONS_DIR / f"{row_clave}.md").exists() or bool(list(EXTRACTIONS_DIR.glob(f"{row_clave}.estudio.*.md")))
+                        has_md_resumen = bool(list(EXTRACTIONS_DIR.glob(f"{row_clave}.resumen.*.md")))
+                        has_md_resolutivo = bool(list(EXTRACTIONS_DIR.glob(f"{row_clave}.resolutivo.*.md")))
+                        
                         inference_json = DATA_DIR / "inference_cache" / f"{row_clave}.json"
+                        has_inference = inference_json.exists() or bool(list((DATA_DIR / "inference_cache").glob(f"{row_clave}.estudio.*.json")))
 
                         claves_info.append({
                             "clave": row_clave,
                             "project_name": row_proj_name,
                             "location": row_loc,
-                            "has_pdf_estudio": estudio_pdf.exists(),
-                            "has_pdf_resumen": resumen_pdf.exists(),
-                            "has_pdf_resolutivo": resolutivo_pdf.exists(),
-                            "has_extraction": extraction_md.exists(),
-                            "has_inference": inference_json.exists(),
+                            "has_pdf_estudio": has_pdf_estudio,
+                            "has_pdf_resumen": has_pdf_resumen,
+                            "has_pdf_resolutivo": has_pdf_resolutivo,
+                            "has_extraction": has_md_estudio,
+                            "has_md_estudio": has_md_estudio,
+                            "has_md_resumen": has_md_resumen,
+                            "has_md_resolutivo": has_md_resolutivo,
+                            "has_inference": has_inference,
                         })
     except Exception as exc:
         logger.error("Error leyendo claves para gaceta %s: %s", gaceta_name, exc)
@@ -2162,6 +2376,56 @@ async def get_model_status():
     return {"provider": provider, "model": model_name}
 
 
+def get_project_graph_context(clave: str) -> str:
+    """
+    Query Neo4j (or local graph cache fallback) to retrieve connections/relations for a project.
+    Formats the context as a markdown block for RAG prompt injection.
+    """
+    logger.info("Graph-RAG: Consultando grafo para clave %s...", clave)
+    
+    neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    neo4j_user = os.getenv("NEO4J_USER", "neo4j")
+    neo4j_pass = os.getenv("NEO4J_PASSWORD", "maritime_secret_pass")
+    
+    relations = []
+    try:
+        from neo4j import GraphDatabase
+        driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_pass))
+        with driver.session() as session:
+            # Query neighbors and relations
+            query = """
+            MATCH (p:Proyecto {clave: $clave})-[r]-(neighbor)
+            RETURN type(r) AS rel, labels(neighbor)[0] AS type, 
+                   coalesce(neighbor.nombre, neighbor.codigo, neighbor.descripcion) AS name
+            """
+            result = session.run(query, clave=clave)
+            for row in result:
+                rel = row["rel"]
+                n_type = row["type"]
+                name = row["name"]
+                relations.append(f"  - [{rel}] -> {n_type}: {name}")
+        driver.close()
+    except Exception as e:
+        logger.warning("Graph-RAG: No se pudo conectar a Neo4j: %s. Usando fallback de metadatos local...", e)
+        # Fallback local usando parse_semarnat_key
+        from core.graph_builder import parse_semarnat_key
+        parsed = parse_semarnat_key(clave + ".pdf")
+        if parsed.get("valid"):
+            relations = [
+                f"  - [UBICADO_EN] -> Estado: {parsed.get('estado_nombre')}",
+                f"  - [ES_TIPO] -> TipoMIA: {parsed.get('tipo_nombre')}",
+                f"  - [DEL_SECTOR] -> Sector: Sector {parsed.get('sector')}",
+                f"  - [DEL_AÑO] -> Año: {parsed.get('year')}"
+            ]
+
+    if relations:
+        return (
+            "\n\nCONTEXTO ESTRUCTURADO DEL GRAFO DE RELACIONES (Graph-RAG):\n"
+            + "\n".join(relations)
+        )
+    return ""
+
+
 @app.post("/api/chat", tags=["system"])
 async def api_chat(payload: dict):
     """
@@ -2177,14 +2441,21 @@ async def api_chat(payload: dict):
 
     # Obtener contexto del Second Brain si hay una clave de proyecto seleccionada
     context = ""
+    graph_context = ""
     if clave:
-        sb_note_path = BASE_DIR / "second_brain" / "02_Entities" / f"{clave}.md"
+        sb_note_path = BASE_DIR / "second_brain" / "02_Entities" / f"Proyecto - {clave}.md"
         if sb_note_path.exists():
             try:
                 context = sb_note_path.read_text(encoding="utf-8")
                 logger.info("Contexto del Second Brain inyectado para clave %s", clave)
             except Exception as exc:
                 logger.warning("Error leyendo nota para contexto: %s", exc)
+        
+        # Consultar grafo para Graph-RAG
+        try:
+            graph_context = get_project_graph_context(clave)
+        except Exception as exc:
+            logger.warning("Error obteniendo contexto del grafo: %s", exc)
 
     # RAG Automático Inteligente si no se seleccionó clave en el dropdown
     auto_rag_context = ""
@@ -2201,7 +2472,7 @@ async def api_chat(payload: dict):
                         content = note_path.read_text(encoding="utf-8")
                         pieces.append(f"### Nota: {res['title']} (Categoría: {res['category']})\n{content}")
             if pieces:
-                auto_rag_context = "\n\nCONTEXTO RELEVANTE ENCONTRADO AUTOMÁTICAMENTE EN EL SECOND BRAIN:\n" + "\n\n".join(pieces)
+                auto_rag_context = "\n\nCONTEXTO RELEVANTE ENCONTRADO AUTOMÁTIMAMENTE EN EL SECOND BRAIN:\n" + "\n\n".join(pieces)
                 logger.info("Auto-RAG inyectó %d notas relevantes.", len(pieces))
         except Exception as exc:
             logger.warning("Error en RAG automático: %s", exc)
@@ -2217,8 +2488,10 @@ async def api_chat(payload: dict):
         sys_prompt += (
             f"\n\nCONTEXTO DEL PROYECTO ACTUAL (Clave {clave}):\n"
             f"```markdown\n{context}\n```\n"
-            "Responde a las preguntas utilizando esta información como fuente principal de verdad."
         )
+        if graph_context:
+            sys_prompt += f"```markdown{graph_context}\n```\n"
+        sys_prompt += "Responde a las preguntas utilizando esta información como fuente principal de verdad."
     elif auto_rag_context:
         sys_prompt += auto_rag_context
 

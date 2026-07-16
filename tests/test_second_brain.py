@@ -70,7 +70,9 @@ def temp_vault_dir(tmp_path):
          patch("api.main.RESUMENES_DIR", downloads / "resumenes"), \
          patch("api.main.ESTUDIOS_DIR", downloads / "estudios"), \
          patch("api.main.RESOLUTIVOS_DIR", downloads / "resolutivos"), \
-         patch("api.main.GACETAS_DIR", downloads / "gacetas"):
+         patch("api.main.GACETAS_DIR", downloads / "gacetas"), \
+         patch.dict("os.environ", {"DATABASE_URL": "sqlite:///:memory:"}), \
+         patch("core.semantic_search.SemanticSearchEngine._generate_embedding", return_value=[0.1] * 128):
         yield tmp_path
 
 

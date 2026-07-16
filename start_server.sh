@@ -1,49 +1,48 @@
 #!/bin/bash
-# start_server.sh - Inicia el servidor Zohar v4 y abre el dashboard en el navegador.
+# start_server.sh - Inicia el stack completo de Zohar v4 en Docker y abre el dashboard.
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR" || exit 1
 
+echo "=========================================================="
+echo "🌌  Iniciando Zohar Intelligence v4..."
+echo "=========================================================="
 
-# Activar el entorno virtual
-if [ -f ".venv/bin/activate" ]; then
-    source .venv/bin/activate
-else
-    echo "Error: Entorno virtual no encontrado en .venv/"
-    exit 1
-fi
+# Levantar todos los servicios del docker-compose (db, redis, neo4j, llama-cpp, api)
+echo "🚀  Levantando contenedores Docker..."
+docker compose -f dw/docker-compose.yml up -d
 
-echo "Iniciando uvicorn en http://127.0.0.1:8004..."
-# Ejecutar uvicorn en segundo plano
-PYTHONPATH="." uvicorn api.main:app --host 127.0.0.1 --port 8004 &
-SERVER_PID=$!
-
-# Función para detener el servidor al salir
-cleanup() {
-    echo "Deteniendo el servidor (PID $SERVER_PID)..."
-    kill "$SERVER_PID" 2>/dev/null
-    exit 0
-}
-trap cleanup SIGINT SIGTERM EXIT
-
-# Esperar a que el servidor esté activo
-echo "Esperando a que el servidor responda..."
-for i in {1..30}; do
-    if curl -s http://127.0.0.1:8004/ > /dev/null; then
-        echo "Servidor listo."
+# Esperar a que el servidor FastAPI (puerto 8004) responda
+echo "⏳  Esperando a que el servidor API responda en http://localhost:8004/ ..."
+for i in {1..60}; do
+    if curl -s http://localhost:8004/ > /dev/null; then
+        echo "✅  Servidor API listo y conectado."
         break
     fi
-    sleep 0.5
+    sleep 1
 done
 
-# Abrir el navegador
+# Abrir el navegador con el dashboard
+echo "🌐  Abriendo el dashboard en el navegador..."
 if command -v xdg-open > /dev/null; then
-    xdg-open "http://127.0.0.1:8004/" &
+    xdg-open "http://localhost:8004/" &
 elif command -v google-chrome > /dev/null; then
-    google-chrome "http://127.0.0.1:8004/" &
+    google-chrome "http://localhost:8004/" &
 elif command -v firefox > /dev/null; then
-    firefox "http://127.0.0.1:8004/" &
+    firefox "http://localhost:8004/" &
 fi
 
-# Mantener el script en primer plano para ver los logs y manejar la señal de salida
-wait "$SERVER_PID"
+# Manejar salida graciosa de visualización de logs
+cleanup() {
+    echo ""
+    echo "🛑  Deteniendo visualización de logs."
+    echo "💡  Los contenedores siguen activos en segundo plano."
+    echo "    Para apagarlos por completo ejecuta: docker compose -f dw/docker-compose.yml down"
+    exit 0
+}
+trap cleanup SIGINT SIGTERM
+
+# Mostrar logs de la API en tiempo real
+echo "📊  Mostrando logs del servidor api (Ctrl+C para salir)..."
+echo "----------------------------------------------------------"
+docker compose -f dw/docker-compose.yml logs -f api

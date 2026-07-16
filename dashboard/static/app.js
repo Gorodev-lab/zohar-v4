@@ -843,6 +843,7 @@ function renderInferenceReport(report, container) {
 function initScraperActions() {
   const btnExtractKeys = $('#btn-extract-keys');
   const btnRunPipeline = $('#btn-run-pipeline');
+  const btnDownloadRemaining = $('#btn-download-remaining');
   const logEl          = $('#scraper-log');
   const progressEl     = $('#scraper-progress');
   const pctEl          = $('#scraper-pct');
@@ -857,6 +858,7 @@ function initScraperActions() {
     State.sseSource = es;
     if (btnExtractKeys) btnExtractKeys.disabled = true;
     if (btnRunPipeline) btnRunPipeline.disabled = true;
+    if (btnDownloadRemaining) btnDownloadRemaining.disabled = true;
 
     es.onmessage = e => {
       const evt = JSON.parse(e.data);
@@ -873,6 +875,7 @@ function initScraperActions() {
         es.close();
         if (btnExtractKeys) btnExtractKeys.disabled = false;
         if (btnRunPipeline) btnRunPipeline.disabled = false;
+        if (btnDownloadRemaining) btnDownloadRemaining.disabled = false;
         showToast(`✓ ${label} completado`, 'ok');
         loadCorpus();
         loadMdList();
@@ -880,6 +883,7 @@ function initScraperActions() {
         es.close();
         if (btnExtractKeys) btnExtractKeys.disabled = false;
         if (btnRunPipeline) btnRunPipeline.disabled = false;
+        if (btnDownloadRemaining) btnDownloadRemaining.disabled = false;
         showToast(`Error en ${label}`, 'error');
       }
     };
@@ -889,6 +893,7 @@ function initScraperActions() {
       es.close();
       if (btnExtractKeys) btnExtractKeys.disabled = false;
       if (btnRunPipeline) btnRunPipeline.disabled = false;
+      if (btnDownloadRemaining) btnDownloadRemaining.disabled = false;
     };
   }
 
@@ -903,6 +908,13 @@ function initScraperActions() {
     btnRunPipeline.addEventListener('click', () => {
       const year = $('#scraper-year')?.value || '2026';
       runSse(`/api/scraper/run-pipeline?year=${year}`, `Pipeline ${year}`);
+    });
+  }
+
+  if (btnDownloadRemaining) {
+    btnDownloadRemaining.addEventListener('click', () => {
+      const year = $('#scraper-year')?.value || '2026';
+      runSse(`/api/scraper/download-remaining?year=${year}`, `Descarga pendientes ${year}`);
     });
   }
 }
@@ -1328,7 +1340,7 @@ async function loadWorkflowGacetaKeys(gacetaName) {
   const tbodyEl = $('#wf-keys-tbody');
 
   if (titleEl) titleEl.textContent = gacetaName;
-  if (tbodyEl) tbodyEl.innerHTML = '<tr><td colspan="6" class="text-muted text-center" style="padding:24px;">[ cargando claves... ]</td></tr>';
+  if (tbodyEl) tbodyEl.innerHTML = '<tr><td colspan="11" class="text-muted text-center" style="padding:24px;">[ cargando claves... ]</td></tr>';
 
   try {
     const year = $('#scraper-year')?.value || 2026;
@@ -1339,7 +1351,7 @@ async function loadWorkflowGacetaKeys(gacetaName) {
     tbodyEl.innerHTML = '';
 
     if (!d.claves?.length) {
-      tbodyEl.innerHTML = '<tr><td colspan="8" class="text-muted text-center" style="padding:24px;">[ sin claves SINAT — ejecuta conversión MD primero ]</td></tr>';
+      tbodyEl.innerHTML = '<tr><td colspan="11" class="text-muted text-center" style="padding:24px;">[ sin claves SINAT — ejecuta conversión MD primero ]</td></tr>';
       return;
     }
 
@@ -1357,8 +1369,11 @@ async function loadWorkflowGacetaKeys(gacetaName) {
         <td style="font-size:11px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(projName)}">${escHtml(projName)}</td>
         <td style="font-size:11px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(location)}">${escHtml(location)}</td>
         <td>${cell(item.has_pdf_estudio)}</td>
+        <td>${cell(item.has_pdf_resumen)}</td>
         <td>${cell(item.has_pdf_resolutivo)}</td>
-        <td>${cell(item.has_extraction)}</td>
+        <td>${cell(item.has_md_estudio)}</td>
+        <td>${cell(item.has_md_resumen)}</td>
+        <td>${cell(item.has_md_resolutivo)}</td>
         <td>${cell(item.has_inference)}</td>
         <td>
           <a class="btn" style="font-size:9px; padding:2px 6px;" href="/api/scraper/download-clave?clave=${encodeURIComponent(item.clave)}" onclick="event.preventDefault(); triggerDownload('${escHtml(item.clave)}')" aria-label="Descargar clave ${escHtml(item.clave)}">▸ DL</a>
@@ -1367,7 +1382,7 @@ async function loadWorkflowGacetaKeys(gacetaName) {
       tbodyEl.appendChild(tr);
     });
   } catch (err) {
-    tbodyEl.innerHTML = `<tr><td colspan="8" class="text-alert text-center" style="padding:24px;">[ error: ${escHtml(String(err))} ]</td></tr>`;
+    tbodyEl.innerHTML = `<tr><td colspan="11" class="text-alert text-center" style="padding:24px;">[ error: ${escHtml(String(err))} ]</td></tr>`;
   }
 }
 

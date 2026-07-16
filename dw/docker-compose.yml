@@ -13,7 +13,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./postgres_data:/var/lib/postgresql/data
       - ./schema.sql:/docker-entrypoint-initdb.d/10_schema.sql
       - ../migrations/001_static_snapshot.sql:/docker-entrypoint-initdb.d/20_static_snapshot.sql
       - ../migrations/002_local_supabase_compat.sql:/docker-entrypoint-initdb.d/30_local_supabase_compat.sql
@@ -31,7 +31,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - ./redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -52,8 +52,8 @@ services:
       - NEO4J_PLUGINS=["apoc"]
       - NEO4J_dbms_security_procedures_unrestricted=apoc.*
     volumes:
-      - neo4j_data:/data
-      - neo4j_logs:/logs
+      - ./neo4j_data:/data
+      - ./neo4j_logs:/logs
 
   download-model:
     image: alpine:latest
@@ -71,9 +71,8 @@ services:
         echo 'Model already exists. Skipping download.';
       fi
       "
-
   llama-cpp:
-    image: ghcr.io/ggml-org/llama.cpp:server-vulkan
+    image: ghcr.io/ggml-org/llama.cpp:server
     container_name: maritime_llama_cpp
     restart: always
     depends_on:
@@ -81,11 +80,9 @@ services:
         condition: service_completed_successfully
     ports:
       - "8083:8083"
-    devices:
-      - /dev/dri:/dev/dri
     volumes:
       - ../models:/models
-    command: -m /models/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf -c 32768 --host 0.0.0.0 --port 8083 -ngl 99 --jinja --chat-template gemma
+    command: -m /models/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf -c 32768 -b 4096 -ub 4096 --host 0.0.0.0 --port 8083 --jinja --chat-template gemma --embeddings
 
   api:
     build:
@@ -114,11 +111,7 @@ services:
       - llama-cpp
     command: tunnel --url http://llama-cpp:8083
 
-volumes:
-  postgres_data:
-  redis_data:
-  neo4j_data:
-  neo4j_logs:
+
 
 
 
