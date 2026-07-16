@@ -16,7 +16,7 @@ def detect_active_backend() -> tuple[str, str]:
     """
     Detecta automáticamente qué proveedor de LLM está activo y disponible.
     Prioridad:
-    1. llama-server (puerto 8081 por defecto)
+    1. llama-server (puerto 8083 por defecto)
     2. Ollama (puerto 11434 por defecto)
     3. Gemini API (si hay GEMINI_API_KEY)
     4. Heurística (sin LLM)
@@ -25,7 +25,7 @@ def detect_active_backend() -> tuple[str, str]:
         tuple[provider, model_name]
     """
     # 1. Verificar llama-server
-    local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8081")
+    local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8083")
     try:
         # llama-server tiene un endpoint /health
         r = httpx.get(f"{local_url}/health", timeout=1.0)

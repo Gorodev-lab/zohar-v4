@@ -1,6 +1,6 @@
 """
 core/semantic_search.py
-Motor de búsqueda semántica para las notas del Second Brain utilizando la API de Gemini y caché local.
+Motor de búsqueda semántica para las notas del Second Brain utilizando el llama-server local y caché en disco.
 """
 
 from __future__ import annotations
@@ -36,8 +36,8 @@ class SemanticSearchEngine:
         self.sb_dir = self.base_dir / "second_brain"
         self.cache_file = self.sb_dir / "embeddings_cache.json"
         
-        # Modelo para embeddings
-        self.embedding_model = "text-embedding-004"
+        # Modelo para embeddings local
+        self.embedding_model = "gemma-4-e2b-local"
         
         # Inicializar caché
         self.cache: dict[str, dict] = {}
@@ -62,50 +62,64 @@ class SemanticSearchEngine:
             self.cache_file.write_text(json.dumps(self.cache, indent=2, ensure_ascii=False), encoding="utf-8")
             logger.info("Caché de embeddings guardada en disco: %d notas indexadas", len(self.cache))
         except Exception as exc:
-            logger.error("Error guardando caché de embeddings: %s", exc)
+            logger.error("Error guando caché de embeddings: %s", exc)
 
-    def _get_gemini_client(self) -> Optional[object]:
-        """Inicializa y retorna el cliente de Gemini si la API key está disponible."""
-        api_key = os.environ.get("GEMINI_API_KEY", "")
-        if not api_key:
-            logger.warning("No se encontró GEMINI_API_KEY. Búsqueda semántica deshabilitada.")
-            return None
+    def _generate_embedding(self, text: str) -> Optional[list[float]]:
+        """Genera un embedding para un texto usando el llama-server local."""
+        import requests
+        local_url = os.environ.get("LOCAL_LLM_URL", "http://127.0.0.1:8083")
+        # Truncar a los primeros 1000 caracteres para no exceder los límites de tokens del servidor local y acelerar procesamiento en CPU
+        truncated_text = text[:1000].strip()
         try:
-            from google import genai
-            return genai.Client(api_key=api_key)
-        except Exception as exc:
-            logger.error("Error inicializando cliente de Gemini en SemanticSearchEngine: %s", exc)
-            return None
-
-    def _generate_embedding(self, client, text: str) -> Optional[list[float]]:
-        """Genera un embedding para un texto usando Gemini."""
-        try:
-            response = client.models.embed_content(
-                model=self.embedding_model,
-                contents=text
+            r = requests.post(
+                f"{local_url}/embedding",
+                json={"content": truncated_text},
+                timeout=120.0
             )
-            
-            # Extraer vector de forma segura contemplando variaciones del SDK
-            if hasattr(response, 'embedding') and response.embedding:
-                return response.embedding.values
-            elif hasattr(response, 'embeddings') and response.embeddings and len(response.embeddings) > 0:
-                return response.embeddings[0].values
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list) and len(data) > 0:
+                    emb = data[0].get("embedding")
+                    if isinstance(emb, list) and len(emb) > 0 and isinstance(emb[0], list):
+                        return emb[0]
+                    return emb
+                elif isinstance(data, dict):
+                    return data.get("embedding")
+                logger.error("Formato de respuesta de embeddings desconocido: %s", type(data))
             else:
-                return response.embedding.values
+                logger.error("Error del servidor llama-server local (código %d): %s", r.status_code, r.text)
         except Exception as exc:
-            logger.error("Error generando embedding con Gemini: %s", exc)
-            return None
+            logger.error("Error conectando con llama-server para embeddings: %s", exc)
+        return None
 
     def build_index(self) -> dict:
         """
         Escanea las notas de second_brain/, detecta cambios y regenera embeddings ausentes.
         """
-        client = self._get_gemini_client()
-        if not client:
-            return {"status": "error", "reason": "No GEMINI_API_KEY", "indexed": 0}
-
         if not self.sb_dir.exists():
             return {"status": "error", "reason": "Bóveda no encontrada", "indexed": 0}
+
+        # Generar un embedding de prueba para determinar la dimensión esperada e invalidar caché vieja si difiere
+        test_emb = self._generate_embedding("prueba")
+        if not test_emb:
+            return {"status": "error", "reason": "No se pudo conectar con el servidor LLM local o no soporta embeddings", "indexed": 0}
+        
+        expected_dim = len(test_emb)
+        
+        # Filtrar o limpiar la caché si tiene dimensiones incorrectas (ej: residuos de Gemini text-embedding-004)
+        invalidated_count = 0
+        keys_to_clean = []
+        for k, v in list(self.cache.items()):
+            emb = v.get("embedding")
+            if not emb or len(emb) != expected_dim:
+                keys_to_clean.append(k)
+        
+        for k in keys_to_clean:
+            del self.cache[k]
+            invalidated_count += 1
+            
+        if invalidated_count > 0:
+            logger.info("Se invalidaron %d embeddings por cambio de dimensión / modelo de embeddings", invalidated_count)
 
         # Escanear todos los archivos md del second brain
         md_files = list(self.sb_dir.rglob("*.md"))
@@ -122,7 +136,6 @@ class SemanticSearchEngine:
             except ValueError:
                 rel_path = str(md_path)
             
-            # Omitir archivos del sistema o índices demasiado globales si es necesario (mantener todos los MDs)
             active_rel_paths.add(rel_path)
             
             try:
@@ -137,10 +150,8 @@ class SemanticSearchEngine:
                     skipped_count += 1
                     continue
 
-                # Generar nuevo embedding
-                # Extraemos el contenido útil (podemos omitir metadatos de frontmatter para búsquedas más limpias)
-                # pero para conservar contexto, enviamos las primeras partes significativas.
-                embedding = self._generate_embedding(client, content)
+                # Generar nuevo embedding local
+                embedding = self._generate_embedding(content)
                 if embedding:
                     self.cache[rel_path] = {
                         "name": md_path.name,
@@ -161,8 +172,8 @@ class SemanticSearchEngine:
         for k in keys_to_delete:
             del self.cache[k]
 
-        # Guardar en disco si hubo cambios o limpiezas
-        if indexed_count > 0 or len(keys_to_delete) > 0:
+        # Guardar en disco si hubo cambios, invalidaciones o limpiezas
+        if indexed_count > 0 or len(keys_to_delete) > 0 or invalidated_count > 0:
             self._save_cache()
 
         return {
@@ -171,36 +182,31 @@ class SemanticSearchEngine:
             "skipped": skipped_count,
             "failed": failed_count,
             "deleted": len(keys_to_delete),
+            "invalidated": invalidated_count,
             "total_cached": len(self.cache)
         }
 
     def search(self, query: str, limit: int = 15) -> list[dict]:
         """
-        Busca notas semánticamente similares a la consulta del usuario.
+        Busca notas semánticamente similares a la consulta del usuario usando embeddings locales.
         """
-        client = self._get_gemini_client()
-        if not client:
-            return []
-
         query = query.strip()
         if not query:
             return []
 
         # Generar embedding de la consulta
-        query_emb = self._generate_embedding(client, query)
+        query_emb = self._generate_embedding(query)
         if not query_emb:
             return []
 
         results = []
         for rel_path, info in self.cache.items():
             emb = info.get("embedding")
-            if not emb:
+            if not emb or len(emb) != len(query_emb):
                 continue
 
             similarity = _cosine_similarity(query_emb, emb)
             
-            # Guardamos el resultado si tiene cierta similitud
-            # En text-embedding-004, las similitudes suelen ser > 0.3 para relacionarse
             results.append({
                 "name": info["name"],
                 "title": info["title"],

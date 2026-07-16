@@ -137,6 +137,12 @@
           </button>
         </div>
 
+        <div class="scraper-btn-group" style="grid-template-columns: 1fr; margin-top: 6px;">
+          <button id="btn-download-remaining" class="btn btn--secondary btn--scraper" style="width: 100%;" aria-label="Descargar estudios de claves restantes del año seleccionado">
+            <span aria-hidden="true">⇩</span> DESCARGAR RESTANTES
+          </button>
+        </div>
+
         <!-- Scraper Progress -->
         <div class="scraper-progress-wrap">
           <div class="progress-bar" id="scraper-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
@@ -576,16 +582,19 @@
                     <th>Clave SINAT</th>
                     <th>Nombre del Proyecto</th>
                     <th>Ubicación</th>
-                    <th>Estudio</th>
-                    <th>Resolutivo</th>
-                    <th>Markdown</th>
+                    <th>PDF Estudio</th>
+                    <th>PDF Resumen</th>
+                    <th>PDF Resolutivo</th>
+                    <th>MD Estudio</th>
+                    <th>MD Resumen</th>
+                    <th>MD Resolutivo</th>
                     <th>Inferencia</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="wf-keys-tbody">
                   <tr>
-                    <td colspan="8" class="text-muted text-center" style="padding:32px;">
+                    <td colspan="11" class="text-muted text-center" style="padding:32px;">
                       [ Selecciona una gaceta del listado lateral ]
                     </td>
                   </tr>

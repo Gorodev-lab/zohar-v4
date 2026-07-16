@@ -358,6 +358,7 @@ class TestSINATButtonCount:
         return driver.find_elements(By.CSS_SELECTOR, css_selector)
 
     @pytest.mark.headful
+    @pytest.mark.live
     def test_key_3_buttons_headful(self, tmp_path):
         """21PU2025H0155 debe tener 3 botones de descarga."""
         from scrapers.semarnat_downloader import make_chrome_driver
