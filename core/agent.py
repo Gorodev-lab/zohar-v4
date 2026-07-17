@@ -182,40 +182,96 @@ class ZoharAgent:
         Retorna: (respuesta_final, tool_calls_log)
         """
         from core.llm_client import generate_completion
-        
-        # Enriquecer el system prompt con las directrices del agente
-        agent_sys_prompt = self.sys_prompt + (
-            "\n\nTienes acceso a las siguientes herramientas locales para responder consultas:\n"
-            "- `database_query(sql_query)`: Consulta tablas PostgreSQL (SELECT únicamente).\n"
-            "- `second_brain_search(query)`: Búsqueda semántica en fichas Markdown del Second Brain.\n"
-            "- `ocr_extraction(pdf_name)`: Ejecuta conversión PDF a Markdown (con OCR).\n"
-            "- `second_brain_sync()`: Recompila el Second Brain y sus embeddings.\n\n"
-            "Esquema de base de datos disponible para `database_query`:\n"
-            "1. Tabla `public.semarnat_projects` (registros de proyectos):\n"
-            "   - `clave` (VARCHAR, clave de proyecto única, ej: '03BS2026H0015')\n"
-            "   - `project_name` (TEXT, nombre del proyecto)\n"
-            "   - `status` (VARCHAR, estado del trámite)\n"
-            "   - `sector` (VARCHAR, sector productivo)\n"
-            "   - `state` (VARCHAR, estado/ubicación)\n"
-            "   - `year` (INTEGER, año de registro)\n"
-            "   - `promovente` (TEXT, persona/empresa promovente)\n"
-            "   - `files_downloaded` (TEXT[], archivos descargados)\n"
-            "2. Tabla `public.project_evaluations` (evaluaciones de viabilidad):\n"
-            "   - `clave` (VARCHAR, clave de relación con semarnat_projects)\n"
-            "   - `veredicto` (VARCHAR, veredicto: FAVORABLE, DESFAVORABLE, CONDICIONADO, PENDIENTE)\n"
-            "   - `score` (DOUBLE PRECISION, puntuación de viabilidad)\n"
-            "   - `confianza_pct` (INTEGER, porcentaje de confianza)\n"
-            "   - `yes_signals` (JSONB, señales a favor)\n"
-            "   - `no_signals` (JSONB, señales en contra)\n"
-            "   - `knockouts` (JSONB, knockouts detectados)\n"
-            "   - `condicionantes` (JSONB, medidas requeridas)\n\n"
-            "Para ejecutar una herramienta, debes escribir exactamente el siguiente formato XML en tu respuesta:\n"
-            "<tool_call name=\"nombre_herramienta\">{\"argumento\": \"valor\"}</tool_call>\n\n"
-            "Ejemplo si necesitas saber cuántos proyectos hay en total:\n"
-            "<tool_call name=\"database_query\">{\"sql_query\": \"SELECT count(*) FROM public.semarnat_projects;\"}</tool_call>\n\n"
-            "IMPORTANTE: Detén tu respuesta de inmediato en cuanto cierres la etiqueta </tool_call>. No escribas nada después. "
-            "El sistema ejecutará la herramienta por ti y te proporcionará el resultado para que puedas continuar."
+
+        # ---------------------------------------------------------------------------
+        # Constante de truncado de resultados de herramientas
+        # ---------------------------------------------------------------------------
+        TOOL_RESULT_MAX_CHARS = 2000
+
+        # Enriquecer el system prompt con las directrices del agente (separado en 2 bloques)
+        # BLOQUE A: Formato de llamada a herramientas
+        tool_format_block = (
+            "\n\n## REGLAS DE HERRAMIENTAS\n"
+            "Usa EXACTAMENTE este formato XML. Detente INMEDIATAMENTE después del </tool_call> — "
+            "no escribas nada más. El sistema ejecutará la herramienta y te dará el resultado.\n"
+            "<tool_call name=\"NOMBRE_HERRAMIENTA\">{\"argumento\": \"valor\"}</tool_call>\n\n"
         )
+
+        # BLOQUE B: Reglas de decisión + ejemplos few-shot por herramienta
+        tool_rules_block = (
+            "## HERRAMIENTAS DISPONIBLES\n\n"
+
+            # --- database_query ---
+            "### 1. database_query\n"
+            "CUÁNDO USAR: Preguntas sobre conteos, estadísticas, estados de trámites, proyectos por "
+            "sector/estado/año, veredictos FAVORABLE/DESFAVORABLE/CONDICIONADO, scores de evaluación.\n"
+            "CUÁNDO NO USAR: Para buscar el contenido narrativo de un proyecto — usa second_brain_search.\n"
+            "Parámetro: sql_query (SELECT en semarnat_projects o project_evaluations ÚNICAMENTE)\n"
+            "Valores de status: 'EN PROCESO', 'RESUELTO', 'INGRESADO'\n"
+            "Valores de veredicto: 'FAVORABLE', 'DESFAVORABLE', 'CONDICIONADO', 'PENDIENTE'\n\n"
+            "EJEMPLO 1 — Usuario pregunta estadísticas globales:\n"
+            "Usuario: ¿Cuántos proyectos desfavorables hay registrados este año?\n"
+            "Razonamiento: pregunta de conteo → database_query\n"
+            "<tool_call name=\"database_query\">"
+            "{\"sql_query\": \"SELECT COUNT(*) AS total FROM public.project_evaluations "
+            "JOIN public.semarnat_projects USING(clave) WHERE veredicto='DESFAVORABLE' AND year=2026;\"}"
+            "</tool_call>\n\n"
+            "EJEMPLO 2 — Usuario pregunta por proyectos de un sector:\n"
+            "Usuario: ¿Qué proyectos del sector acuícola están en proceso?\n"
+            "Razonamiento: filtro por sector y status → database_query\n"
+            "<tool_call name=\"database_query\">"
+            "{\"sql_query\": \"SELECT clave, project_name, state, status FROM public.semarnat_projects "
+            "WHERE sector ILIKE '%acuicola%' AND status='EN PROCESO' LIMIT 10;\"}"
+            "</tool_call>\n\n"
+
+            # --- second_brain_search ---
+            "### 2. second_brain_search\n"
+            "CUÁNDO USAR: Preguntas sobre el contenido narrativo de un proyecto, quién es el promovente, "
+            "qué tipo de proyecto es, qué dice el estudio, la ubicación exacta, impactos descritos, "
+            "o cuando el usuario menciona una clave de proyecto y quiere saber más de ella.\n"
+            "CUÁNDO NO USAR: Para estadísticas o conteos — usa database_query.\n"
+            "Parámetro: query (texto de búsqueda o clave de proyecto directamente)\n\n"
+            "EJEMPLO 1 — Usuario pregunta por una clave específica:\n"
+            "Usuario: ¿Qué sabes sobre el proyecto 03BS2026H0015?\n"
+            "Razonamiento: pregunta narrativa sobre proyecto → second_brain_search\n"
+            "<tool_call name=\"second_brain_search\">"
+            "{\"query\": \"03BS2026H0015\"}"
+            "</tool_call>\n\n"
+            "EJEMPLO 2 — Usuario pregunta sobre un tema general:\n"
+            "Usuario: ¿Hay proyectos de granjas porcinas en Sonora?\n"
+            "Razonamiento: búsqueda temática narrativa → second_brain_search\n"
+            "<tool_call name=\"second_brain_search\">"
+            "{\"query\": \"granja porcina Sonora impacto ambiental\"}"
+            "</tool_call>\n\n"
+
+            # --- ocr_extraction ---
+            "### 3. ocr_extraction\n"
+            "CUÁNDO USAR: Solo cuando el usuario pide EXPLÍCITAMENTE leer, extraer o analizar el texto "
+            "de un PDF específico que ya está en el corpus descargado.\n"
+            "CUÁNDO NO USAR: Para buscar información general — usa second_brain_search primero.\n"
+            "Parámetro: pdf_name (nombre COMPLETO del archivo incluyendo tipo y número, "
+            "NUNCA solo la clave. Formato: CLAVE.tipo.NN.pdf)\n\n"
+            "EJEMPLO — Usuario pide extraer un PDF específico:\n"
+            "Usuario: Extrae el texto del estudio 03BS2026H0015.estudio.00.pdf\n"
+            "Razonamiento: extracción explícita de PDF → ocr_extraction con nombre completo\n"
+            "<tool_call name=\"ocr_extraction\">"
+            "{\"pdf_name\": \"03BS2026H0015.estudio.00.pdf\"}"
+            "</tool_call>\n\n"
+
+            # --- second_brain_sync ---
+            "### 4. second_brain_sync\n"
+            "CUÁNDO USAR: SOLO cuando el usuario pide explícitamente 'sincronizar', 'actualizar', "
+            "'recompilar' o 'reconstruir' la base de conocimiento o el Second Brain. "
+            "Es una operación de mantenimiento, NO de consulta.\n"
+            "CUÁNDO NO USAR: Para cualquier otra operación — usa las herramientas anteriores.\n"
+            "Sin parámetros.\n\n"
+            "EJEMPLO — Usuario pide mantenimiento del knowledge base:\n"
+            "Usuario: Actualiza y sincroniza la base de conocimiento\n"
+            "Razonamiento: petición de mantenimiento explícita → second_brain_sync\n"
+            "<tool_call name=\"second_brain_sync\">{}</tool_call>\n\n"
+        )
+
+        agent_sys_prompt = self.sys_prompt + tool_format_block + tool_rules_block
 
         # Construir historial para el LLM
         prompt_builder = []
@@ -294,6 +350,21 @@ class ZoharAgent:
                     "arguments": args,
                     "result": tool_result
                 })
+                
+                # Truncar resultados muy largos para no saturar el contexto del loop ReAct
+                raw_result = tool_result
+                if len(tool_result) > TOOL_RESULT_MAX_CHARS:
+                    half = TOOL_RESULT_MAX_CHARS // 2
+                    tool_result = (
+                        f"[RESULTADO RESUMIDO — {len(raw_result)} caracteres totales, "
+                        f"mostrando primeros {TOOL_RESULT_MAX_CHARS // 2} y últimos {TOOL_RESULT_MAX_CHARS // 2}]\n"
+                        f"{raw_result[:half]}\n...[contenido omitido]...\n{raw_result[-half:]}\n"
+                        f"[FIN DE RESULTADO — responde al usuario con la información disponible]"
+                    )
+                    logger.info(
+                        "Resultado de herramienta '%s' truncado: %d → %d chars",
+                        tool_name, len(raw_result), len(tool_result)
+                    )
                 
                 # Alimentar el loop del agente
                 prompt_builder.append(f"Asistente: {model_text}")

@@ -2031,6 +2031,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initScraperActions();
   initLlamaServerActions();
   initSecondBrainActions();
+  initRSIActions();
   initWorkflowSubTabs();
   initLiveUpdates(); // Suscripción activa a SSE para cambios en archivos
 
@@ -2039,3 +2040,31 @@ document.addEventListener('DOMContentLoaded', () => {
   loadStatus();
   setInterval(loadStatus, 30_000);
 });
+
+let rsiPollHandle = null;
+
+async function toggleRSI() {
+  const status = await fetch('/api/rsi/status').then(r => r.json());
+  if (status.running) {
+    await fetch('/api/rsi/stop', { method: 'POST' });
+  } else {
+    const iterations = document.getElementById('rsi-iterations').value || 15;
+    await fetch(`/api/rsi/start?iterations=${iterations}`, { method: 'POST' });
+  }
+  refreshRSIStatus();
+}
+
+async function refreshRSIStatus() {
+  const s = await fetch('/api/rsi/status').then(r => r.json());
+  const meta = document.getElementById('rsi-status-meta');
+  const btn = document.getElementById('rsi-toggle-btn');
+  if (!meta || !btn) return;
+  meta.textContent = s.running ? `EJECUTANDO (pid ${s.pid})` : '-- DETENIDO --';
+  btn.textContent = s.running ? '\u25A0 DETENER RSI' : '\u25B6 INICIAR RSI';
+}
+
+function initRSIActions() {
+  refreshRSIStatus();
+  if (rsiPollHandle) clearInterval(rsiPollHandle);
+  rsiPollHandle = setInterval(refreshRSIStatus, 3000);
+}

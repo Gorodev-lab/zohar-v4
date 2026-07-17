@@ -2479,9 +2479,13 @@ async def api_chat(payload: dict):
 
     # Construir el prompt con el historial de la conversación y el contexto de RAG
     sys_prompt = (
-        "Eres Zohar-v4-AI, un motor de análisis e inferencia de impacto ambiental cyberpunk.\n"
-        "Asistes al usuario en evaluar gacetas, resolutivos y estudios de SEMARNAT.\n"
-        "Sé conciso, profesional y mantén un tono técnico y resolutivo."
+        "Eres Zohar-v4-AI, motor de análisis de impacto ambiental para trámites SEMARNAT (México).\n"
+        "Dominio: Manifestaciones de Impacto Ambiental (MIA), estudios de riesgo, gacetas SINAT,\n"
+        "  resolutivos, y evaluaciones bajo LGEEPA. Las claves de proyecto siguen el patrón\n"
+        "  XX_SS_AAAA_TTNNNN (ej: 03BS2026H0015 = Estado 03, Sector BS, año 2026, trámite H0015).\n"
+        "Veredictos posibles: FAVORABLE, CONDICIONADO, DESFAVORABLE, PENDIENTE.\n"
+        "REGLA CRÍTICA: NUNCA inventes datos ni estadísticas. Si el usuario pregunta por datos,\n"
+        "  usa siempre una herramienta para obtenerlos. Responde en español, sé conciso y técnico."
     )
     
     if context:
@@ -2537,3 +2541,53 @@ async def api_chat(payload: dict):
 
 
 
+
+# --- RSI Loop control (autoresearch) ---
+import subprocess
+import signal as _signal
+
+RSI_PID_FILE = Path("autoresearch/rsi.pid")
+RSI_LOG_FILE = Path("zohar_rsi.log")
+
+def _rsi_is_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+@app.get("/api/rsi/status", tags=["rsi"])
+def rsi_status():
+    if RSI_PID_FILE.exists():
+        pid = int(RSI_PID_FILE.read_text().strip())
+        if _rsi_is_running(pid):
+            return {"running": True, "pid": pid}
+        RSI_PID_FILE.unlink(missing_ok=True)
+    return {"running": False}
+
+@app.post("/api/rsi/start", tags=["rsi"])
+def rsi_start(iterations: int = 15):
+    if RSI_PID_FILE.exists():
+        pid = int(RSI_PID_FILE.read_text().strip())
+        if _rsi_is_running(pid):
+            return {"status": "already_running", "pid": pid}
+    RSI_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+    log = open(RSI_LOG_FILE, "a")
+    proc = subprocess.Popen(
+        ["python", "meta_zohar.py", "--iterations", str(iterations)],
+        stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
+    )
+    RSI_PID_FILE.write_text(str(proc.pid))
+    return {"status": "started", "pid": proc.pid}
+
+@app.post("/api/rsi/stop", tags=["rsi"])
+def rsi_stop():
+    if not RSI_PID_FILE.exists():
+        return {"status": "not_running"}
+    pid = int(RSI_PID_FILE.read_text().strip())
+    try:
+        os.killpg(os.getpgid(pid), _signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    RSI_PID_FILE.unlink(missing_ok=True)
+    return {"status": "stopped", "pid": pid}
