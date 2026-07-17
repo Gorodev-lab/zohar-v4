@@ -770,6 +770,42 @@
         </div>
       </section>
 
+    <!-- ============================================================
+         TAB 8: RSI_LOOP (Bucle de Auto-Mejora Recursiva)
+         ============================================================ -->
+
+    <section
+      class="tab-panel"
+      id="panel-RSI_LOOP"
+      role="tabpanel"
+      aria-labelledby="tab-RSI_LOOP"
+    >
+      <div class="panel-header">
+        <div class="panel-header__left">
+          <h1 class="panel-header__title"><span aria-hidden="true">&#9689;</span> RSI_LOOP</h1>
+          <span class="panel-header__meta" id="rsi-status-meta">-- DETENIDO --</span>
+        </div>
+        <div class="panel-header__actions" style="display:flex; gap:10px; align-items:center;">
+          <label class="text-xs text-muted" for="rsi-iterations">Iteraciones:</label>
+          <input class="input input--inline" id="rsi-iterations" type="number" value="15" min="1" max="200" style="width:70px;">
+          <button class="btn" id="rsi-toggle-btn" onclick="toggleRSI()">&#9654; INICIAR RSI</button>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; border:1px solid var(--border-color); background:var(--color-surface); padding:16px; gap:12px;">
+        <div style="font-family:var(--font-mono); font-size:12px; color:var(--color-amber);">
+          Bucle de Mejora Recursiva &mdash; optimiza infer.py contra dataset_ground_truth.json
+        </div>
+
+        <div id="rsi-console" style="flex:1; min-height:400px; padding:16px; overflow-y:auto; font-family:var(--font-mono); font-size:11px; line-height:1.5; background:black; border:1px solid var(--border-color);" aria-live="polite">
+          <div class="log-line log-line--info">
+            <span class="log-line__ts">[RSI]</span>
+            <span class="log-line__msg">Esperando inicio del bucle...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     </div><!-- /content -->
   </div><!-- /main -->
 
