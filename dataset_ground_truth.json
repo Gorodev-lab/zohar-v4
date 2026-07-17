@@ -1,0 +1,26 @@
+[
+  {
+    "Clave": "02BC2025E0049",
+    "Promovente": "SQ INFRAESTRUCTURA, S DE R.L DE C.V.",
+    "Localidad": "Mesa de Agua Chiquita",
+    "Municipio": "San Quintín",
+    "Estado": "Baja California",
+    "Tipo_MIA": "MIA Regional"
+  },
+  {
+    "Clave": "03BS2026H0015",
+    "Promovente": "Desconocido",
+    "Localidad": "Desconocido",
+    "Municipio": "No especificado",
+    "Estado": "Baja California Sur",
+    "Tipo_MIA": "MIA Particular"
+  },
+  {
+    "Clave": "01AG2024E0014",
+    "Promovente": "Desconocido",
+    "Localidad": "Desconocido",
+    "Municipio": "No especificado",
+    "Estado": "Aguascalientes",
+    "Tipo_MIA": "E"
+  }
+]
