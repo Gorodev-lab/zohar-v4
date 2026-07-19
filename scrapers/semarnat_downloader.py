@@ -992,6 +992,9 @@ class SemarnatDownloader:
                 carpeta_resolutivos=self.carpeta_resolutivos,
                 carpeta_resumenes=self.carpeta_resumenes,
             )
+	
+		total_descargados = len(new_files)
+        descargas_perdidas = max(0, n_buttons - total_descargados)
 
             yield {
                 "status": "complete",
@@ -1004,6 +1007,26 @@ class SemarnatDownloader:
                 "n_resumenes": len(classified["resumenes"]),
                 "n_estudios": len(classified["estudios"]),
                 "n_resolutivos": len(classified["resolutivos"]),
+		yield {
+            "status": "complete",
+            "msg": f"Descarga completada: {len(new_files)} archivo(s)",
+            "level": "success",
+            "pct": 100,
+            "clave": clave,
+            "bitacora": bitacora_value,
+            "files": classified,
+            "n_resumenes": len(classified["resumenes"]),
+            "n_estudios": len(classified["estudios"]),
+            "n_resolutivos": len(classified["resolutivos"]),
+            
+            # --- AUDITORÍA DE DESCARGAS ---
+            "archivos_esperados": n_buttons,
+            "descargas_perdidas": descargas_perdidas,
+            "alerta_integridad": "Faltan documentos" if descargas_perdidas > 0 else "Completo",
+            
+            "method": "selenium",
+            "metadata": metadata,
+        }
                 "method": "selenium",
                 "metadata": metadata,
             }
