@@ -138,7 +138,7 @@ def iter_pages_as_markdown(
                         lines = [res[1] for res in result]
                         md_text = "\n".join(lines)
                         is_scanned = False
-                        logger.info("RapidOCR exitoso en página %d! (tiempo: %.2fs)", page_num, elapse)
+                        logger.info("RapidOCR exitoso en página %d! (tiempos: %s)", page_num, elapse)
                     else:
                         md_text = "[Página en blanco o sin texto detectable]"
                 except Exception as ocr_exc:
