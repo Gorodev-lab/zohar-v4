@@ -100,14 +100,34 @@ def make_chrome_driver(download_dir: Path, headless: bool = True):
     driver = webdriver.Chrome(options=opts)
     driver.set_page_load_timeout(30.0)
 
-    # Intentar configurar CDP setDownloadBehavior (no fatal si falla)
+    # Configurar CDP setDownloadBehavior a nivel de Browser (no de Page/target).
+    # Page.setDownloadBehavior solo aplica al tab/target actual: si el portal
+    # abre el PDF en una pestaña nueva (target="_blank" o window.open, muy
+    # común en portales gubernamentales para "ver/descargar documento"), esa
+    # pestaña nueva NO hereda el comportamiento configurado y Chrome termina
+    # sin escribir nada a disco, sin lanzar ningún error visible.
+    # Browser.setDownloadBehavior aplica globalmente a todos los targets,
+    # incluyendo pestañas que se abran después de configurarlo.
     try:
         driver.execute_cdp_cmd(
-            "Page.setDownloadBehavior",
-            {"behavior": "allow", "downloadPath": str(download_dir.resolve())},
+            "Browser.setDownloadBehavior",
+            {
+                "behavior": "allow",
+                "downloadPath": str(download_dir.resolve()),
+                "eventsEnabled": True,
+            },
         )
     except Exception as exc:
-        logger.warning("No se pudo configurar setDownloadBehavior via CDP: %s", exc)
+        logger.warning("No se pudo configurar Browser.setDownloadBehavior via CDP: %s", exc)
+        # Fallback al comportamiento anterior por si el navegador remoto no
+        # soporta el dominio Browser (versiones muy viejas de Chrome/CDP).
+        try:
+            driver.execute_cdp_cmd(
+                "Page.setDownloadBehavior",
+                {"behavior": "allow", "downloadPath": str(download_dir.resolve())},
+            )
+        except Exception as exc2:
+            logger.warning("Fallback Page.setDownloadBehavior también falló: %s", exc2)
 
     return driver
 
@@ -342,36 +362,48 @@ def extract_initial_pages_text(pdf_path: Path, max_pages: int = 2) -> str:
     return "\n\n".join(text_chunks)
 
 
-def clasificar_pdf_con_llm(pdf_path: Path) -> Optional[str]:
-    """Usa el modelo local Gemma 4 E2B para clasificar el PDF."""
+def clasificar_pdf_con_llm(pdf_path: Path, intento: int = 1, razonamiento_previo: str = "") -> Optional[str]:
+    """
+    Usa el modelo local Gemma para clasificar el PDF con Self-Recursive Improvement.
+    Si el modelo tiene baja certeza o falla, se pide a sí mismo reevaluar su lógica.
+    """
     try:
         from core.llm_client import detect_active_backend, generate_completion
+        
         provider, _ = detect_active_backend()
         if provider in ("heuristic", "fallback_heuristic"):
             logger.warning("No hay LLM local activo para clasificar PDF. Usando fallback.")
             return None
 
-        text = extract_initial_pages_text(pdf_path)
+        # Si estamos en un intento recursivo, podríamos extraer más texto, pero
+        # por ahora usaremos el mismo texto base con una inyección de contexto.
+        text = extract_initial_pages_text(pdf_path, max_pages=3 if intento > 1 else 2)
+        
         if len(text.strip()) < 50:
             logger.warning(f"Texto insuficiente en {pdf_path.name} para clasificar con LLM.")
             return None
 
         sys_prompt = """
         Eres un asistente experto en trámites ambientales de SEMARNAT en México.
-        Tu tarea es clasificar el siguiente documento PDF a partir del texto extraído de sus páginas iniciales.
+        Tu tarea es clasificar el siguiente documento PDF a partir del texto extraído.
         Debes responder ÚNICAMENTE en JSON con esta estructura exacta:
         {
           "tipo": "estudio" | "resumen" | "resolutivo" | "desconocido",
+          "certeza": "alta" | "media" | "baja",
           "razon": "Breve explicación de por qué pertenece a esta clase"
         }
-
         Guía de clasificación:
         - "estudio": Contiene el texto técnico de la Manifestación de Impacto Ambiental (MIA), Estudio de Riesgo, etc. Suele comenzar con índices largos, capítulos, descripciones técnicas del proyecto, justificación, etc.
         - "resumen": Dice explícitamente "RESUMEN EJECUTIVO" o "RESUMEN DEL PROYECTO". Es más corto y simplificado.
-        - "resolutivo": Es un oficio oficial firmado por delegados de SEMARNAT. Contiene la palabra "RESOLUCIÓN", "RESOLUTIVO", "OFICIO NÚMERO", "SE RESUELVE", etc. Suele tener el membrete de SEMARNAT y la Subsecretaría de Regulación Ambiental.
+        - "resolutivo": Es un oficio oficial firmado por delegados de SEMARNAT. Contiene la palabra "RESOLUCIÓN", "RESOLUTIVO", "OFICIO NÚMERO", "SE RESUELVE", etc.
         """
 
         prompt = f"Texto del documento:\n{text[:4000]}"
+        
+        # Inyección de auto-mejora si es una llamada recursiva
+        if intento > 1 and razonamiento_previo:
+            prompt = f"ATENCIÓN: En tu intento anterior clasificaste esto como 'desconocido' o tuviste certeza 'baja' por esta razón: '{razonamiento_previo}'. Reevalúa el documento buscando pistas sutiles en este texto ampliado.\n\n" + prompt
+
         res = generate_completion(
             prompt=prompt,
             system_prompt=sys_prompt,
@@ -380,11 +412,23 @@ def clasificar_pdf_con_llm(pdf_path: Path) -> Optional[str]:
 
         if not res.get("is_fallback") and "tipo" in res:
             tipo = res["tipo"].strip().lower()
+            certeza = res.get("certeza", "alta").strip().lower()
+            razon = res.get("razon", "")
+            
+            logger.info(f"Intento {intento} LLM: {tipo} (Certeza: {certeza}) - {pdf_path.name}")
+
+            # Lógica de Self-Recursive Improvement
+            if (tipo == "desconocido" or certeza == "baja") and intento < 2:
+                logger.info(f"Activando Self-Recursive Improvement para {pdf_path.name}...")
+                return clasificar_pdf_con_llm(pdf_path, intento=intento+1, razonamiento_previo=razon)
+            
             if tipo in ("estudio", "resumen", "resolutivo"):
                 return tipo
+
     except Exception as exc:
         logger.warning(f"Error clasificando {pdf_path.name} con LLM: {exc}")
-    return None
+    
+    return None 
 
 
 def extract_metadata_from_dom(driver) -> dict:
