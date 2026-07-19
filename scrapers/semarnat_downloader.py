@@ -80,6 +80,9 @@ def make_chrome_driver(download_dir: Path, headless: bool = True):
     opts.add_argument("--disable-gpu")
     opts.add_argument("--window-size=1920,1080")
     opts.add_argument("--disable-blink-features=AutomationControlled")
+    opts.add_argument("--disable-background-networking")
+    opts.add_argument("--disable-component-update")
+    opts.add_argument("--disable-features=Translate,OptimizationHints")
     opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
     opts.page_load_strategy = "none"
