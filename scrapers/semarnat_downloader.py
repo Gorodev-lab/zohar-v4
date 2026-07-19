@@ -993,8 +993,8 @@ class SemarnatDownloader:
                 carpeta_resumenes=self.carpeta_resumenes,
             )
 	
-	total_descargados = len(new_files)
-        descargas_perdidas = max(0, n_buttons - total_descargados)
+	       total_descargados = len(new_files)
+	       descargas_perdidas = max(0, n_buttons - total_descargados)
 
         yield {
             "status": "complete",
