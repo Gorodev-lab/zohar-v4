@@ -80,6 +80,9 @@ def make_chrome_driver(download_dir: Path, headless: bool = True):
     opts.add_argument("--disable-gpu")
     opts.add_argument("--window-size=1920,1080")
     opts.add_argument("--disable-blink-features=AutomationControlled")
+    opts.add_argument("--disable-background-networking")
+    opts.add_argument("--disable-component-update")
+    opts.add_argument("--disable-features=Translate,OptimizationHints")
     opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
     opts.page_load_strategy = "none"
@@ -99,29 +102,15 @@ def make_chrome_driver(download_dir: Path, headless: bool = True):
 
     driver = webdriver.Chrome(options=opts)
     driver.set_page_load_timeout(30.0)
-    driver.set_script_timeout(30.0)
-
-    # Timeout duro sobre el canal HTTP hacia chromedriver. Sin esto, si el
-    # proceso de Chrome queda "wedged" (colgado pero vivo), cualquier comando
-    # de Selenium puede bloquearse indefinidamente por debajo de cualquier
-    # timeout de Python que hayamos configurado.
-    #
-    # IMPORTANTE: esto debe ejecutarse DESPUES de crear el driver, no antes.
-    # RemoteConnection.set_timeout() solo funciona una vez que existe al
-    # menos una instancia de RemoteConnection. Envuelto en try/except para
-    # que un cambio futuro de la API de Selenium degrade en un warning, no
-    # en una descarga rota.
-    try:
-        from selenium.webdriver.remote.remote_connection import RemoteConnection
-        RemoteConnection.set_timeout(90)
-    except Exception as exc:
-        logger.warning("No se pudo fijar timeout de RemoteConnection: %s", exc)
 
     # Configurar CDP setDownloadBehavior a nivel de Browser (no de Page/target).
     # Page.setDownloadBehavior solo aplica al tab/target actual: si el portal
-    # abre el PDF en una pestana nueva, esa pestana nueva NO hereda el
-    # comportamiento configurado. Browser.setDownloadBehavior aplica
-    # globalmente a todos los targets, incluyendo pestanas nuevas.
+    # abre el PDF en una pestaña nueva (target="_blank" o window.open, muy
+    # común en portales gubernamentales para "ver/descargar documento"), esa
+    # pestaña nueva NO hereda el comportamiento configurado y Chrome termina
+    # sin escribir nada a disco, sin lanzar ningún error visible.
+    # Browser.setDownloadBehavior aplica globalmente a todos los targets,
+    # incluyendo pestañas que se abran después de configurarlo.
     try:
         driver.execute_cdp_cmd(
             "Browser.setDownloadBehavior",
@@ -133,13 +122,15 @@ def make_chrome_driver(download_dir: Path, headless: bool = True):
         )
     except Exception as exc:
         logger.warning("No se pudo configurar Browser.setDownloadBehavior via CDP: %s", exc)
+        # Fallback al comportamiento anterior por si el navegador remoto no
+        # soporta el dominio Browser (versiones muy viejas de Chrome/CDP).
         try:
             driver.execute_cdp_cmd(
                 "Page.setDownloadBehavior",
                 {"behavior": "allow", "downloadPath": str(download_dir.resolve())},
             )
         except Exception as exc2:
-            logger.warning("Fallback Page.setDownloadBehavior tambien fallo: %s", exc2)
+            logger.warning("Fallback Page.setDownloadBehavior también falló: %s", exc2)
 
     return driver
 
@@ -225,34 +216,17 @@ def download_pdf_via_requests(
     import requests as req
 
     h = {"User-Agent": "Mozilla/5.0", **(headers or {})}
-    connect_timeout = 10
-    retries = 2
-    for attempt in range(retries + 1):
-        try:
-            resp = req.get(
-                url,
-                cookies=cookies,
-                headers=h,
-                timeout=(connect_timeout, timeout),
-                stream=True,
-            )
-            resp.raise_for_status()
-            dest_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp_path = dest_path.with_suffix(dest_path.suffix + ".part")
-            with open(tmp_path, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=65536):
-                    f.write(chunk)
-            tmp_path.rename(dest_path)
-            return True
-        except Exception as exc:
-            logger.warning(
-                "Intento %d/%d fallido descargando %s: %s",
-                attempt + 1, retries + 1, url, exc,
-            )
-            if attempt < retries:
-                time.sleep(2 * (attempt + 1))
-    logger.error("Descarga definitivamente fallida tras %d intentos: %s", retries + 1, url)
-    return False
+    try:
+        resp = req.get(url, cookies=cookies, headers=h, timeout=timeout, stream=True)
+        resp.raise_for_status()
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(dest_path, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=65536):
+                f.write(chunk)
+        return True
+    except Exception as exc:
+        logger.error("Error descargando %s: %s", url, exc)
+        return False
 
 
 def wait_for_downloads(
@@ -391,36 +365,48 @@ def extract_initial_pages_text(pdf_path: Path, max_pages: int = 2) -> str:
     return "\n\n".join(text_chunks)
 
 
-def clasificar_pdf_con_llm(pdf_path: Path) -> Optional[str]:
-    """Usa el modelo local Gemma 4 E2B para clasificar el PDF."""
+def clasificar_pdf_con_llm(pdf_path: Path, intento: int = 1, razonamiento_previo: str = "") -> Optional[str]:
+    """
+    Usa el modelo local Gemma para clasificar el PDF con Self-Recursive Improvement.
+    Si el modelo tiene baja certeza o falla, se pide a sí mismo reevaluar su lógica.
+    """
     try:
         from core.llm_client import detect_active_backend, generate_completion
+        
         provider, _ = detect_active_backend()
         if provider in ("heuristic", "fallback_heuristic"):
             logger.warning("No hay LLM local activo para clasificar PDF. Usando fallback.")
             return None
 
-        text = extract_initial_pages_text(pdf_path)
+        # Si estamos en un intento recursivo, podríamos extraer más texto, pero
+        # por ahora usaremos el mismo texto base con una inyección de contexto.
+        text = extract_initial_pages_text(pdf_path, max_pages=3 if intento > 1 else 2)
+        
         if len(text.strip()) < 50:
             logger.warning(f"Texto insuficiente en {pdf_path.name} para clasificar con LLM.")
             return None
 
         sys_prompt = """
         Eres un asistente experto en trámites ambientales de SEMARNAT en México.
-        Tu tarea es clasificar el siguiente documento PDF a partir del texto extraído de sus páginas iniciales.
+        Tu tarea es clasificar el siguiente documento PDF a partir del texto extraído.
         Debes responder ÚNICAMENTE en JSON con esta estructura exacta:
         {
           "tipo": "estudio" | "resumen" | "resolutivo" | "desconocido",
+          "certeza": "alta" | "media" | "baja",
           "razon": "Breve explicación de por qué pertenece a esta clase"
         }
-
         Guía de clasificación:
         - "estudio": Contiene el texto técnico de la Manifestación de Impacto Ambiental (MIA), Estudio de Riesgo, etc. Suele comenzar con índices largos, capítulos, descripciones técnicas del proyecto, justificación, etc.
         - "resumen": Dice explícitamente "RESUMEN EJECUTIVO" o "RESUMEN DEL PROYECTO". Es más corto y simplificado.
-        - "resolutivo": Es un oficio oficial firmado por delegados de SEMARNAT. Contiene la palabra "RESOLUCIÓN", "RESOLUTIVO", "OFICIO NÚMERO", "SE RESUELVE", etc. Suele tener el membrete de SEMARNAT y la Subsecretaría de Regulación Ambiental.
+        - "resolutivo": Es un oficio oficial firmado por delegados de SEMARNAT. Contiene la palabra "RESOLUCIÓN", "RESOLUTIVO", "OFICIO NÚMERO", "SE RESUELVE", etc.
         """
 
         prompt = f"Texto del documento:\n{text[:4000]}"
+        
+        # Inyección de auto-mejora si es una llamada recursiva
+        if intento > 1 and razonamiento_previo:
+            prompt = f"ATENCIÓN: En tu intento anterior clasificaste esto como 'desconocido' o tuviste certeza 'baja' por esta razón: '{razonamiento_previo}'. Reevalúa el documento buscando pistas sutiles en este texto ampliado.\n\n" + prompt
+
         res = generate_completion(
             prompt=prompt,
             system_prompt=sys_prompt,
@@ -429,11 +415,23 @@ def clasificar_pdf_con_llm(pdf_path: Path) -> Optional[str]:
 
         if not res.get("is_fallback") and "tipo" in res:
             tipo = res["tipo"].strip().lower()
+            certeza = res.get("certeza", "alta").strip().lower()
+            razon = res.get("razon", "")
+            
+            logger.info(f"Intento {intento} LLM: {tipo} (Certeza: {certeza}) - {pdf_path.name}")
+
+            # Lógica de Self-Recursive Improvement
+            if (tipo == "desconocido" or certeza == "baja") and intento < 2:
+                logger.info(f"Activando Self-Recursive Improvement para {pdf_path.name}...")
+                return clasificar_pdf_con_llm(pdf_path, intento=intento+1, razonamiento_previo=razon)
+            
             if tipo in ("estudio", "resumen", "resolutivo"):
                 return tipo
+
     except Exception as exc:
         logger.warning(f"Error clasificando {pdf_path.name} con LLM: {exc}")
-    return None
+    
+    return None 
 
 
 def extract_metadata_from_dom(driver) -> dict:
@@ -607,16 +605,6 @@ class SemarnatDownloader:
         self._driver = None
 
     def _get_driver(self):
-        if self._driver is not None:
-            try:
-                _ = self._driver.current_url
-            except Exception as exc:
-                logger.warning(
-                    "Sesion de Chrome muerta/zombie detectada (%s). Recreando driver.",
-                    exc,
-                )
-                self._quit_driver()
-
         if self._driver is None:
             self._driver = make_chrome_driver(self.download_dir, self.headless)
         return self._driver
@@ -995,20 +983,6 @@ class SemarnatDownloader:
                 timeout=self.download_timeout,
             )
 
-            if not new_files:
-                yield {
-                    "status": "error",
-                    "msg": (
-                        f"Timeout ({self.download_timeout}s) esperando descargas para "
-                        f"'{bitacora_value}': se detectaron {n_buttons} boton(es) pero "
-                        f"0 PDFs nuevos llegaron a disco."
-                    ),
-                    "level": "error",
-                    "clave": clave,
-                    "bitacora": bitacora_value,
-                }
-                return
-
             # Clasificar y mover
             classified = renombrar_archivos_por_clave(
                 download_dir=self.download_dir,
@@ -1018,21 +992,27 @@ class SemarnatDownloader:
                 carpeta_resolutivos=self.carpeta_resolutivos,
                 carpeta_resumenes=self.carpeta_resumenes,
             )
+    
+           total_descargados = len(new_files)
+           descargas_perdidas = max(0, n_buttons - total_descargados)
 
-            yield {
-                "status": "complete",
-                "msg": f"Descarga completada: {len(new_files)} archivo(s)",
-                "level": "success",
-                "pct": 100,
-                "clave": clave,
-                "bitacora": bitacora_value,
-                "files": classified,
-                "n_resumenes": len(classified["resumenes"]),
-                "n_estudios": len(classified["estudios"]),
-                "n_resolutivos": len(classified["resolutivos"]),
-                "method": "selenium",
-                "metadata": metadata,
-            }
+        yield {
+            "status": "complete",
+            "msg": f"Descarga completada: {len(new_files)} archivo(s)",
+            "level": "success",
+            "pct": 100,
+            "clave": clave,
+            "bitacora": bitacora_value,
+            "files": classified,
+            "n_resumenes": len(classified["resumenes"]),
+            "n_estudios": len(classified["estudios"]),
+            "n_resolutivos": len(classified["resolutivos"]),
+            "archivos_esperados": n_buttons,
+            "descargas_perdidas": descargas_perdidas,
+            "alerta_integridad": "Faltan documentos" if descargas_perdidas > 0 else "Completo",
+            "method": "selenium",
+            "metadata": metadata
+        }
 
         except Exception as exc:
             logger.exception("Error inesperado descargando %s", bitacora_value)
