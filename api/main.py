@@ -659,7 +659,7 @@ async def stream_single(pdf_name: str = Query(..., description="Nombre del PDF")
         return _sse_response(gen_cached(), session_id)
 
     # Si no hay caché válida, ejecutar extracción real
-    def gen():
+    async def gen():
         pages_md: list[str] = []
 
         for page_num, total, md_text, is_scanned in iter_pages_as_markdown(pdf_path):
@@ -1160,7 +1160,7 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
 
     csv_path = DATA_DIR / f"claves_{year}.csv"
 
-    def gen():
+    async def gen():
         # Cargar claves existentes para no pisar la otra fuente
         existing_claves = []
         seen_claves = set()
@@ -1344,7 +1344,7 @@ async def extract_pipeline_md(force: bool = Query(False), source: str = Query("s
     """
     from core.pdf_processor import iter_pages_as_markdown
 
-    def gen():
+    async def gen():
         EXTRACTIONS_DIR.mkdir(parents=True, exist_ok=True)
 
         if not GACETAS_DIR.exists():
@@ -1813,7 +1813,7 @@ async def download_clave(clave: str = Query(..., description="Clave SINAT a desc
             yield {"status": "error", "msg": f"Clave inválida: {clave}", "pct": 100}
         return _sse_response(error_gen())
 
-    def gen():
+    async def gen():
         yield {"status": "progress", "msg": f"Iniciando descarga para clave: {clave}", "pct": 0, "clave": clave}
 
         # Etapa 1: Descarga SEMARNAT vía Selenium (con reintentos automáticos)
@@ -2265,7 +2265,7 @@ async def run_dw_pipeline():
     # Ubicación del script de python en el entorno virtual
     python_exe = sys.executable
 
-    def gen():
+    async def gen():
         yield {"status": "progress", "msg": "Iniciando Data Warehouse Pipeline...", "pct": 5, "stage": "init"}
 
         pipeline_path = BASE_DIR / "dw" / "pipeline.py"

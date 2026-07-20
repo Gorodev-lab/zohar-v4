@@ -47,6 +47,7 @@ def test_gazette_scraper_generator():
         </body></html>
     """
 
+    assert response.status_code == 200, f"Error del servidor HTTP {response.status_code}: {response.text}"
     events = []
     with patch.object(scraper, '_get_driver', return_value=mock_driver):
         # Parchear en el módulo donde gazette_scraper importa requests
@@ -101,6 +102,7 @@ def test_asea_scraper_generator():
     sess = MagicMock()
     sess.get.side_effect = [index_resp, pdf_resp]
 
+    assert response.status_code == 200, f"Error del servidor HTTP {response.status_code}: {response.text}"
     events = []
     # Parchear en el módulo donde asea_scraper importa requests
     with patch('scrapers.asea_scraper.requests.Session', return_value=sess):
@@ -152,10 +154,11 @@ def test_extract_keys_endpoint(tmp_path):
          patch.object(main_module, 'GACETAS_DIR', tmp_path / "gacetas"), \
          patch('scrapers.gazette_scraper.GazetteScraper', return_value=mock_gazette_instance):
 
-        client = TestClient(main_module.app, raise_server_exceptions=False)
+        client = TestClient(main_module.app, raise_server_exceptions=True)
         response = client.get("/api/scraper/extract-keys?year=2026")
 
     # Parsear SSE
+    assert response.status_code == 200, f"Error del servidor HTTP {response.status_code}: {response.text}"
     events = []
     for line in response.text.split("\n"):
         line = line.strip()
@@ -216,6 +219,11 @@ def test_run_pipeline_endpoint(tmp_path):
         {"status": "complete", "msg": "sinat ok", "pct": 100, "files": []},
     ])
 
+    mock_semarnat_instance = MagicMock()
+    mock_semarnat_instance._descargar_clave_gen.return_value = iter([
+        {"status": "complete", "msg": "semarnat ok"}
+    ])
+
     mock_graph_data = {
         "metrics": {"n_nodes": 5, "n_links": 4, "n_projects": 2, "avg_degree": 1.6},
         "nodes": [], "links": [],
@@ -229,13 +237,15 @@ def test_run_pipeline_endpoint(tmp_path):
          patch.object(main_module, 'DOWNLOADS_DIR', tmp_path / "downloads"), \
          patch.object(main_module, 'GACETAS_DIR', tmp_path / "gacetas"), \
          patch('scrapers.asea_scraper.ASEAScraper', return_value=mock_asea_instance), \
+         patch('scrapers.semarnat_downloader.SemarnatDownloader', return_value=mock_semarnat_instance, create=True), \
          patch('scrapers.gazette_scraper.GazetteScraper', return_value=mock_gazette_instance), \
          patch('core.graph_builder.build_full_graph', return_value=mock_graph_data) as mock_wiki_rebuild:
 
-        client = TestClient(main_module.app, raise_server_exceptions=False)
+        client = TestClient(main_module.app, raise_server_exceptions=True)
         response = client.get("/api/scraper/run-pipeline?year=2026&rebuild_wiki=true")
 
     # Parsear SSE
+    assert response.status_code == 200, f"Error del servidor HTTP {response.status_code}: {response.text}"
     events = []
     for line in response.text.split("\n"):
         line = line.strip()
@@ -333,7 +343,7 @@ def test_extract_keys_from_markdown_content(tmp_path):
          patch.object(main_module, 'EXTRACTIONS_DIR', extractions_dir), \
          patch('scrapers.gazette_scraper.GazetteScraper', return_value=mock_gazette_instance):
 
-        client = TestClient(main_module.app, raise_server_exceptions=False)
+        client = TestClient(main_module.app, raise_server_exceptions=True)
         response = client.get("/api/scraper/extract-keys?year=2026")
 
     # Verificar que el response sea SSE exitoso
