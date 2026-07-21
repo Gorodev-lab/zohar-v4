@@ -650,7 +650,27 @@ function renderGraph(data, containerEl) {
         <div class="text-muted">${d.type} · deg:${d.degree}</div>
         ${d.year ? `<div class="text-muted">${d.year}</div>` : ''}
       `);
-  }).on('mouseleave', () => tooltip.style('display', 'none'));
+  }).on('mouseleave', () => tooltip.style('display', 'none'))
+    .on('click', (e, d) => {
+      e.stopPropagation();
+      tooltip.style('display', 'none');
+      if (typeof showGraphNodeDetail === 'function') {
+        showGraphNodeDetail({
+          id:         d.id,
+          label:      d.label,
+          type:       d.type,
+          year:       d.year,
+          degree:     d.degree,
+          community:  d.com,
+        });
+      }
+    });
+
+  // Click on SVG background closes the detail panel
+  svg.on('click', () => {
+    const panel = document.getElementById('graph-detail-panel');
+    if (panel) panel.classList.remove('graph-detail-panel--open');
+  });
 
   // Graph type filter
   const filterEl = $('#graph-filter-type');
@@ -666,6 +686,7 @@ function renderGraph(data, containerEl) {
       });
     });
   }
+
 
   sim.on('tick', () => {
     link
@@ -1187,7 +1208,16 @@ async function loadWikiNote(title) {
     }
     const d = await r.json();
     if (categoryEl) categoryEl.textContent = d.category;
-    if (viewerEl)   viewerEl.innerHTML = renderMarkdownWithWikiLinks(d.content);
+
+    // Use marked.js if available, fallback to custom renderer
+    if (viewerEl) {
+      viewerEl.classList.add('md-viewer');
+      if (typeof marked !== 'undefined') {
+        viewerEl.innerHTML = marked.parse(d.content || '');
+      } else {
+        viewerEl.innerHTML = renderMarkdownWithWikiLinks(d.content);
+      }
+    }
 
     // Highlight in list
     const listEl = $('#sb-notes-list');
@@ -1384,6 +1414,16 @@ async function loadWorkflowGacetaKeys(gacetaName) {
   } catch (err) {
     tbodyEl.innerHTML = `<tr><td colspan="11" class="text-alert text-center" style="padding:24px;">[ error: ${escHtml(String(err))} ]</td></tr>`;
   }
+
+  // Refresh kanban if visible
+  const kanbanView = $('#wf-kanban-view');
+  if (kanbanView && kanbanView.style.display !== 'none') {
+    const year = $('#scraper-year')?.value || 2026;
+    fetch(`/api/scraper/gaceta-keys?gaceta_name=${encodeURIComponent(gacetaName)}&year=${year}`)
+      .then(r => r.json())
+      .then(d => { if (d.claves) renderKanbanBoard(d.claves); })
+      .catch(() => {});
+  }
 }
 
 function triggerDownload(clave) {
@@ -1477,6 +1517,84 @@ function triggerDownload(clave) {
 }
 
 window.triggerDownload = triggerDownload;
+
+/* =========================================================================
+   KANBAN BOARD RENDERER
+   ========================================================================= */
+function renderKanbanBoard(claves) {
+  const pendingEl   = $('#kanban-pending');
+  const extractedEl = $('#kanban-extracted');
+  const inferredEl  = $('#kanban-inferred');
+  if (!pendingEl || !extractedEl || !inferredEl) return;
+
+  pendingEl.innerHTML   = '';
+  extractedEl.innerHTML = '';
+  inferredEl.innerHTML  = '';
+
+  if (!claves || !claves.length) {
+    pendingEl.innerHTML = '<span class="text-muted text-xs" style="padding:8px;">[ sin claves ]</span>';
+    return;
+  }
+
+  claves.forEach(item => {
+    const hasMd      = item.has_md_estudio || item.has_md_resumen || item.has_md_resolutivo;
+    const hasInf     = item.has_inference;
+    const hasPdf     = item.has_pdf_estudio || item.has_pdf_resumen || item.has_pdf_resolutivo;
+
+    const state = hasInf ? 'inferred' : hasMd ? 'extracted' : 'pending';
+
+    const badge = (has, label, cls) =>
+      `<span class="kanban-badge ${has ? cls : 'kanban-badge--dim'}">${label}</span>`;
+
+    const card = document.createElement('div');
+    card.className = `kanban-card kanban-card--${state}`;
+    card.setAttribute('title', item.project_name || item.clave);
+    card.innerHTML = `
+      <span class="kanban-card__clave">${escHtml(item.clave)}</span>
+      <span class="kanban-card__name">${escHtml((item.project_name || 'Sin nombre').substring(0, 42))}</span>
+      <div class="kanban-card__badges">
+        ${badge(hasPdf, 'PDF', 'kanban-badge--info')}
+        ${badge(hasMd,  'MD',  'kanban-badge--info')}
+        ${badge(hasInf, 'INF', 'kanban-badge--ok')}
+      </div>
+    `;
+
+    if (state === 'inferred')  inferredEl.appendChild(card);
+    else if (state === 'extracted') extractedEl.appendChild(card);
+    else pendingEl.appendChild(card);
+  });
+}
+
+function initWorkflowKanbanToggle() {
+  const btnTable  = $('#wf-view-table');
+  const btnKanban = $('#wf-view-kanban');
+  const tableView = $('#wf-table-view');
+  const kanbanView = $('#wf-kanban-view');
+  if (!btnTable || !btnKanban) return;
+
+  btnTable.addEventListener('click', () => {
+    tableView.style.display = '';
+    kanbanView.style.display = 'none';
+    btnTable.classList.add('btn--primary');
+    btnKanban.classList.remove('btn--primary');
+  });
+
+  btnKanban.addEventListener('click', () => {
+    tableView.style.display = 'none';
+    kanbanView.style.display = '';
+    btnKanban.classList.add('btn--primary');
+    btnTable.classList.remove('btn--primary');
+    // Render kanban from last loaded data
+    const gaceta = $('#wf-selected-gaceta')?.textContent;
+    if (gaceta && gaceta !== 'Ninguna Gaceta Seleccionada') {
+      const year = $('#scraper-year')?.value || 2026;
+      fetch(`/api/scraper/gaceta-keys?gaceta_name=${encodeURIComponent(gaceta)}&year=${year}`)
+        .then(r => r.json())
+        .then(d => { if (d.claves) renderKanbanBoard(d.claves); })
+        .catch(() => {});
+    }
+  });
+}
 
 /* =========================================================================
    AUTOMATED DATA WAREHOUSE & QUALITY AUDITOR
@@ -1771,22 +1889,44 @@ function runDataWarehousePipeline() {
 /* =========================================================================
    TAB 7 — MODEL_CHAT
    ========================================================================= */
+const CHAT_STORAGE_KEY = 'zohar_chat_history';
 let isChatInit = false;
 
 function initModelChatActions() {
   if (isChatInit) return;
   isChatInit = true;
 
-  const btnSend = $('#btn-chat-send');
+  // Restore session history
+  try {
+    const saved = sessionStorage.getItem(CHAT_STORAGE_KEY);
+    if (saved) State.chatHistory = JSON.parse(saved);
+  } catch (_) {}
+
+  const btnSend  = $('#btn-chat-send');
   const inputChat = $('#chat-user-input');
+  const btnClear = $('#btn-chat-clear');
 
   if (btnSend && inputChat) {
     btnSend.onclick = () => sendChatMessage();
     inputChat.onkeydown = (e) => {
-      if (e.key === 'Enter') {
-        sendChatMessage();
-      }
+      if (e.key === 'Enter') sendChatMessage();
     };
+  }
+
+  if (btnClear) {
+    btnClear.addEventListener('click', () => {
+      State.chatHistory = [];
+      try { sessionStorage.removeItem(CHAT_STORAGE_KEY); } catch (_) {}
+      const messagesLog = $('#chat-messages-log');
+      if (messagesLog) {
+        messagesLog.innerHTML = '';
+        const msg = document.createElement('div');
+        msg.className = 'log-line log-line--info';
+        msg.innerHTML = '<span class="log-line__ts">[SISTEMA]</span> <span class="log-line__msg text-muted">Historial de sesión borrado.</span>';
+        messagesLog.appendChild(msg);
+      }
+      showToast('Historial de chat borrado', 'info');
+    });
   }
 }
 
@@ -1980,9 +2120,10 @@ ${escHtml(call.result)}
     messagesLog.appendChild(responseDiv);
     messagesLog.scrollTop = messagesLog.scrollHeight;
 
-    // Update history
+    // Update history + persist to sessionStorage
     State.chatHistory.push({ role: 'user', content: text });
     State.chatHistory.push({ role: 'assistant', content: data.response });
+    try { sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(State.chatHistory)); } catch (_) {}
 
   } catch (err) {
     if (messagesLog.contains(systemDiv)) {
@@ -2062,6 +2203,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initRSIActions();
   initRsiScraperActions();
   initWorkflowSubTabs();
+  initWorkflowKanbanToggle();
+  initBatchInference();
+  initGraphDetailPanel();
   initLiveUpdates(); // Suscripción activa a SSE para cambios en archivos
   initTelemetryStream(); // Suscripción activa a telemetría en tiempo real y salud de servidores
 
@@ -2430,4 +2574,144 @@ window.executeRAGQuery = executeRAGQuery;
 window.reindexRAGCorpus = reindexRAGCorpus;
 
 
+/* =========================================================================
+   GRAPH DETAIL PANEL
+   ========================================================================= */
+function initGraphDetailPanel() {
+  const panel   = $('#graph-detail-panel');
+  const closeBtn = $('#gdp-close');
+  const gotoInf = $('#gdp-goto-inference');
+  if (!panel) return;
 
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      panel.classList.remove('graph-detail-panel--open');
+    });
+  }
+
+  if (gotoInf) {
+    gotoInf.addEventListener('click', () => {
+      const clave = gotoInf.dataset.clave;
+      if (!clave) return;
+      activateTab('INFERENCE_LAB');
+      // Try to select the matching item in the inference list
+      setTimeout(() => {
+        const inferenceList = $('#inference-list');
+        if (!inferenceList) return;
+        const target = inferenceList.querySelector(`[data-clave="${CSS.escape(clave)}"]`);
+        if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); target.click(); }
+      }, 300);
+    });
+  }
+}
+
+function showGraphNodeDetail(nodeData) {
+  const panel = $('#graph-detail-panel');
+  if (!panel) return;
+
+  const set = (id, val) => { const el = $(`#${id}`); if (el) el.textContent = val ?? '─'; };
+
+  set('gdp-title',  nodeData.id || nodeData.label || '─');
+  set('gdp-type',   nodeData.type || nodeData.group || '─');
+  set('gdp-year',   nodeData.year || nodeData.anio || '─');
+  set('gdp-degree', nodeData.degree ?? nodeData.connections ?? '─');
+  set('gdp-com',    nodeData.community ?? nodeData.cluster ?? '─');
+
+  const gotoBtn = $('#gdp-goto-inference');
+  if (gotoBtn) gotoBtn.dataset.clave = nodeData.id || '';
+
+  panel.classList.add('graph-detail-panel--open');
+}
+
+// Expose so renderGraph() can call it
+window.showGraphNodeDetail = showGraphNodeDetail;
+
+/* =========================================================================
+   BATCH INFERENCE — Pool de 3 concurrentes
+   ========================================================================= */
+function initBatchInference() {
+  const btn = $('#btn-run-batch-inference');
+  if (!btn) return;
+  btn.addEventListener('click', runBatchInference);
+}
+
+async function runBatchInference() {
+  const btn      = $('#btn-run-batch-inference');
+  const progBar  = $('#inference-batch-progress');
+  const progFill = progBar?.querySelector('.progress-bar__fill');
+  const pctEl    = $('#inference-batch-pct');
+  const logEl    = $('#inference-batch-log');
+
+  if (!btn) return;
+  btn.disabled = true;
+  if (progBar)  { progBar.classList.remove('hidden'); }
+  if (logEl)    { logEl.classList.remove('hidden'); logEl.innerHTML = ''; }
+  if (pctEl)    { pctEl.classList.remove('hidden'); pctEl.textContent = '0%'; }
+
+  appendLog(logEl, 'Cargando lista de estudios con MD listo...', 'info');
+
+  try {
+    // 1. Fetch all inferenceable items
+    const r = await fetch('/api/corpus/md-list');
+    const d = await r.json();
+    const items = (d.files || []).filter(f => f.md_ready && !f.has_inference);
+
+    if (!items.length) {
+      appendLog(logEl, 'No hay estudios pendientes de inferencia.', 'warn');
+      showToast('No hay estudios nuevos para inferir', 'warn');
+      return;
+    }
+
+    appendLog(logEl, `${items.length} estudios a inferir — pool 3 concurrentes`, 'info');
+    let done = 0;
+    const total = items.length;
+    const CONCURRENCY = 3;
+
+    // 2. Process in sliding window of CONCURRENCY
+    async function processItem(item) {
+      try {
+        const res = await fetch('/api/inference/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clave: item.clave, file: item.name })
+        });
+        const data = await res.json();
+        const status = res.ok ? 'ok' : 'error';
+        appendLog(logEl, `[${status.toUpperCase()}] ${item.clave}: ${data.msg || data.status || '✓'}`, status);
+      } catch (err) {
+        appendLog(logEl, `[ERROR] ${item.clave}: ${err.message}`, 'error');
+      } finally {
+        done++;
+        const pct = Math.round((done / total) * 100);
+        if (progFill) progFill.style.width = `${pct}%`;
+        if (pctEl)    pctEl.textContent = `${pct}%`;
+        if (progBar)  progBar.setAttribute('aria-valuenow', pct);
+      }
+    }
+
+    // Sliding pool
+    const queue = [...items];
+    const running = new Set();
+
+    while (queue.length || running.size) {
+      while (running.size < CONCURRENCY && queue.length) {
+        const item = queue.shift();
+        const p = processItem(item).then(() => running.delete(p));
+        running.add(p);
+      }
+      if (running.size) await Promise.race(running);
+    }
+
+    showToast(`✓ Batch completado: ${total} estudios`, 'ok');
+    appendLog(logEl, `Batch finalizado — ${done}/${total} procesados`, 'ok');
+
+    // Reload inference list
+    if (typeof loadInferenceList === 'function') loadInferenceList();
+
+  } catch (err) {
+    appendLog(logEl, `Error fatal: ${err.message}`, 'error');
+    showToast('Error en batch inference', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
