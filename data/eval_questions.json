@@ -1,0 +1,64 @@
+{
+  "questions": [
+    {
+      "id": "q1",
+      "category": "normatividad",
+      "label": "1. Normatividad MIA (LGEEPA)",
+      "question": "¿Cuáles son los requisitos legales de acuerdo con la LGEEPA para la presentación de una Manifestación de Impacto Ambiental (MIA) en modalidad Regional?"
+    },
+    {
+      "id": "q2",
+      "category": "knockout",
+      "label": "2. Knockout: Traslape en ANP",
+      "question": "¿Qué ocurre si un proyecto ambiental propuesto se traslapa con la Zona Núcleo de una Reserva de la Biosfera en México?"
+    },
+    {
+      "id": "q3",
+      "category": "nom059",
+      "label": "3. Protección de Especies (NOM-059)",
+      "question": "¿Qué condicionantes o planes de manejo se requieren si se detectan especies en peligro de extinción (P) catalogadas en la NOM-059-SEMARNAT?"
+    },
+    {
+      "id": "q4",
+      "category": "expediente",
+      "label": "4. Análisis de Proyecto Específico",
+      "question": "Analiza la nota del proyecto seleccionado y resume su promovente, ubicación, sector y las principales medidas de mitigación descritas."
+    },
+    {
+      "id": "q5",
+      "category": "veredictos",
+      "label": "5. Criterios de Veredicto",
+      "question": "¿Bajo qué criterios se emite un veredicto CONDICIONADO vs DESFAVORABLE en la evaluación de un Estudio de Impacto Ambiental?"
+    },
+    {
+      "id": "q6",
+      "category": "mitigacion",
+      "label": "6. Medidas de Mitigación Agua y Suelo",
+      "question": "¿Cuáles son las mejores prácticas de mitigación para el manejo de aguas residuales y prevención de erosión de suelo en proyectos industriales?"
+    },
+    {
+      "id": "q7",
+      "category": "tramite",
+      "label": "7. Decodificación de Clave SINAT",
+      "question": "Explica la estructura de una clave de trámite SEMARNAT (ej: 03BS2026H0015) y qué significan sus componentes de estado, sector y año."
+    },
+    {
+      "id": "q8",
+      "category": "analisis",
+      "label": "8. Evaluación de Impacto Irreversible",
+      "question": "¿Qué impactos ambientales se consideran no mitigables o irreversibles según la regulación ambiental mexicana?"
+    },
+    {
+      "id": "q9",
+      "category": "segundo_cerebro",
+      "label": "9. Consulta Bóveda Second Brain",
+      "question": "Busca en la base de conocimiento los proyectos registrados en Quintana Roo durante el ciclo 2026 y resume su estado."
+    },
+    {
+      "id": "q10",
+      "category": "rsi",
+      "label": "10. Auditoría de Inferencia IA",
+      "question": "¿Cómo audita Zohar v4 la calidad de las extracciones estructuradas y qué nivel de confianza reporta el motor de inferencia?"
+    }
+  ]
+}

@@ -15,8 +15,7 @@ from core.llm_client import generate_completion
 # Cargar variables de entorno
 load_dotenv()
 
-# Configuración de Base de Datos
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/maritime_dw")
+from core.config import DATABASE_URL, SECOND_BRAIN_DIR
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -37,13 +36,12 @@ def extract_entities(clave: str) -> dict:
     """
     Lee la nota de la entidad y extrae los campos requeridos en formato JSON.
     """
-    note_path = os.path.join("second_brain", "02_Entities", f"Proyecto - {clave}.md")
-    if not os.path.exists(note_path):
+    note_path = SECOND_BRAIN_DIR / "02_Entities" / f"Proyecto - {clave}.md"
+    if not note_path.exists():
         print(f"Error: Nota para la clave {clave} no encontrada en {note_path}", file=sys.stderr)
         return {}
 
-    with open(note_path, "r", encoding="utf-8") as f:
-        note_content = f.read()
+    note_content = note_path.read_text(encoding="utf-8")
 
     # PROMPT DE EXTRACCIÓN V0 (Este bloque de prompt es lo que optimizará el meta-agente)
     prompt = f"""

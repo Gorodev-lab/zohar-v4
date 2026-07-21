@@ -291,12 +291,19 @@ async def live_updates(request: Request):
 # ---------------------------------------------------------------------------
 
 async def _event_stream(gen) -> AsyncGenerator[str, None]:
-    """Convierte un generador síncrono en stream SSE async."""
+    """Convierte un generador (síncrono o asíncrono) en stream SSE async."""
+    import inspect
     try:
-        for event in gen:
-            data = json.dumps(event, ensure_ascii=False, default=str)
-            yield f"data: {data}\n\n"
-            await asyncio.sleep(0)
+        if inspect.isasyncgen(gen):
+            async for event in gen:
+                data = json.dumps(event, ensure_ascii=False, default=str)
+                yield f"data: {data}\n\n"
+                await asyncio.sleep(0)
+        else:
+            for event in gen:
+                data = json.dumps(event, ensure_ascii=False, default=str)
+                yield f"data: {data}\n\n"
+                await asyncio.sleep(0)
     except asyncio.CancelledError:
         pass
 
@@ -2539,15 +2546,23 @@ async def api_chat(payload: dict):
         }
 
 
+@app.get("/api/eval/questions", tags=["system"])
+async def get_eval_questions():
+    """Retorna la lista de preguntas de evaluación estructuradas de data/eval_questions.json."""
+    json_path = BASE_DIR / "data" / "eval_questions.json"
+    if json_path.exists():
+        try:
+            return json_module.loads(json_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.error("Error leyendo eval_questions.json: %s", exc)
+    return {"questions": []}
 
 
 
-# --- RSI Loop control (autoresearch) ---
-import subprocess
-import signal as _signal
 
-RSI_PID_FILE = Path("autoresearch/rsi.pid")
-RSI_LOG_FILE = Path("zohar_rsi.log")
+
+# --- RSI Loop control (Orquestador Multi-Objetivo) ---
+from core.config import PID_FILE as RSI_PID_FILE, LOG_FILE as RSI_LOG_FILE, PYTHON_EXE as RSI_PYTHON_EXE, PROJECT_ROOT as RSI_PROJECT_ROOT
 
 def _rsi_is_running(pid: int) -> bool:
     try:
@@ -2559,35 +2574,53 @@ def _rsi_is_running(pid: int) -> bool:
 @app.get("/api/rsi/status", tags=["rsi"])
 def rsi_status():
     if RSI_PID_FILE.exists():
-        pid = int(RSI_PID_FILE.read_text().strip())
-        if _rsi_is_running(pid):
-            return {"running": True, "pid": pid}
+        try:
+            pid = int(RSI_PID_FILE.read_text(encoding="utf-8").strip())
+            if _rsi_is_running(pid):
+                return {"running": True, "pid": pid}
+        except (ValueError, OSError):
+            pass
         RSI_PID_FILE.unlink(missing_ok=True)
     return {"running": False}
 
 @app.post("/api/rsi/start", tags=["rsi"])
-def rsi_start(iterations: int = 15):
+def rsi_start(iterations: int = 2):
     if RSI_PID_FILE.exists():
-        pid = int(RSI_PID_FILE.read_text().strip())
-        if _rsi_is_running(pid):
-            return {"status": "already_running", "pid": pid}
+        try:
+            pid = int(RSI_PID_FILE.read_text(encoding="utf-8").strip())
+            if _rsi_is_running(pid):
+                return {"status": "already_running", "pid": pid}
+        except (ValueError, OSError):
+            pass
     RSI_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
-    log = open(RSI_LOG_FILE, "a")
+    log = open(RSI_LOG_FILE, "a", encoding="utf-8")
     proc = subprocess.Popen(
-        ["python", "meta_zohar.py", "--iterations", str(iterations)],
-        stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
+        [RSI_PYTHON_EXE, "rsi_run_all.py", "--cycles-per-target", str(iterations)],
+        cwd=str(RSI_PROJECT_ROOT), stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
     )
-    RSI_PID_FILE.write_text(str(proc.pid))
+    RSI_PID_FILE.write_text(str(proc.pid), encoding="utf-8")
     return {"status": "started", "pid": proc.pid}
 
 @app.post("/api/rsi/stop", tags=["rsi"])
 def rsi_stop():
     if not RSI_PID_FILE.exists():
         return {"status": "not_running"}
-    pid = int(RSI_PID_FILE.read_text().strip())
     try:
+        pid = int(RSI_PID_FILE.read_text(encoding="utf-8").strip())
         os.killpg(os.getpgid(pid), _signal.SIGTERM)
-    except ProcessLookupError:
+    except (ProcessLookupError, ValueError, OSError):
         pass
     RSI_PID_FILE.unlink(missing_ok=True)
-    return {"status": "stopped", "pid": pid}
+    return {"status": "stopped"}
+
+
+@app.get("/api/rsi/run", tags=["rsi"])
+def run_rsi_endpoint(cycles: int = Query(3, ge=1, le=10), dry_run: bool = Query(False)):
+    """
+    Ejecuta el ciclo de Auto-Mejora Recursiva (RSI) sobre semarnat_downloader.py
+    y emite eventos SSE en tiempo real para el Dashboard.
+    """
+    from auto_improver import run_rsi_stream
+    gen = run_rsi_stream(max_cycles=cycles, dry_run=dry_run)
+    return _sse_response(gen)
+

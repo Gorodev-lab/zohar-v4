@@ -179,6 +179,40 @@
         </div>
       </div>
 
+      <!-- Auto-Mejora RSI (Scraper) Controls -->
+      <div class="sidebar__scraper-section" style="border-top: 1px solid var(--border-color-dim); padding-top: 10px; margin-top: 10px;">
+        <div class="sidebar__section-label">─ auto-mejora (RSI)</div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+          <label class="text-xs text-muted" for="rsi-scraper-cycles">CICLOS:</label>
+          <input id="rsi-scraper-cycles" class="input input--inline" type="number" value="3" min="1" max="10" style="width:40px; height:20px; font-size:10px; text-align:center;">
+          <label class="text-xs text-muted" style="margin-left:4px; display:flex; align-items:center; gap:2px;">
+            <input type="checkbox" id="rsi-scraper-dryrun" style="margin:0;"> DRY
+          </label>
+        </div>
+
+        <div class="scraper-btn-group" style="grid-template-columns: 1fr;">
+          <button id="btn-run-rsi-scraper" class="btn btn--primary btn--scraper" style="height:26px; font-size:10px;" aria-label="Ejecutar RSI en Scraper">
+            <span aria-hidden="true">⚡</span> EJECUTAR RSI (SCRAPER)
+          </button>
+        </div>
+
+        <div class="scraper-progress-wrap" style="margin-top:6px;">
+          <div class="progress-bar" id="rsi-scraper-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar__fill" style="width:0%"></div>
+          </div>
+          <span class="text-xs text-muted" id="rsi-scraper-pct">0%</span>
+        </div>
+
+        <div class="log-console log-console--compact" id="rsi-scraper-log" style="height:60px; margin-top:4px;" aria-live="polite">
+          <div class="log-line log-line--info">
+            <span class="log-line__ts">[──:──:──]</span>
+            <span class="log-line__msg">RSI listo _</span>
+          </div>
+        </div>
+      </div>
+
+
       <!-- Sys stats mini cards at bottom -->
       <div class="sidebar__stats">
         <div class="mini-stat" id="mini-stat-pdfs">
@@ -704,6 +738,10 @@
             <span class="panel-header__meta" id="chat-model-meta">Proveedor: Inicializando...</span>
           </div>
           <div class="panel-header__actions" style="display:flex; gap:10px; align-items:center;">
+            <label class="text-xs text-muted" for="chat-eval-select">Preguntas Eval:</label>
+            <select class="input input--inline" id="chat-eval-select" style="width:auto; margin:0; max-width:200px;" aria-label="Preguntas de evaluación sugeridas">
+              <option value="">-- Cargar Pregunta --</option>
+            </select>
             <label class="text-xs text-muted" for="chat-clave-select">Contexto RAG:</label>
             <select class="input input--inline" id="chat-clave-select" style="width:auto; margin:0;" aria-label="Seleccionar proyecto para contexto">
               <option value="">-- Sin contexto (Chat General) --</option>

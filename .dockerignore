@@ -20,7 +20,8 @@ logs/
 *.log
 
 # Docker/Compose data dirs
-dw/postgres_data/
-dw/redis_data/
-dw/neo4j_data/
-dw/neo4j_logs/
+dw
+dw/postgres_data
+dw/redis_data
+dw/neo4j_data
+dw/neo4j_logs

@@ -47,7 +47,6 @@ def test_gazette_scraper_generator():
         </body></html>
     """
 
-    assert response.status_code == 200, f"Error del servidor HTTP {response.status_code}: {response.text}"
     events = []
     with patch.object(scraper, '_get_driver', return_value=mock_driver):
         # Parchear en el módulo donde gazette_scraper importa requests
@@ -102,7 +101,6 @@ def test_asea_scraper_generator():
     sess = MagicMock()
     sess.get.side_effect = [index_resp, pdf_resp]
 
-    assert response.status_code == 200, f"Error del servidor HTTP {response.status_code}: {response.text}"
     events = []
     # Parchear en el módulo donde asea_scraper importa requests
     with patch('scrapers.asea_scraper.requests.Session', return_value=sess):
