@@ -2552,7 +2552,7 @@ async def get_eval_questions():
     json_path = BASE_DIR / "data" / "eval_questions.json"
     if json_path.exists():
         try:
-            return json_module.loads(json_path.read_text(encoding="utf-8"))
+            return json.loads(json_path.read_text(encoding="utf-8"))
         except Exception as exc:
             logger.error("Error leyendo eval_questions.json: %s", exc)
     return {"questions": []}
