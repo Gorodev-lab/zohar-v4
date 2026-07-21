@@ -25,8 +25,12 @@ class SecondBrainBuilder:
         self.data_dir = self.base_dir / "data"
         self.inference_cache_dir = self.data_dir / "inference_cache"
         self.sb_dir = self.base_dir / "second_brain"
+        self.sources_dir = self.sb_dir / "01_Sources"
+        self.entities_dir = self.sb_dir / "02_Entities"
+        self.inferences_dir = self.sb_dir / "03_Inferences"
 
         self.clave_re = re.compile(r"(?<![A-Z0-9])(\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})(?![A-Z0-9])")
+
 
     # ──────────────────────────────────────────────────────────────────────────
     # API pública: resolución de rutas para el motor de inferencia
@@ -639,7 +643,9 @@ Si se encuentra algún knockout, la viabilidad se reduce a 0 de forma automátic
 
     def _write_collector_note(self, dest_dir: Path, name: str, type_label: str, projects_list: list[str]):
         """Escribe una nota colectora que agrupa proyectos (ej. por Municipio o Sector)."""
-        note_path = dest_dir / f"{name}.md"
+        safe_name = name.replace("/", "-").replace("\\", "-")
+        note_path = dest_dir / f"{safe_name}.md"
+
 
         proyectos_section = "\n".join(f"- [[Proyecto - {c}]]" for c in sorted(projects_list))
 
@@ -788,4 +794,37 @@ Como paso de cierre:
 - **Second Brain:** Se estructuran de forma automática todos los archivos en el directorio `second_brain/`, generando un repositorio de notas interconectadas vinculadas bidireccionalmente mediante enlaces `[[Wiki-Link]]` para la base de datos de Zohar.
 """
         note_path.write_text(content, encoding="utf-8")
+
+    def update_note_frontmatter(self, clave: str, evaluation_data: dict) -> bool:
+        """Actualiza o enriquece el Frontmatter YAML de la nota de proyecto en Obsidian."""
+        note_path = self.sources_dir / f"Proyecto - {clave}.md"
+        if not note_path.exists():
+            note_path = self.entities_dir / f"Proyecto - {clave}.md"
+            if not note_path.exists():
+                return False
+
+        try:
+            content = note_path.read_text(encoding="utf-8")
+            legal_risk = evaluation_data.get("legal_risk_level", "MEDIO")
+            summary = evaluation_data.get("summary", "").replace("\n", " ")
+
+            if content.startswith("---"):
+                parts = content.split("---", 2)
+                if len(parts) >= 3:
+                    yaml_block = parts[1]
+                    body = parts[2]
+                    
+                    if "legal_risk:" not in yaml_block:
+                        yaml_block += f"\nlegal_risk: {legal_risk}"
+                    if "summary:" not in yaml_block:
+                        yaml_block += f"\nsummary: \"{summary[:150]}...\""
+
+                    new_content = f"---{yaml_block}---{body}"
+                    note_path.write_text(new_content, encoding="utf-8")
+                    return True
+            return False
+        except Exception as exc:
+            logger.warning("Error actualizando Frontmatter de nota %s: %s", clave, exc)
+            return False
+
 
