@@ -119,6 +119,11 @@
         <span class="tab-btn__label">MODEL_CHAT</span>
       </button>
 
+      <button class="tab-btn" data-tab="SERVER_CONTROL" id="tab-SERVER_CONTROL" aria-controls="panel-SERVER_CONTROL" role="tab" aria-selected="false">
+        <span class="tab-btn__icon" aria-hidden="true">⚡</span>
+        <span class="tab-btn__label">SERVER_CONTROL</span>
+      </button>
+
       <!-- Scraper Controls -->
       <div class="sidebar__scraper-section">
         <div class="sidebar__section-label">─ scraper</div>
@@ -842,7 +847,107 @@
           </div>
         </div>
       </div>
-    </section>
+      <!-- ─────────────────────────────
+           TAB 8: SERVER_CONTROL
+      ───────────────────────────── -->
+      <section
+        class="tab-panel"
+        id="panel-SERVER_CONTROL"
+        role="tabpanel"
+        aria-labelledby="tab-SERVER_CONTROL"
+      >
+        <div class="panel-header">
+          <div class="panel-header__left">
+            <h1 class="panel-header__title"><span aria-hidden="true">⚡</span> SERVER_CONTROL & TELEMETRÍA</h1>
+            <span class="panel-header__meta" id="srv-telemetry-meta">Monitor de Procesos y Control de Servidores</span>
+          </div>
+        </div>
+
+        <!-- Banner de Emergencia / Alerta Temprana -->
+        <div id="srv-anomaly-banner" style="display:none; background:rgba(231,76,60,0.15); border:1px solid var(--color-red); padding:12px 16px; margin:10px 20px; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:18px;">🚨</span>
+            <div>
+              <span id="srv-anomaly-title" style="font-family:var(--font-mono); font-weight:bold; color:var(--color-red); font-size:12px;">ANOMALÍA DETECTADA EN TIEMPO REAL</span>
+              <p id="srv-anomaly-desc" style="font-size:11px; margin:2px 0 0 0; color:var(--color-text);">Error de sintaxis o timeout detectado en el ciclo actual.</p>
+            </div>
+          </div>
+          <button id="btn-emergency-abort" class="btn btn--danger" onclick="manageServerAction('stop_rsi')" style="font-size:11px; font-weight:bold;">
+            <span>🚨 ABORTAR PROCESO AHORA</span>
+          </button>
+        </div>
+
+        <div style="padding:16px 20px; display:flex; flex-direction:column; gap:16px; height:calc(100vh - 180px); overflow-y:auto;">
+
+          <!-- Top Grid Cards: Servidores -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
+
+            <!-- Card 1: Llama-Server (8083) -->
+            <div style="background:var(--color-surface); border:1px solid var(--color-border); padding:14px; display:flex; flex-direction:column; gap:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color-dim); padding-bottom:6px;">
+                <span style="font-family:var(--font-mono); font-weight:bold; font-size:12px; color:var(--color-amber);">🦙 LLAMA-SERVER (8083)</span>
+                <span id="srv-llama-badge" style="font-family:var(--font-mono); font-size:10px; font-weight:bold; color:var(--color-text-muted);">OFFLINE</span>
+              </div>
+              <div style="font-family:var(--font-mono); font-size:10px; display:flex; flex-direction:column; gap:4px;">
+                <div style="display:flex; justify-content:space-between;"><span class="text-muted">Modelo:</span><span>Gemma 4 E2B</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="text-muted">Latencia:</span><span id="srv-llama-lat">─ ms</span></div>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:4px;">
+                <button class="btn btn--secondary" style="font-size:10px; padding:4px;" onclick="manageServerAction('start_llama')">▶ INICIAR</button>
+                <button class="btn btn--danger" style="font-size:10px; padding:4px;" onclick="manageServerAction('stop_llama')">■ DETENER</button>
+                <button class="btn" style="font-size:10px; padding:4px;" onclick="manageServerAction('restart_llama')">↺ REINICIAR</button>
+              </div>
+            </div>
+
+            <!-- Card 2: Motor RSI Multi-Objetivo -->
+            <div style="background:var(--color-surface); border:1px solid var(--color-border); padding:14px; display:flex; flex-direction:column; gap:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color-dim); padding-bottom:6px;">
+                <span style="font-family:var(--font-mono); font-weight:bold; font-size:12px; color:var(--color-amber);">⚡ RSI WORKER ENGINE</span>
+                <span id="srv-rsi-badge" style="font-family:var(--font-mono); font-size:10px; font-weight:bold; color:var(--color-text-muted);">IDLE</span>
+              </div>
+              <div style="font-family:var(--font-mono); font-size:10px; display:flex; flex-direction:column; gap:4px;">
+                <div style="display:flex; justify-content:space-between;"><span class="text-muted">PID Activo:</span><span id="srv-rsi-pid">─</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="text-muted">Target:</span><span>scrapers/semarnat_downloader.py</span></div>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
+                <button class="btn btn--primary" style="font-size:10px; padding:4px;" onclick="manageServerAction('start_rsi')">⚡ INICIAR RSI</button>
+                <button class="btn btn--danger" style="font-size:10px; padding:4px;" onclick="manageServerAction('stop_rsi')">⛔ ABORTAR RSI</button>
+              </div>
+            </div>
+
+            <!-- Card 3: Backend API & Base de Datos -->
+            <div style="background:var(--color-surface); border:1px solid var(--color-border); padding:14px; display:flex; flex-direction:column; gap:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color-dim); padding-bottom:6px;">
+                <span style="font-family:var(--font-mono); font-weight:bold; font-size:12px; color:var(--color-amber);">🐘 POSTGRES & FASTAPI</span>
+                <span id="srv-db-badge" style="font-family:var(--font-mono); font-size:10px; font-weight:bold; color:var(--color-green);">ONLINE</span>
+              </div>
+              <div style="font-family:var(--font-mono); font-size:10px; display:flex; flex-direction:column; gap:4px;">
+                <div style="display:flex; justify-content:space-between;"><span class="text-muted">FastAPI (8004):</span><span style="color:var(--color-green);">ONLINE</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="text-muted">Postgres (5432):</span><span id="srv-pg-val" style="color:var(--color-green);">ONLINE</span></div>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr; gap:6px; margin-top:4px;">
+                <button class="btn btn--secondary" style="font-size:10px; padding:4px;" onclick="runDataWarehousePipeline()">▸ RUN DW PIPELINE</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom: Unified Live Stream Terminal Console -->
+          <div style="display:flex; flex-direction:column; border:1px solid var(--color-border); background:black; height:320px; overflow:hidden;">
+            <div style="font-family:var(--font-mono); font-size:10px; color:var(--color-amber); padding:6px 12px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; background:var(--color-surface-2);">
+              <span>SERVER_LOGS_STREAM (REAL-TIME SSE MONITOR)</span>
+              <span class="cursor-blink">_</span>
+            </div>
+            <div class="log-console" id="srv-logs-stream" style="flex:1; padding:12px; overflow-y:auto; font-family:var(--font-mono); font-size:10px; line-height:1.4; background:black; border:none;" aria-live="polite">
+              <div class="log-line log-line--info">
+                <span class="log-line__ts">[SYSTEM]</span>
+                <span class="log-line__msg">Conectado a la telemetría en tiempo real de Zohar v4 _</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
 
     </div><!-- /content -->
   </div><!-- /main -->
