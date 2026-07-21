@@ -2274,4 +2274,31 @@ async function manageServerAction(action, extraPayload = {}) {
 window.manageServerAction = manageServerAction;
 window.initTelemetryStream = initTelemetryStream;
 
+async function runHarnessBootstrap() {
+  const btn = $('#btn-run-harness');
+  const streamLog = $('#srv-logs-stream');
+  try {
+    if (btn) btn.disabled = true;
+    showToast('Ejecutando Harness de Maniobra Única...', 'info');
+    if (streamLog) appendLog(streamLog, '🚀 [HARNESS] Iniciando diagnóstico y sanity check...', 'info');
+
+    const res = await fetch('/api/harness/run', { method: 'POST' });
+    const data = await res.json();
+
+    if (res.ok && data.green_light) {
+      showToast('🟢 Green Light: Todo el stack está operativo y listo!', 'ok');
+      if (streamLog) appendLog(streamLog, `🟢 [GREEN LIGHT STATUS] ${data.timestamp} - Inferencia Gemma 4 E2B en ${data.services?.LLM_Sanity_Test?.latency_ms || '?'}ms`, 'ok');
+    } else {
+      showToast('🔴 Red Light: Algunos servicios requieren atención', 'error');
+      if (streamLog) appendLog(streamLog, `🔴 [RED LIGHT STATUS] Atendiendo servicios caídos...`, 'error');
+    }
+  } catch (err) {
+    showToast(`Error al ejecutar harness: ${err.message}`, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+window.runHarnessBootstrap = runHarnessBootstrap;
+
 
