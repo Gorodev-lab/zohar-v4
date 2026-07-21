@@ -13,9 +13,9 @@ echo "🚀  Levantando contenedores Docker..."
 docker compose -f dw/docker-compose.yml up -d
 
 # Esperar a que el servidor FastAPI (puerto 8004) responda
-echo "⏳  Esperando a que el servidor API responda en http://localhost:8004/ ..."
+echo "⏳  Esperando a que el servidor API responda en http://127.0.0.1:8004/ ..."
 for i in {1..60}; do
-    if curl -s http://localhost:8004/ > /dev/null; then
+    if curl -s http://127.0.0.1:8004/ > /dev/null; then
         echo "✅  Servidor API listo y conectado."
         break
     fi
@@ -25,11 +25,11 @@ done
 # Abrir el navegador con el dashboard
 echo "🌐  Abriendo el dashboard en el navegador..."
 if command -v xdg-open > /dev/null; then
-    xdg-open "http://localhost:8004/" &
+    xdg-open "http://127.0.0.1:8004/" &
 elif command -v google-chrome > /dev/null; then
-    google-chrome "http://localhost:8004/" &
+    google-chrome "http://127.0.0.1:8004/" &
 elif command -v firefox > /dev/null; then
-    firefox "http://localhost:8004/" &
+    firefox "http://127.0.0.1:8004/" &
 fi
 
 # Manejar salida graciosa de visualización de logs
