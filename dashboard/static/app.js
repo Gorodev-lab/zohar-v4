@@ -2173,6 +2173,9 @@ function initLiveUpdates() {
         if (typeof loadInferences === 'function') loadInferences();
         if (typeof loadDataWarehouseStatus === 'function') loadDataWarehouseStatus();
         if (typeof loadStatus === 'function') loadStatus();
+      } else if (evt.type === 'graph_updated') {
+        // Recargar Grafo Vivo si el tab activo es GRAFO_RED
+        if (typeof loadGraph === 'function') loadGraph();
       }
     } catch (err) {
       console.error('Error parseando evento SSE:', err);

@@ -689,10 +689,12 @@ def run_rsi_stream(
     eval_metric: str = _DEFAULT_EVAL_METRIC,
     patch_anchors: list[str] | None = None,
     max_window: int = _DEFAULT_MAX_WINDOW,
+    delta_threshold: float = 0.02,
+    max_stagnant_cycles: int = 2,
 ):
     """
     Generador que ejecuta los ciclos RSI y emite diccionarios de eventos para SSE.
-    Ahora totalmente parametrizable — opera sobre cualquier (target_file, func_name).
+    Soporta Early Stopping si 2 ciclos consecutivos no superan el delta_threshold (+0.02 por defecto).
     """
     if patch_anchors is None:
         patch_anchors = list(_DEFAULT_PATCH_ANCHORS)
@@ -756,6 +758,7 @@ def run_rsi_stream(
     })
 
     consecutive_no_change = 0
+    stagnant_cycles = 0
     current_metric = metric_initial
 
     for cycle in range(1, max_cycles + 1):
@@ -811,6 +814,14 @@ def run_rsi_stream(
                 "event": "llm_empty", "cycle": cycle,
                 "target_file": target_file, "func_name": func_name,
             })
+            stagnant_cycles += 1
+            if stagnant_cycles >= max_stagnant_cycles:
+                yield {
+                    "status": "early_stopping",
+                    "msg": f"🛑 Early Stopping: {stagnant_cycles} ciclos consecutivos sin respuesta/mejora significativa. Finalizando RSI.",
+                    "pct": 95,
+                }
+                break
             continue
 
         new_window_raw = extract_python_block(llm_response)
@@ -821,6 +832,14 @@ def run_rsi_stream(
                 "target_file": target_file, "func_name": func_name,
                 "llm_preview": llm_response[:200],
             })
+            stagnant_cycles += 1
+            if stagnant_cycles >= max_stagnant_cycles:
+                yield {
+                    "status": "early_stopping",
+                    "msg": f"🛑 Early Stopping: {stagnant_cycles} ciclos consecutivos sin bloque Python válido. Finalizando RSI.",
+                    "pct": 95,
+                }
+                break
             continue
 
         auto_repaired_syntax = False
@@ -869,6 +888,14 @@ def run_rsi_stream(
                 "metric_after":       None,
                 "window_diff_preview": diff_preview[:300],
             })
+            stagnant_cycles += 1
+            if stagnant_cycles >= max_stagnant_cycles:
+                yield {
+                    "status": "early_stopping",
+                    "msg": f"🛑 Early Stopping: {stagnant_cycles} ciclos consecutivos con sintaxis inválida. Finalizando RSI.",
+                    "pct": 95,
+                }
+                break
             continue
 
         if new_window.strip() == window.strip():
@@ -878,6 +905,7 @@ def run_rsi_stream(
                 "pct": pct_cycle + 15,
             }
             consecutive_no_change += 1
+            stagnant_cycles += 1
             log_jsonl({
                 "event":       "no_change",
                 "cycle":       cycle,
@@ -886,8 +914,8 @@ def run_rsi_stream(
                 "metric_before": current_metric,
                 "metric_after":  current_metric,
             })
-            if consecutive_no_change >= 2:
-                yield {"status": "info", "msg": "Convergencia detectada (2 ciclos sin cambios). Finalizando.", "pct": 95}
+            if consecutive_no_change >= 2 or stagnant_cycles >= max_stagnant_cycles:
+                yield {"status": "early_stopping", "msg": f"🛑 Early Stopping: Convergencia detectada ({stagnant_cycles} ciclos sin cambios). Finalizando RSI.", "pct": 95}
                 break
             continue
         consecutive_no_change = 0
@@ -934,6 +962,10 @@ def run_rsi_stream(
                 "event": "patch_apply_error", "cycle": cycle,
                 "target_file": target_file, "func_name": func_name, "error": str(e),
             })
+            stagnant_cycles += 1
+            if stagnant_cycles >= max_stagnant_cycles:
+                yield {"status": "early_stopping", "msg": f"🛑 Early Stopping: Error de aplicación de parche repetido. Finalizando RSI.", "pct": 95}
+                break
             continue
 
         full_source_after = target_path.read_text(encoding="utf-8")
@@ -954,17 +986,23 @@ def run_rsi_stream(
                 "metric_before": current_metric,
                 "metric_after":  None,
             })
+            stagnant_cycles += 1
+            if stagnant_cycles >= max_stagnant_cycles:
+                yield {"status": "early_stopping", "msg": f"🛑 Early Stopping: Sintaxis global inválida ({stagnant_cycles} fallos). Finalizando RSI.", "pct": 95}
+                break
             continue
 
         yield {"status": "progress", "msg": f"Re-evaluando con `{eval_metric}` para ciclo {cycle}...", "pct": pct_cycle + 18}
         new_metric, test_output_after = run_eval(eval_cmd, eval_metric)
 
-        if new_metric >= current_metric:
+        delta = new_metric - current_metric
+        if delta >= delta_threshold:
+            stagnant_cycles = 0  # Restablecer si superó el umbral delta!
             yield {
                 "status": "cycle_success",
                 "msg": (
                     f"[PASS] Ciclo {cycle} EXITOSO — {eval_metric}: "
-                    f"{current_metric:.4f} → {new_metric:.4f} ({new_metric - current_metric:+.4f})"
+                    f"{current_metric:.4f} → {new_metric:.4f} ({delta:+.4f} ≥ +{delta_threshold:.2f})"
                 ),
                 "metric": new_metric,
                 "pct": pct_cycle + 20,
@@ -986,27 +1024,56 @@ def run_rsi_stream(
             test_output   = test_output_after
             current_metric = new_metric
         else:
-            rollback(target_path, backup_path)
+            stagnant_cycles += 1
+            if new_metric > current_metric:
+                yield {
+                    "status": "cycle_warning",
+                    "msg": (
+                        f"⚠️ Ciclo {cycle} MEJORA MENOR AL UMBRAL (+{delta:.4f} < +{delta_threshold:.2f}). "
+                        f"Métrica: {current_metric:.4f} → {new_metric:.4f}. ({stagnant_cycles}/{max_stagnant_cycles} ciclos estancados)"
+                    ),
+                    "metric": new_metric,
+                    "pct": pct_cycle + 20,
+                }
+                test_output = test_output_after
+                current_metric = new_metric
+            else:
+                rollback(target_path, backup_path)
+                yield {
+                    "status": "cycle_rollback",
+                    "msg": (
+                        f"❌ Ciclo {cycle} FALLIDO — {eval_metric}: "
+                        f"{current_metric:.4f} → {new_metric:.4f} ({delta:+.4f}). Rollback aplicado. ({stagnant_cycles}/{max_stagnant_cycles} estancados)"
+                    ),
+                    "metric": new_metric,
+                    "pct": pct_cycle + 20,
+                }
+                log_jsonl({
+                    "event":              "cycle_rollback",
+                    "cycle":              cycle,
+                    "target_file":        target_file,
+                    "func_name":          func_name,
+                    "metric_before":      current_metric,
+                    "metric_after":       new_metric,
+                    "diff":               diff_summary,
+                    "window_diff_preview": diff_preview[:300],
+                })
+                test_output = test_output_after + "\n[ROLLBACK EJECUTADO]\n" + test_output
+
+        if stagnant_cycles >= max_stagnant_cycles:
             yield {
-                "status": "cycle_rollback",
-                "msg": (
-                    f"❌ Ciclo {cycle} FALLIDO — {eval_metric}: "
-                    f"{current_metric:.4f} → {new_metric:.4f} ({new_metric - current_metric:+.4f}). Rollback aplicado."
-                ),
-                "metric": new_metric,
-                "pct": pct_cycle + 20,
+                "status": "early_stopping",
+                "msg": f"🛑 Early Stopping: {stagnant_cycles} ciclos consecutivos sin mejora significativa (≥+{delta_threshold:.2f}). Finalizando RSI.",
+                "pct": 95,
             }
             log_jsonl({
-                "event":              "cycle_rollback",
-                "cycle":              cycle,
-                "target_file":        target_file,
-                "func_name":          func_name,
-                "metric_before":      current_metric,
-                "metric_after":       new_metric,
-                "diff":               diff_summary,
-                "window_diff_preview": diff_preview[:300],
+                "event": "early_stopping",
+                "target_file": target_file,
+                "func_name": func_name,
+                "stagnant_cycles": stagnant_cycles,
+                "delta_threshold": delta_threshold
             })
-            test_output = test_output_after + "\n[ROLLBACK EJECUTADO]\n" + test_output
+            break
 
     yield {
         "status": "complete",
@@ -1036,11 +1103,14 @@ def run_rsi(
     eval_metric: str = _DEFAULT_EVAL_METRIC,
     patch_anchors: list[str] | None = None,
     max_window: int = _DEFAULT_MAX_WINDOW,
+    delta_threshold: float = 0.02,
+    max_stagnant_cycles: int = 2,
 ) -> None:
     logger.info("=" * 60)
     logger.info("Iniciando Zohar RSI — Motor de Auto-Mejora Recursiva")
     logger.info("Objetivo: %s → %s", target_file, func_name)
-    logger.info("Ciclos: %d | Dry-run: %s | eval_metric: %s", max_cycles, dry_run, eval_metric)
+    logger.info("Ciclos: %d | Dry-run: %s | eval_metric: %s | delta: %.2f | max_stagnant: %d",
+                max_cycles, dry_run, eval_metric, delta_threshold, max_stagnant_cycles)
     logger.info("=" * 60)
 
     for event in run_rsi_stream(
@@ -1052,6 +1122,8 @@ def run_rsi(
         eval_metric=eval_metric,
         patch_anchors=patch_anchors,
         max_window=max_window,
+        delta_threshold=delta_threshold,
+        max_stagnant_cycles=max_stagnant_cycles,
     ):
         level = event.get("status", "info")
         msg   = event.get("msg", "")
@@ -1071,27 +1143,8 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Ejemplos:
-  # Modo clásico (compatible con versión anterior)
-  ./venv/bin/python auto_improver.py --cycles 2 --dry-run
-
-  # Nuevo objetivo: infer.py / extract_entities
-  ./venv/bin/python auto_improver.py \\
-      --target-file infer.py \\
-      --func-name extract_entities \\
-      --eval-cmd "./venv/bin/python eval_zohar.py" \\
-      --eval-metric score_float \\
-      --patch-anchors "PROMPT DE EXTRACCIÓN,prompt =,try:" \\
-      --max-window 80 \\
-      --cycles 1 --dry-run
-
-  # Objetivo scraper (equivalente al modo clásico explícito)
-  ./venv/bin/python auto_improver.py \\
-      --target-file scrapers/semarnat_downloader.py \\
-      --func-name _descargar_clave_gen \\
-      --eval-cmd "./venv/bin/pytest tests/test_scraper_pipeline.py -v --tb=short" \\
-      --eval-metric pytest_pass_rate \\
-      --patch-anchors "PASO 5,PASO 6,PASO 4" \\
-      --cycles 2 --dry-run
+  # Modo clásico con Early Stopping por defecto
+  ./venv/bin/python auto_improver.py --cycles 5 --delta-threshold 0.02 --max-stagnant-cycles 2 --dry-run
 """,
     )
     parser.add_argument(
@@ -1142,6 +1195,18 @@ Ejemplos:
         default=_DEFAULT_MAX_WINDOW,
         help=f"Máximo de líneas en la ventana quirúrgica (default: {_DEFAULT_MAX_WINDOW})",
     )
+    parser.add_argument(
+        "--delta-threshold",
+        type=float,
+        default=0.02,
+        help="Umbral mínimo de mejora en la métrica (default: 0.02)",
+    )
+    parser.add_argument(
+        "--max-stagnant-cycles",
+        type=int,
+        default=2,
+        help="Máximo número de ciclos sin mejora significativa antes de Early Stopping (default: 2)",
+    )
 
     args = parser.parse_args()
     anchors = [a.strip() for a in args.patch_anchors.split(",") if a.strip()]
@@ -1155,4 +1220,7 @@ Ejemplos:
         eval_metric=args.eval_metric,
         patch_anchors=anchors,
         max_window=args.max_window,
+        delta_threshold=args.delta_threshold,
+        max_stagnant_cycles=args.max_stagnant_cycles,
     )
+

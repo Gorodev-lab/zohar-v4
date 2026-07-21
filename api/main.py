@@ -158,13 +158,31 @@ class DataDirectoryHandler(FileSystemEventHandler):
             event_type = "pdfs_updated"
             invalidate_redis_cache("zohar:corpus:pdfs")
             invalidate_redis_cache("zohar:analytics:summary")
+            try:
+                from core.graph_builder import invalidate_graph_cache
+                invalidate_graph_cache()
+                self.broadcaster.broadcast("graph_updated", path.name)
+            except Exception:
+                pass
         elif path.suffix.lower() == ".md" and ("extractions" in path_str or "second_brain" in path_str):
             event_type = "extractions_updated"
             invalidate_redis_cache("zohar:analytics:summary")
             invalidate_redis_cache("zohar:graph:compact")
+            try:
+                from core.graph_builder import invalidate_graph_cache
+                invalidate_graph_cache()
+                self.broadcaster.broadcast("graph_updated", path.name)
+            except Exception:
+                pass
         elif path.suffix.lower() == ".json" and "inference_cache" in path_str:
             event_type = "inferences_updated"
             invalidate_redis_cache("zohar:analytics:summary")
+            try:
+                from core.graph_builder import invalidate_graph_cache
+                invalidate_graph_cache()
+                self.broadcaster.broadcast("graph_updated", path.name)
+            except Exception:
+                pass
 
         if event_type:
             self.broadcaster.broadcast(event_type, path.name)
