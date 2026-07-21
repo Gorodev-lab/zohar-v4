@@ -265,7 +265,7 @@ def generate_report(md_path: Path) -> dict:
             response_json=True
         )
         
-        if result.get("is_fallback"):
+        if not result or not isinstance(result, dict) or result.get("is_fallback"):
             return _fallback_report(text, md_path)
             
         result.setdefault("meta", {})
