@@ -2400,32 +2400,208 @@ async function syncAtomicRSIStatus() {
 
 window.toggleAtomicRSI = toggleAtomicRSI;
 
-async function toggleRSI() {
-  const status = await fetch('/api/rsi/status').then(r => r.json());
-  if (status.running) {
-    await fetch('/api/rsi/stop', { method: 'POST' });
-  } else {
-    const iterations = document.getElementById('rsi-iterations').value || 15;
-    await fetch(`/api/rsi/start?iterations=${iterations}`, { method: 'POST' });
+let rlmLoopPollInterval = null;
+let currentJobId = null;
+
+async function populateRSIDocSelect() {
+  const select = document.getElementById('rsi-doc-select');
+  if (!select) return;
+  
+  const firstOpt = select.options[0];
+  select.innerHTML = '';
+  select.appendChild(firstOpt);
+
+  try {
+    const res = await fetch('/api/md/list');
+    const data = await res.json();
+    if (data.mds) {
+      data.mds.forEach(md => {
+        const opt = document.createElement('option');
+        opt.value = md.name;
+        opt.textContent = md.name;
+        select.appendChild(opt);
+      });
+    }
+  } catch (err) {
+    console.error('Error populating RSI Doc Select:', err);
   }
-  refreshRSIStatus();
 }
 
-async function refreshRSIStatus() {
-  const s = await fetch('/api/rsi/status').then(r => r.json());
-  const meta = document.getElementById('rsi-status-meta');
+async function toggleRLMLoop() {
+  const select = document.getElementById('rsi-doc-select');
+  const taskInput = document.getElementById('rsi-task-input');
   const btn = document.getElementById('rsi-toggle-btn');
-  if (!meta || !btn) return;
-  meta.textContent = s.running ? `EJECUTANDO (pid ${s.pid})` : '-- DETENIDO --';
-  btn.textContent = s.running ? '\u25A0 DETENER RSI' : '\u25B6 INICIAR RSI';
+  const consoleEl = document.getElementById('rsi-console');
+
+  if (!select || !taskInput || !btn || !consoleEl) return;
+
+  if (rlmLoopPollInterval && currentJobId) {
+    clearInterval(rlmLoopPollInterval);
+    rlmLoopPollInterval = null;
+    currentJobId = null;
+    btn.textContent = '✦ INICIAR RLM LOOP';
+    btn.classList.add('btn--primary');
+    btn.classList.remove('btn--danger');
+    const meta = document.getElementById('rsi-status-meta');
+    if (meta) meta.textContent = '-- ABORTADO --';
+    const jobBadge = document.getElementById('rsi-loop-job-badge');
+    if (jobBadge) jobBadge.style.display = 'none';
+    appendConsoleLog('[SISTEMA] Monitoreo abortado por el usuario.', 'warn');
+    return;
+  }
+
+  const docId = select.value;
+  const task = taskInput.value.trim();
+
+  if (!docId) {
+    showToast('Selecciona un documento Markdown para iniciar el bucle RLM', 'warning');
+    return;
+  }
+
+  if (!task) {
+    showToast('Ingresa una tarea para el orquestador RLM', 'warning');
+    return;
+  }
+
+  consoleEl.innerHTML = '';
+  appendConsoleLog(`[INICIO] Enviando orden al orquestador RLM para el documento ${docId}...`, 'info');
+
+  btn.disabled = true;
+  btn.textContent = '... INICIANDO ...';
+
+  try {
+    const res = await fetch('/api/rsi/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doc_id: docId, task: task })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.detail || 'Fallo en la API');
+    }
+
+    const data = await res.json();
+    currentJobId = data.job_id;
+    
+    showToast('Bucle RLM iniciado con éxito', 'ok');
+    btn.disabled = false;
+    btn.textContent = '■ DETENER MONITOREO';
+    btn.classList.remove('btn--primary');
+    btn.classList.add('btn--danger');
+
+    const meta = document.getElementById('rsi-status-meta');
+    if (meta) meta.textContent = `EJECUTANDO (Job: ${currentJobId.substring(0,8)})`;
+    const jobBadge = document.getElementById('rsi-loop-job-badge');
+    if (jobBadge) {
+      jobBadge.style.display = 'inline-block';
+      jobBadge.textContent = `JOB: ${currentJobId.substring(0,8)}`;
+    }
+
+    appendConsoleLog(`[JOB QUEUED] Identificador de Trabajo: ${currentJobId}`, 'ok');
+
+    rlmLoopPollInterval = setInterval(pollRLMJobStatus, 1500);
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '✦ INICIAR RLM LOOP';
+    showToast(`Error al iniciar RLM Loop: ${err.message}`, 'error');
+    appendConsoleLog(`[ERROR_INICIO] ${err.message}`, 'error');
+  }
+}
+
+async function pollRLMJobStatus() {
+  if (!currentJobId) return;
+
+  try {
+    const res = await fetch(`/api/rsi/status/${currentJobId}`);
+    if (!res.ok) throw new Error('API status call failed');
+    const job = await res.json();
+
+    const consoleEl = document.getElementById('rsi-console');
+    if (!consoleEl) return;
+
+    consoleEl.innerHTML = '';
+    appendConsoleLog(`[JOB STATE] ID: ${currentJobId} | Estado: ${job.status}`, 'info');
+
+    job.history.forEach(step => {
+      appendConsoleLog(`----------------------------------------------------------------------`, 'info');
+      appendConsoleLog(`[PASO ${step.step}] Acción: ${step.action_selected}`, 'ok');
+      appendConsoleLog(`[RAZONAMIENTO] ${step.reasoning}`, 'info');
+      if (step.parameters_sent && Object.keys(step.parameters_sent).length > 0) {
+        appendConsoleLog(`[PARÁMETROS] ${JSON.stringify(step.parameters_sent)}`, 'info');
+      }
+
+      if (step.result) {
+        const statusClass = (step.result.status === 'ERROR' || step.result.status === 'FAIL') ? 'error' : 'ok';
+        appendConsoleLog(`[RESULTADO SUB-AGENTE] ${step.result.message || 'Ejecutado con éxito'}`, statusClass);
+        if (step.result.nodes) {
+          appendConsoleLog(`[NUEVOS DATOS] Nodos extraídos: ${step.result.nodes.length} | Relaciones: ${step.result.relations.length}`, 'ok');
+        }
+      }
+    });
+
+    if (job.status === 'COMPLETED') {
+      clearInterval(rlmLoopPollInterval);
+      rlmLoopPollInterval = null;
+      currentJobId = null;
+      
+      appendConsoleLog(`======================================================================`, 'ok');
+      appendConsoleLog(`[PROCESO TERMINADO] Resultado final: ${job.final_summary}`, 'ok');
+
+      const btn = document.getElementById('rsi-toggle-btn');
+      if (btn) {
+        btn.textContent = '✦ INICIAR RLM LOOP';
+        btn.classList.add('btn--primary');
+        btn.classList.remove('btn--danger');
+      }
+      const meta = document.getElementById('rsi-status-meta');
+      if (meta) meta.textContent = '-- FINALIZADO --';
+      showToast('Bucle RLM finalizado con éxito', 'success');
+
+    } else if (job.status === 'FAILED' || job.status === 'MAX_ITERATIONS_REACHED') {
+      clearInterval(rlmLoopPollInterval);
+      rlmLoopPollInterval = null;
+      currentJobId = null;
+
+      appendConsoleLog(`======================================================================`, 'error');
+      appendConsoleLog(`[PROCESO FALLIDO] Causa: ${job.error || job.final_summary || 'Timeout'}`, 'error');
+
+      const btn = document.getElementById('rsi-toggle-btn');
+      if (btn) {
+        btn.textContent = '✦ INICIAR RLM LOOP';
+        btn.classList.add('btn--primary');
+        btn.classList.remove('btn--danger');
+      }
+      const meta = document.getElementById('rsi-status-meta');
+      if (meta) meta.textContent = '-- ERROR --';
+      showToast('El Bucle RLM ha fallado', 'error');
+    }
+
+  } catch (err) {
+    console.error('Error polling RLM status:', err);
+  }
+}
+
+function appendConsoleLog(msg, type = 'info') {
+  const consoleEl = document.getElementById('rsi-console');
+  if (!consoleEl) return;
+
+  const div = document.createElement('div');
+  div.className = `log-line log-line--${type}`;
+  
+  const ts = new Date().toLocaleTimeString();
+  div.innerHTML = `<span class="log-line__ts">[${ts}]</span> <span class="log-line__msg">${escHtml(msg)}</span>`;
+  consoleEl.appendChild(div);
+  consoleEl.scrollTop = consoleEl.scrollHeight;
 }
 
 function initRSIActions() {
-  refreshRSIStatus();
+  populateRSIDocSelect();
   syncAtomicRSIStatus();
-  if (rsiPollHandle) clearInterval(rsiPollHandle);
-  rsiPollHandle = setInterval(refreshRSIStatus, 3000);
 }
+
+window.toggleRLMLoop = toggleRLMLoop;
 
 
 function initRsiScraperActions() {

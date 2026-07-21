@@ -983,25 +983,30 @@
     >
       <div class="panel-header">
         <div class="panel-header__left">
-          <h1 class="panel-header__title"><span aria-hidden="true">&#9689;</span> RSI_LOOP</h1>
-          <span class="panel-header__meta" id="rsi-status-meta">-- DETENIDO --</span>
+          <h1 class="panel-header__title"><span aria-hidden="true">◉</span> RSI_LOOP (RLM)</h1>
+          <span class="panel-header__meta" id="rsi-status-meta">-- LISTO --</span>
         </div>
         <div class="panel-header__actions" style="display:flex; gap:10px; align-items:center;">
-          <label class="text-xs text-muted" for="rsi-iterations">Iteraciones:</label>
-          <input class="input input--inline" id="rsi-iterations" type="number" value="15" min="1" max="200" style="width:70px;">
-          <button class="btn" id="rsi-toggle-btn" onclick="toggleRSI()">&#9654; INICIAR RSI</button>
+          <label class="text-xs text-muted" for="rsi-doc-select">Documento:</label>
+          <select class="input input--inline" id="rsi-doc-select" style="width:200px; margin:0;" aria-label="Seleccionar documento">
+            <option value="">-- Cargar Documento --</option>
+          </select>
+          <label class="text-xs text-muted" for="rsi-task-input">Tarea:</label>
+          <input class="input input--inline" id="rsi-task-input" type="text" value="extraer grafo" style="width:180px; margin:0;">
+          <button class="btn btn--primary" id="rsi-toggle-btn" onclick="toggleRLMLoop()">✦ INICIAR RLM LOOP</button>
         </div>
       </div>
 
-      <div style="display:flex; flex-direction:column; border:1px solid var(--border-color); background:var(--color-surface); padding:16px; gap:12px;">
-        <div style="font-family:var(--font-mono); font-size:12px; color:var(--color-amber);">
-          Bucle de Mejora Recursiva &mdash; optimiza infer.py contra dataset_ground_truth.json
+      <div style="display:flex; flex-direction:column; border:1px solid var(--border-color); background:var(--color-surface); padding:16px; gap:12px; height:calc(100vh - 200px); min-height:450px;">
+        <div style="font-family:var(--font-mono); font-size:12px; color:var(--color-amber); display:flex; justify-content:space-between; align-items:center;">
+          <span>Bucle RLM &mdash; Orquestador Neuronal y Descarga de Contexto (LID)</span>
+          <span class="badge badge--info" id="rsi-loop-job-badge" style="font-size:10px; display:none;">JOB: ─</span>
         </div>
 
-        <div id="rsi-console" style="flex:1; min-height:400px; padding:16px; overflow-y:auto; font-family:var(--font-mono); font-size:11px; line-height:1.5; background:black; border:1px solid var(--border-color);" aria-live="polite">
+        <div id="rsi-console" style="flex:1; padding:16px; overflow-y:auto; font-family:var(--font-mono); font-size:11px; line-height:1.5; background:black; border:1px solid var(--border-color);" aria-live="polite">
           <div class="log-line log-line--info">
             <span class="log-line__ts">[RSI]</span>
-            <span class="log-line__msg">Esperando inicio del bucle...</span>
+            <span class="log-line__msg">Esperando inicio de la orquestación... Selecciona un documento y presiona INICIAR.</span>
           </div>
         </div>
       </div>
