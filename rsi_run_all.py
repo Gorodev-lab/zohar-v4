@@ -83,21 +83,18 @@ def run_all(
     cycles_per_target: int = 2,
     dry_run: bool = False,
     only: str | None = None,
+    delta_threshold: float = 0.02,
+    max_stagnant_cycles: int = 2,
 ) -> None:
     """
     Ejecuta el RSI sobre todos los targets registrados en RSI_TARGETS,
     ordenados por betweenness centrality de graphify.
-
-    Args:
-        cycles_per_target: número de ciclos RSI por objetivo.
-        dry_run:           si True, genera parches pero no los aplica.
-        only:              si se especifica, solo ejecuta el target cuyo
-                           target_file coincida con esta cadena.
     """
     logger.info("╔══════════════════════════════════════════════════════════════════╗")
     logger.info("║          ZOHAR v4 — ORQUESTADOR RSI MULTI-OBJETIVO              ║")
     logger.info("╚══════════════════════════════════════════════════════════════════╝")
-    logger.info("Ciclos por objetivo: %d | Dry-run: %s", cycles_per_target, dry_run)
+    logger.info("Ciclos por objetivo: %d | Dry-run: %s | delta: %.2f | max_stagnant: %d",
+                cycles_per_target, dry_run, delta_threshold, max_stagnant_cycles)
 
     # Filtrar por --only si se especificó
     targets = list(RSI_TARGETS)
@@ -152,6 +149,8 @@ def run_all(
             eval_metric=em,
             patch_anchors=anchors,
             max_window=max_win,
+            delta_threshold=delta_threshold,
+            max_stagnant_cycles=max_stagnant_cycles,
         )
 
         results.append({
@@ -189,14 +188,8 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Ejemplos:
-  # Todos los objetivos, 2 ciclos, solo simulación
-  ./venv/bin/python rsi_run_all.py --cycles-per-target 2 --dry-run
-
-  # Solo el objetivo de infer.py, 1 ciclo real
-  ./venv/bin/python rsi_run_all.py --only infer.py --cycles-per-target 1
-
-  # Todos los objetivos, 1 ciclo real
-  ./venv/bin/python rsi_run_all.py --cycles-per-target 1
+  # Todos los objetivos con Early Stopping personalizado
+  ./venv/bin/python rsi_run_all.py --cycles-per-target 5 --delta-threshold 0.02 --max-stagnant-cycles 2 --dry-run
 """,
     )
     parser.add_argument(
@@ -216,10 +209,25 @@ Ejemplos:
         default=None,
         help="Ejecutar solo el objetivo cuyo target_file contenga esta cadena (ej. 'infer.py')",
     )
+    parser.add_argument(
+        "--delta-threshold",
+        type=float,
+        default=0.02,
+        help="Umbral mínimo de mejora en la métrica (default: 0.02)",
+    )
+    parser.add_argument(
+        "--max-stagnant-cycles",
+        type=int,
+        default=2,
+        help="Máximo número de ciclos sin mejora significativa antes de Early Stopping (default: 2)",
+    )
 
     args = parser.parse_args()
     run_all(
         cycles_per_target=args.cycles_per_target,
         dry_run=args.dry_run,
         only=args.only,
+        delta_threshold=args.delta_threshold,
+        max_stagnant_cycles=args.max_stagnant_cycles,
     )
+

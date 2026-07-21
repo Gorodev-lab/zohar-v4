@@ -259,3 +259,29 @@ def build_full_graph(base_path: Path) -> dict:
     projects = scan_corpus(base_path)
     graph = build_graph(projects)
     return to_compact_graph(graph)
+
+
+def invalidate_graph_cache() -> bool:
+    """
+    Invalida el caché de disco (data/graph_cache.json) y el caché de Redis (zohar:graph:compact).
+    Se llama reactivamente desde el Watchdog cuando cambian PDFs o inferencias.
+    """
+    import os
+    from core.config import DATA_DIR
+    cache_path = DATA_DIR / "graph_cache.json"
+    if cache_path.exists():
+        try:
+            cache_path.unlink()
+        except Exception:
+            pass
+
+    try:
+        import redis
+        redis_host = os.environ.get("REDIS_HOST", "localhost")
+        r = redis.Redis(host=redis_host, port=6379, db=0)
+        r.delete("zohar:graph:compact")
+    except Exception:
+        pass
+
+    return True
+

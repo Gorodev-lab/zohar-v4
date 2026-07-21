@@ -27,7 +27,11 @@ def rsi_status():
     return {"running": False}
 
 @router.post("/api/rsi/start")
-def rsi_start(iterations: int = 2):
+def rsi_start(
+    iterations: int = 15,
+    delta_threshold: float = 0.02,
+    max_stagnant_cycles: int = 2
+):
     if PID_FILE.exists():
         try:
             pid = int(PID_FILE.read_text(encoding="utf-8").strip())
@@ -38,7 +42,12 @@ def rsi_start(iterations: int = 2):
     PID_FILE.parent.mkdir(parents=True, exist_ok=True)
     log = open(LOG_FILE, "a", encoding="utf-8")
     proc = subprocess.Popen(
-        [PYTHON_EXE, "rsi_run_all.py", "--cycles-per-target", str(iterations)],
+        [
+            PYTHON_EXE, "rsi_run_all.py",
+            "--cycles-per-target", str(iterations),
+            "--delta-threshold", str(delta_threshold),
+            "--max-stagnant-cycles", str(max_stagnant_cycles),
+        ],
         cwd=str(PROJECT_ROOT), stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
     )
     PID_FILE.write_text(str(proc.pid), encoding="utf-8")
