@@ -38,6 +38,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from core.rsi_brain import get_second_brain_context, save_rsi_learning
+
 import httpx
 from dotenv import load_dotenv
 
@@ -569,6 +571,14 @@ def build_prompt(
             "",
         ]
 
+    # Contexto de conocimiento del Second Brain (RAG)
+    try:
+        sb_context = get_second_brain_context(target_file, func_name)
+        if sb_context:
+            lines += [sb_context, ""]
+    except Exception as exc:
+        logger.warning("Error recuperando contexto de Second Brain: %s", exc)
+
     # Historial de ciclos anteriores
     if cycle_history:
         lines += [
@@ -941,7 +951,7 @@ def run_rsi_stream(
             yield {
                 "status": "cycle_success",
                 "msg": (
-                    f"✅ Ciclo {cycle} EXITOSO — {eval_metric}: "
+                    f"[PASS] Ciclo {cycle} EXITOSO — {eval_metric}: "
                     f"{current_metric:.4f} → {new_metric:.4f} ({new_metric - current_metric:+.4f})"
                 ),
                 "metric": new_metric,
@@ -957,6 +967,10 @@ def run_rsi_stream(
                 "diff":               diff_summary,
                 "window_diff_preview": diff_preview[:300],
             })
+            try:
+                save_rsi_learning(target_file, func_name, cycle, current_metric, new_metric, diff_preview)
+            except Exception as exc:
+                logger.warning("Error guardando aprendizaje en Second Brain: %s", exc)
             test_output   = test_output_after
             current_metric = new_metric
         else:
