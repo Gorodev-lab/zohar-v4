@@ -248,3 +248,93 @@ RESPUESTA ANALÍTICA CON CITAS:
             "context_used": len(context_chunks),
             "sources": context_chunks
         }
+
+    def retrieve_hybrid(self, query: str, filters: Optional[Dict[str, Any]] = None, top_k: int = 5) -> List[Dict[str, Any]]:
+        """
+        Recuperación Híbrida combinando BM25 (Léxico) y Cosine Similarity (Vectorial)
+        utilizando Reciprocal Rank Fusion (RRF).
+        """
+        target_clave = (filters or {}).get("clave")
+        query_emb = self._generate_embedding(query)
+        q_tokens = [w.lower() for w in re.findall(r"\w+", query) if len(w) > 2]
+
+        all_items = []
+        for c_clave, chunk_list in self.cache.items():
+            if target_clave and c_clave != target_clave:
+                continue
+            for item in chunk_list:
+                c_text = item["chunk_text"]
+                c_tokens = [w.lower() for w in re.findall(r"\w+", c_text)]
+                vec_sim = _cosine_similarity(query_emb, item["embedding"])
+                bm25 = _bm25_score(q_tokens, c_tokens)
+
+                all_items.append({
+                    "clave": c_clave,
+                    "section_title": item["section_title"],
+                    "chunk_text": c_text,
+                    "vec_sim": vec_sim,
+                    "bm25": bm25,
+                })
+
+        if not all_items:
+            return []
+
+        rank_vec = sorted(all_items, key=lambda x: x["vec_sim"], reverse=True)
+        vec_ranks = {id(item): rank for rank, item in enumerate(rank_vec, 1)}
+
+        rank_bm25 = sorted(all_items, key=lambda x: x["bm25"], reverse=True)
+        bm25_ranks = {id(item): rank for rank, item in enumerate(rank_bm25, 1)}
+
+        k_rrf = 60
+        for item in all_items:
+            r_v = vec_ranks[id(item)]
+            r_b = bm25_ranks[id(item)]
+            rrf_score = (1.0 / (k_rrf + r_v)) + (1.0 / (k_rrf + r_b))
+            item["score"] = round(rrf_score, 5)
+            item["pct"] = min(99.9, round(rrf_score * 3000, 1))
+
+        all_items.sort(key=lambda x: x["score"], reverse=True)
+        return all_items[:top_k]
+
+    def index_vault(self) -> Dict[str, Any]:
+        """Indexa masivamente todas las notas en second_brain/."""
+        if not self.sb_dir.exists():
+            return {"status": "error", "msg": "Directorio second_brain no existe"}
+
+        all_notes = list(self.sb_dir.rglob("*.md"))
+        indexed_count = 0
+        total_chunks = 0
+
+        for note in all_notes:
+            try:
+                clave = note.stem
+                content = note.read_text(encoding="utf-8", errors="ignore")
+                res = self.index_document(clave, content)
+                indexed_count += 1
+                total_chunks += res.get("total_chunks", 0)
+            except Exception as exc:
+                logger.warning("Error indexando nota %s: %s", note.name, exc)
+
+        return {
+            "status": "ok",
+            "notes_indexed": indexed_count,
+            "total_chunks": total_chunks
+        }
+
+
+def _bm25_score(query_tokens: list[str], chunk_tokens: list[str], k1: float = 1.5, b: float = 0.75, avg_dl: float = 200.0) -> float:
+    if not query_tokens or not chunk_tokens:
+        return 0.0
+    doc_len = len(chunk_tokens)
+    chunk_counts = {}
+    for tok in chunk_tokens:
+        chunk_counts[tok] = chunk_counts.get(tok, 0) + 1
+
+    score = 0.0
+    for q_tok in query_tokens:
+        tf = chunk_counts.get(q_tok, 0)
+        if tf > 0:
+            num = tf * (k1 + 1.0)
+            den = tf + k1 * (1.0 - b + b * (doc_len / avg_dl))
+            score += (num / den)
+    return score
