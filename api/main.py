@@ -93,9 +93,11 @@ app = FastAPI(
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 from api.routers import dw, rsi, rag, extraction
+from api import rsi_routes
 
 app.include_router(dw.router)
 app.include_router(rsi.router)
+app.include_router(rsi_routes.router)
 app.include_router(rag.router)
 app.include_router(extraction.router)
 
