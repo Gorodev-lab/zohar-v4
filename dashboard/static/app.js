@@ -2063,6 +2063,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initRsiScraperActions();
   initWorkflowSubTabs();
   initLiveUpdates(); // Suscripción activa a SSE para cambios en archivos
+  initTelemetryStream(); // Suscripción activa a telemetría en tiempo real y salud de servidores
 
   activateTab('CORPUS_PDF');
 
@@ -2156,10 +2157,114 @@ function initRsiScraperActions() {
     };
 
     es.onerror = () => {
-      appendLog(logEl, 'Conexión SSE perdida con RSI', 'error');
-      es.close();
-      btnRun.disabled = false;
-    };
-  });
+/* =========================================================================
+   TELEMETRÍA EN TIEMPO REAL & GESTIÓN DE SERVIDORES
+   ========================================================================= */
+let telemetrySse = null;
+
+function initTelemetryStream() {
+  const sseUrl = '/api/telemetry/stream';
+  if (telemetrySse) telemetrySse.close();
+
+  telemetrySse = new EventSource(sseUrl);
+
+  telemetrySse.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.status !== 'telemetry') return;
+
+      // 1. Actualizar Badges Llama-Server
+      const llamaBadge = $('#srv-llama-badge');
+      const llamaLat = $('#srv-llama-lat');
+      if (llamaBadge) {
+        llamaBadge.textContent = data.llama.status.toUpperCase();
+        llamaBadge.style.color = data.llama.status === 'online' ? 'var(--color-green)' : 'var(--color-red)';
+      }
+      if (llamaLat) {
+        llamaLat.textContent = data.llama.status === 'online' ? `${data.llama.latency_ms} ms` : '─ ms';
+      }
+
+      // 2. Actualizar Badges Postgres
+      const dbBadge = $('#srv-db-badge');
+      const pgVal = $('#srv-pg-val');
+      if (dbBadge) {
+        dbBadge.textContent = data.postgres.status.toUpperCase();
+        dbBadge.style.color = data.postgres.status === 'online' ? 'var(--color-green)' : 'var(--color-red)';
+      }
+      if (pgVal) {
+        pgVal.textContent = data.postgres.status.toUpperCase();
+        pgVal.style.color = data.postgres.status === 'online' ? 'var(--color-green)' : 'var(--color-red)';
+      }
+
+      // 3. Actualizar Badges RSI Worker
+      const rsiBadge = $('#srv-rsi-badge');
+      const rsiPid = $('#srv-rsi-pid');
+      if (rsiBadge) {
+        rsiBadge.textContent = data.rsi.running ? 'RUNNING' : 'IDLE';
+        rsiBadge.style.color = data.rsi.running ? 'var(--color-amber)' : 'var(--color-text-muted)';
+      }
+      if (rsiPid) {
+        rsiPid.textContent = data.rsi.running ? data.rsi.pid : '─';
+      }
+
+      // 4. Actualizar Banner de Anomalía de Emergencia
+      const banner = $('#srv-anomaly-banner');
+      const anomalyTitle = $('#srv-anomaly-title');
+      const anomalyDesc = $('#srv-anomaly-desc');
+      if (data.anomaly) {
+        if (banner) banner.style.display = 'flex';
+        if (anomalyTitle) anomalyTitle.textContent = `🚨 ALERTA: ${data.anomaly.type?.toUpperCase()}`;
+        if (anomalyDesc) anomalyDesc.textContent = `Error en ciclo ${data.anomaly.cycle || '?'}: ${data.anomaly.error || 'Fallo detectado'}`;
+      } else {
+        if (banner) banner.style.display = 'none';
+      }
+
+      // 5. Append logs al visor unificado SERVER_LOGS_STREAM
+      const streamLog = $('#srv-logs-stream');
+      if (streamLog && data.recent_logs && data.recent_logs.length > 0) {
+        const lastLog = data.recent_logs[data.recent_logs.length - 1];
+        const lastMsgEl = streamLog.querySelector('.log-line:last-child .log-line__msg');
+        if (!lastMsgEl || lastMsgEl.textContent !== lastLog) {
+          let level = 'info';
+          if (lastLog.includes('syntax_error') || lastLog.includes('error')) level = 'error';
+          else if (lastLog.includes('warning')) level = 'warn';
+          else if (lastLog.includes('cycle_success')) level = 'ok';
+
+          appendLog(streamLog, lastLog, level);
+        }
+      }
+
+    } catch (err) {
+      console.error('Error parseando telemetría SSE:', err);
+    }
+  };
+
+  telemetrySse.onerror = () => {
+    telemetrySse.close();
+    setTimeout(initTelemetryStream, 5000);
+  };
 }
+
+async function manageServerAction(action, extraPayload = {}) {
+  try {
+    showToast(`Ejecutando acción: ${action}...`, 'info');
+    const res = await fetch('/api/server/manage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...extraPayload })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(`Acción ${action} enviada correctamente`, 'ok');
+    } else {
+      showToast(`Error: ${data.detail || 'Fallo en la acción'}`, 'error');
+    }
+  } catch (err) {
+    showToast(`Error de conexión: ${err.message}`, 'error');
+  }
+}
+
+window.manageServerAction = manageServerAction;
+window.initTelemetryStream = initTelemetryStream;
+
 

@@ -2558,6 +2558,142 @@ async def get_eval_questions():
     return {"questions": []}
 
 
+# ---------------------------------------------------------------------------
+# Telemetría en Tiempo Real y Gestión Unificada de Servidores
+# ---------------------------------------------------------------------------
+
+@app.get("/api/telemetry/stream", tags=["system"])
+async def telemetry_stream():
+    """
+    SSE Stream: Transmite telemetría en tiempo real (salud de 4 servicios, hardware,
+    logs recientes de zohar_rsi.log y alertas de anomalías) cada 1 segundo.
+    """
+    import socket
+
+    def check_port(host: str, port: int, timeout: float = 0.4) -> bool:
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except Exception:
+            return False
+
+    async def gen():
+        log_path = BASE_DIR / "zohar_rsi.log"
+        pid_path = BASE_DIR / "data" / "rsi.pid"
+
+        while True:
+            # 1. Chequeo no-bloqueante de puertos
+            llama_online = await asyncio.to_thread(check_port, "127.0.0.1", 8083)
+            pg_online = await asyncio.to_thread(check_port, "127.0.0.1", 5432)
+
+            # 2. Latencia rápida si Llama-Server responde
+            llama_latency = 0
+            if llama_online:
+                t0 = time.time()
+                try:
+                    async with httpx.AsyncClient() as client:
+                        r = await client.get("http://127.0.0.1:8083/health", timeout=0.5)
+                        if r.status_code == 200:
+                            llama_latency = int((time.time() - t0) * 1000)
+                except Exception:
+                    pass
+
+            # 3. Estado RSI Engine
+            rsi_running = False
+            rsi_pid = None
+            if pid_path.exists():
+                try:
+                    p = int(pid_path.read_text(encoding="utf-8").strip())
+                    os.kill(p, 0)
+                    rsi_running = True
+                    rsi_pid = p
+                except (OSError, ValueError, ProcessLookupError):
+                    pid_path.unlink(missing_ok=True)
+
+            # 4. Hardware
+            cpu = psutil.cpu_percent(interval=None)
+            ram = psutil.virtual_memory().percent
+            disk = psutil.disk_usage("/").free / (1024 ** 3)
+
+            # 5. Tail del log RSI
+            recent_logs = []
+            anomaly = None
+            if log_path.exists():
+                try:
+                    lines = log_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+                    for line in lines[-10:]:
+                        line_str = line.strip()
+                        if line_str:
+                            recent_logs.append(line_str)
+                            if "syntax_error" in line_str or "unexpected indent" in line_str:
+                                try:
+                                    rec = json.loads(line_str)
+                                    anomaly = {"type": rec.get("event"), "error": rec.get("error"), "cycle": rec.get("cycle")}
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+
+            data = {
+                "status": "telemetry",
+                "fastapi": {"status": "online", "port": 8004},
+                "llama": {"status": "online" if llama_online else "offline", "port": 8083, "latency_ms": llama_latency},
+                "postgres": {"status": "online" if pg_online else "offline", "port": 5432},
+                "rsi": {"running": rsi_running, "pid": rsi_pid},
+                "hardware": {"cpu_pct": cpu, "ram_pct": ram, "disk_free_gb": round(disk, 2)},
+                "recent_logs": recent_logs,
+                "anomaly": anomaly,
+            }
+            yield f"data: {json.dumps(data)}\n\n"
+            await asyncio.sleep(1.0)
+
+    return _sse_response(gen(), "telemetry")
+
+
+@app.post("/api/server/manage", tags=["system"])
+async def manage_server(payload: dict):
+    """
+    Controlador unificado de servicios: permite iniciar, detener o reiniciar
+    Llama-Server, el Motor RSI u otros componentes.
+    """
+    action = payload.get("action", "").strip()
+
+    if action == "start_llama":
+        return await start_llama_server()
+    elif action == "stop_llama":
+        return await stop_llama_server()
+    elif action == "restart_llama":
+        await stop_llama_server()
+        await asyncio.sleep(1.0)
+        return await start_llama_server()
+    elif action == "start_rsi":
+        cycles = payload.get("cycles", 2)
+        dry_run = payload.get("dry_run", False)
+        target = payload.get("target_file", "scrapers/semarnat_downloader.py")
+        cmd = [sys.executable, "auto_improver.py", "--target-file", target, "--cycles", str(cycles)]
+        if dry_run:
+            cmd.append("--dry-run")
+        pid_file = BASE_DIR / "data" / "rsi.pid"
+        log_file = BASE_DIR / "zohar_rsi.log"
+        pid_file.parent.mkdir(parents=True, exist_ok=True)
+        log = open(log_file, "a", encoding="utf-8")
+        proc = subprocess.Popen(cmd, cwd=str(BASE_DIR), stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        pid_file.write_text(str(proc.pid), encoding="utf-8")
+        return {"status": "started", "pid": proc.pid, "target": target}
+    elif action == "stop_rsi":
+        pid_file = BASE_DIR / "data" / "rsi.pid"
+        if pid_file.exists():
+            try:
+                pid = int(pid_file.read_text(encoding="utf-8").strip())
+                os.killpg(os.getpgid(pid), signal.SIGTERM)
+            except Exception:
+                pass
+            pid_file.unlink(missing_ok=True)
+        return {"status": "stopped"}
+    else:
+        raise HTTPException(400, detail=f"Acción no reconocida: '{action}'")
+
+
 
 
 
