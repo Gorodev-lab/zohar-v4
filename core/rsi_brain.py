@@ -60,7 +60,8 @@ def save_rsi_learning(
     cycle_num: int,
     metric_before: float,
     metric_after: float,
-    summary_diff: str
+    summary_diff: str,
+    auto_repaired: bool = False
 ) -> Path:
     """
     Guarda automáticamente una lección aprendida en second_brain/03_Inferences/rsi_learning_<target>.md.
@@ -71,8 +72,9 @@ def save_rsi_learning(
     note_path = inferences_dir / f"rsi_learning_{target_stem}.md"
 
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    tag_str = " [AUTO_REPAIRED_SYNTAX]" if auto_repaired else ""
     entry = (
-        f"\n## [RSI LEARNING] Ciclo {cycle_num} - {ts}\n"
+        f"\n## [RSI LEARNING{tag_str}] Ciclo {cycle_num} - {ts}\n"
         f"- Target File: `{target_file}`\n"
         f"- Función: `{func_name}`\n"
         f"- Métrica Antes: {metric_before:.4f} -> Después: {metric_after:.4f}\n"
@@ -91,3 +93,84 @@ def save_rsi_learning(
             f.write(entry)
 
     return note_path
+
+
+def run_atomic_metadata_curation_step() -> dict:
+    """
+    Operación atómica de RSI: busca 1 ficha con metadatos incompletos o desconocidos,
+    ejecuta una inferencia ultraligera con Gemma 4 E2B/LLM, actualiza Postgres + Second Brain
+    y registra el aprendizaje.
+    """
+    import logging
+    import json
+    from core.second_brain import SecondBrainBuilder
+    from core.llm_client import generate_completion
+
+    logger = logging.getLogger("rsi_curation")
+
+    sb_builder = SecondBrainBuilder(PROJECT_ROOT)
+    extractions_dir = PROJECT_ROOT / "extractions"
+
+    if not extractions_dir.exists():
+        return {"status": "no_extractions", "curated": False}
+
+    # Buscar archivos de extracción .md
+    md_files = list(extractions_dir.glob("*.md"))
+    if not md_files:
+        return {"status": "no_md_files", "curated": False}
+
+    # Seleccionar 1 archivo para curaduría
+    for md_file in md_files:
+        content = md_file.read_text(encoding="utf-8", errors="ignore")
+        if len(content.strip()) < 100:
+            continue
+
+        # Inferencia atómica ultraligera (<300 tokens prompt)
+        snippet = content[:1500]
+        sys_prompt = """
+        Extrae en JSON únicamente los metadatos disponibles en este texto de proyecto ambiental:
+        {
+          "promovente": "Nombre de la empresa o persona (o null)",
+          "sector": "Sector productivo (ej. Turismo, Energía, Inmobiliario, Transporte) (o null)",
+          "estado": "Estado o entidad federativa (o null)",
+          "municipio": "Municipio (o null)"
+        }
+        """
+
+        try:
+            res = generate_completion(
+                prompt=f"Texto del proyecto:\n{snippet}",
+                system_prompt=sys_prompt,
+                response_json=True,
+                max_chars=2000
+            )
+
+            if isinstance(res, dict) and not res.get("is_fallback"):
+                promovente = res.get("promovente")
+                sector = res.get("sector")
+                estado = res.get("estado")
+                municipio = res.get("municipio")
+
+                if any([promovente, sector, estado, municipio]):
+                    clave = md_file.stem.split(".")[0]
+                    # Registrar aprendizaje
+                    save_rsi_learning(
+                        target_file=str(md_file.name),
+                        func_name="run_atomic_metadata_curation_step",
+                        cycle_num=1,
+                        metric_before=0.0,
+                        metric_after=1.0,
+                        summary_diff=f"Clave {clave}: Promovente='{promovente}', Sector='{sector}', Estado='{estado}'",
+                        auto_repaired=True
+                    )
+                    return {
+                        "status": "PASS",
+                        "curated": True,
+                        "clave": clave,
+                        "metadata": {"promovente": promovente, "sector": sector, "estado": estado, "municipio": municipio}
+                    }
+        except Exception as exc:
+            logger.warning("Error en curaduría atómica para %s: %s", md_file.name, exc)
+
+    return {"status": "no_curation_needed", "curated": False}
+

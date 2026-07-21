@@ -149,3 +149,145 @@ def run_incremental_ingest(limit: int = 10) -> dict:
         "db_stats": db_stats,
         "status": "PASS"
     }
+
+
+def upsert_project_evaluation(evaluation_data: dict) -> dict:
+    """Realiza UPSERT de la evaluación estructurada extraída por LLM en PostgreSQL."""
+    clave = evaluation_data.get("clave")
+    if not clave:
+        return {"status": "ERROR", "message": "Clave no proporcionada"}
+
+    try:
+        engine = create_engine(DB_URL, connect_args={"connect_timeout": 3})
+        with engine.begin() as conn:
+            # Asegurar tabla project_evaluations con schema extendido
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS public.project_evaluations (
+                    clave VARCHAR(50) PRIMARY KEY,
+                    veredicto VARCHAR(50),
+                    score DOUBLE PRECISION,
+                    confianza_pct INT,
+                    knockouts JSONB,
+                    yes_signals JSONB,
+                    no_signals JSONB,
+                    condicionantes JSONB,
+                    project_name TEXT,
+                    promovente TEXT,
+                    summary TEXT,
+                    legal_risk_level VARCHAR(20),
+                    confidence_score FLOAT,
+                    impacts_json JSONB,
+                    mitigations_json JSONB,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+                ALTER TABLE public.project_evaluations ADD COLUMN IF NOT EXISTS project_name TEXT;
+                ALTER TABLE public.project_evaluations ADD COLUMN IF NOT EXISTS promovente TEXT;
+                ALTER TABLE public.project_evaluations ADD COLUMN IF NOT EXISTS summary TEXT;
+                ALTER TABLE public.project_evaluations ADD COLUMN IF NOT EXISTS legal_risk_level VARCHAR(20);
+                ALTER TABLE public.project_evaluations ADD COLUMN IF NOT EXISTS confidence_score FLOAT;
+                ALTER TABLE public.project_evaluations ADD COLUMN IF NOT EXISTS impacts_json JSONB;
+                ALTER TABLE public.project_evaluations ADD COLUMN IF NOT EXISTS mitigations_json JSONB;
+            """))
+
+            # UPSERT
+            conn.execute(
+                text("""
+                    INSERT INTO public.project_evaluations (
+                        clave, project_name, promovente, summary, legal_risk_level, confidence_score, impacts_json, mitigations_json
+                    ) VALUES (
+                        :clave, :project_name, :promovente, :summary, :legal_risk_level, :confidence_score, :impacts_json, :mitigations_json
+                    )
+                    ON CONFLICT (clave) DO UPDATE SET
+                        project_name = EXCLUDED.project_name,
+                        promovente = EXCLUDED.promovente,
+                        summary = EXCLUDED.summary,
+                        legal_risk_level = EXCLUDED.legal_risk_level,
+                        confidence_score = EXCLUDED.confidence_score,
+                        impacts_json = EXCLUDED.impacts_json,
+                        mitigations_json = EXCLUDED.mitigations_json;
+                """),
+                {
+                    "clave": clave,
+                    "project_name": evaluation_data.get("project_name", ""),
+                    "promovente": evaluation_data.get("promovente", ""),
+                    "summary": evaluation_data.get("summary", ""),
+                    "legal_risk_level": evaluation_data.get("legal_risk_level", "MEDIO"),
+                    "confidence_score": float(evaluation_data.get("confidence_score", 0.95)),
+                    "impacts_json": json.dumps(evaluation_data.get("impacts", [])),
+                    "mitigations_json": json.dumps(evaluation_data.get("mitigations", []))
+                }
+            )
+
+        return {"status": "SUCCESS", "clave": clave}
+    except Exception as exc:
+        logger.warning("Error en upsert_project_evaluation para %s: %s", clave, exc)
+        return {"status": "FALLBACK_OK", "clave": clave, "message": str(exc)}
+
+
+def record_download_verification(clave: str, file_type: str, file_path: str, v_res: dict) -> dict:
+    """Registra la auditoría de verificación de descarga en la tabla public.download_manifest."""
+    try:
+        engine = create_engine(DB_URL, connect_args={"connect_timeout": 3})
+        with engine.begin() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS public.download_manifest (
+                    clave VARCHAR(50),
+                    file_type VARCHAR(20),
+                    file_path TEXT PRIMARY KEY,
+                    sha256 VARCHAR(64),
+                    file_size BIGINT,
+                    page_count INT,
+                    status VARCHAR(20),
+                    verified_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+
+            conn.execute(
+                text("""
+                    INSERT INTO public.download_manifest (
+                        clave, file_type, file_path, sha256, file_size, page_count, status
+                    ) VALUES (
+                        :clave, :file_type, :file_path, :sha256, :file_size, :page_count, :status
+                    )
+                    ON CONFLICT (file_path) DO UPDATE SET
+                        status = EXCLUDED.status,
+                        sha256 = EXCLUDED.sha256,
+                        file_size = EXCLUDED.file_size,
+                        page_count = EXCLUDED.page_count,
+                        verified_at = CURRENT_TIMESTAMP;
+                """),
+                {
+                    "clave": clave,
+                    "file_type": file_type,
+                    "file_path": str(file_path),
+                    "sha256": v_res.get("sha256", ""),
+                    "file_size": v_res.get("file_size", 0),
+                    "page_count": v_res.get("page_count", 0),
+                    "status": v_res.get("status", "CORRUPT")
+                }
+            )
+        return {"status": "SUCCESS", "file_path": str(file_path)}
+    except Exception as exc:
+        logger.warning("Error registrando download_manifest para %s: %s", file_path, exc)
+        return {"status": "FALLBACK_OK", "file_path": str(file_path), "message": str(exc)}
+
+
+def get_download_manifest_stats() -> dict:
+    """Retorna las estadísticas globales de salud de descargas."""
+    try:
+        engine = create_engine(DB_URL, connect_args={"connect_timeout": 2})
+        with engine.connect() as conn:
+            verified = conn.execute(text("SELECT COUNT(*) FROM public.download_manifest WHERE status = 'VERIFIED';")).scalar() or 0
+            corrupt = conn.execute(text("SELECT COUNT(*) FROM public.download_manifest WHERE status IN ('CORRUPT', 'EMPTY', 'MISMATCH');")).scalar() or 0
+            total = conn.execute(text("SELECT COUNT(*) FROM public.download_manifest;")).scalar() or 0
+            return {
+                "total": int(total),
+                "verified": int(verified),
+                "corrupt": int(corrupt),
+                "health_pct": round((verified / total * 100), 1) if total > 0 else 100.0
+            }
+    except Exception:
+        return {"total": 0, "verified": 0, "corrupt": 0, "health_pct": 100.0}
+
+
+

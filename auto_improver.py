@@ -54,7 +54,7 @@ _DEFAULT_FUNC_NAME     = "_descargar_clave_gen"
 _DEFAULT_EVAL_CMD      = "./venv/bin/pytest tests/test_scraper_pipeline.py -v --tb=short"
 _DEFAULT_EVAL_METRIC   = "pytest_pass_rate"
 _DEFAULT_PATCH_ANCHORS = ["PASO 5", "PASO 6", "PASO 4"]
-_DEFAULT_MAX_WINDOW    = 100
+_DEFAULT_MAX_WINDOW    = 50
 _DEFAULT_MAX_CYCLES    = 3
 
 BACKUP_SUFFIX = ".rsi_bak"
@@ -532,20 +532,21 @@ def build_prompt(
     target_file: str,
     betweenness: float | None = None,
     cycle_history: str = "",
+    current_metric: float = 0.0,
 ) -> str:
     """
     Construye el prompt de diagnóstico para el LLM.
     IMPORTANTE: solo se muestra `window` (la sección anclada),
     y solo se le pide al modelo que devuelva el reemplazo de ESA ventana.
     Nunca se le pide reconstruir código que no se le mostró.
-    Ahora incluye contexto de criticidad graphify y memoria de ciclos anteriores.
+    Ahora incluye contexto de criticidad graphify, memoria de ciclos anteriores y RAG de Second Brain.
     """
     test_tail = test_output[-1500:].strip()
 
     lines = [
         "Eres un ingeniero senior de automatización web y Python, especializado en Angular v18 y Selenium.",
         "",
-        "⚠️CONTEXTO CRÍTICO:",
+        "CONTEXTO CRÍTICO:",
         "Abajo ves SOLO UN FRAGMENTO del método, no la función completa.",
         "Ese fragmento empieza exactamente en el primer PASO mostrado y llega hasta el final del método.",
         "TODO el código antes de este fragmento ya existe en el archivo y tu NO lo puedes ver ni debes repetirlo.",
@@ -578,6 +579,18 @@ def build_prompt(
             lines += [sb_context, ""]
     except Exception as exc:
         logger.warning("Error recuperando contexto de Second Brain: %s", exc)
+
+    # Directiva de Micro-Refactorización si las pruebas ya pasan al 100%
+    if current_metric >= 1.0:
+        lines += [
+            "=== DIRECTIVA DE MICRO-REFACTORIZACIÓN DE ALTO RENDIMIENTO ===",
+            "Las pruebas actuales ya están pasando al 100%. Tu objetivo es REFACTORIZAR ACTIVAMENTE:",
+            "- Optimiza tiempos de reintento HTTP/DOM reduciendo sleep redundantes.",
+            "- Agrega manejo de excepciones defensivo específico en lugar de except genéricos.",
+            "- Elimina variables temporales redundantes y mejora la legibilidad del código.",
+            "IMPORTANTE: Genera una versión refactorizada superior. No devuelvas exactamente el mismo código.",
+            "",
+        ]
 
     # Historial de ciclos anteriores
     if cycle_history:
@@ -618,18 +631,13 @@ def build_prompt(
 
 def call_llama_server(prompt: str) -> str:
     """Llama al llama-server con el prompt de optimización."""
-    formatted = (
-        "<start_of_turn>user\n"
-        f"{prompt.strip()}"
-        "<end_of_turn>\n"
-        "<start_of_turn>model\n"
-    )
-
+    url = f"{LLAMA_URL}/completion"
+    formatted_prompt = f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
     payload = {
-        "prompt":      formatted,
-        "temperature": 0.1,
-        "n_predict":   2048,
-        "stop":        ["<end_of_turn>", "<eos>"],
+        "prompt": formatted_prompt,
+        "n_predict": 384,
+        "temperature": 0.2,
+        "stop": ["<end_of_turn>", "<eos>"]
     }
 
     logger.info("Enviando prompt al llama-server (%s)...", LLAMA_MODEL)
@@ -793,6 +801,7 @@ def run_rsi_stream(
             target_file=target_file,
             betweenness=betweenness,
             cycle_history=cycle_history,
+            current_metric=current_metric,
         )
         llm_response = call_llama_server(prompt)
 
@@ -814,6 +823,7 @@ def run_rsi_stream(
             })
             continue
 
+        auto_repaired_syntax = False
         new_window = fix_llm_indentation(new_window_raw, base_indent)
         if not new_window.endswith("\n"):
             new_window += "\n"
@@ -831,6 +841,8 @@ def run_rsi_stream(
             valid, syntax_err = validate_python_syntax(candidate_source)
             if valid:
                 new_window = repaired_window
+                auto_repaired_syntax = True
+                logger.info("[AUTO_REPAIRED_SYNTAX] Auto-reparación AST exitosa para ciclo %d.", cycle)
 
         # Compute diff preview (para log y mensaje)
         old_set = set(window.splitlines())
@@ -968,7 +980,7 @@ def run_rsi_stream(
                 "window_diff_preview": diff_preview[:300],
             })
             try:
-                save_rsi_learning(target_file, func_name, cycle, current_metric, new_metric, diff_preview)
+                save_rsi_learning(target_file, func_name, cycle, current_metric, new_metric, diff_preview, auto_repaired=auto_repaired_syntax)
             except Exception as exc:
                 logger.warning("Error guardando aprendizaje en Second Brain: %s", exc)
             test_output   = test_output_after

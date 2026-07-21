@@ -224,3 +224,29 @@ def generate_completion(
             "is_fallback": True,
             "provider": "heuristic"
         }
+
+
+def query_gemini_api(prompt: str) -> str:
+    """Envía un prompt directamente a la API de Gemini Generative Language y retorna el texto crudo de respuesta."""
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return "[LLM Error] GEMINI_API_KEY no configurada"
+
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}]
+        }
+        r = httpx.post(url, json=payload, timeout=30.0)
+        if r.status_code == 200:
+            data = r.json()
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts:
+                    return parts[0].get("text", "")
+        return f"[LLM Error] HTTP {r.status_code}: {r.text[:200]}"
+    except Exception as exc:
+        logger.warning("Error consultando Gemini API: %s", exc)
+        return f"[LLM Error] {str(exc)}"
+

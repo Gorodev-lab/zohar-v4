@@ -1,42 +1,78 @@
-# Implementation Plan — Docker Deployment & Automated Second Brain Feeding
+# Plan de Implementación — RSI Atómico en Dashboard & Contratos de Etapa End-to-End 🌌
 
-Este plan detalla los cambios requeridos para habilitar el despliegue del stack completo en Docker y asegurar la alimentación automática en tiempo real del Second Brain (base de datos + buscador semántico + markdown) sin requerir el uso de Obsidian.
+Este plan detalla la integración del **Toggle de Auto-Curaduría RSI Atómica** en el Dashboard SPA y la **Matriz de Validación por Contrato de Etapa** con Auto-Healing.
+
+---
+
+## 🏛️ Arquitectura de la Operación Atómica de RSI
+
+```mermaid
+graph TD
+    A[Dashboard SPA: Toggle RSI ON/OFF] -->|POST /api/rsi/toggle| B[FastAPI Background Loop]
+    B -->|Cada 30-60s| C[Lector de Fichas Incompletas DW/Second Brain]
+    C -->|Detecta 'Desconocido' / Baja Certeza| D[Gemma 4 E2B Local @ 8083]
+    D -->|Prompt Ligero <300 tokens| E[Normalización / Curaduría]
+    E -->|UPSERT| F[(PostgreSQL + Second Brain Vault)]
+    E -->|Log Aprendizaje| G[(second_brain/03_Inferences/rsi_learning_*.md)]
+    F & G -->|Broadcast SSE| H[Dashboard Badges en Vivo]
+```
+
+---
 
 ## Proposed Changes
 
-### 1. Dockerización Completa
+### Componente 1: Motor Backend de RSI Atómico (`api/` & `core/`)
 
-#### [NEW] [Dockerfile](file:///home/gorops/proyectos%20antigravity/zohar-v4-main/Dockerfile)
-Crearemos un archivo `Dockerfile` optimizado en la raíz del proyecto:
-- Basado en `python:3.11-slim`.
-- Instalar dependencias del sistema requeridas para ejecutar Google Chrome de forma estable en Linux.
-- Instalar Google Chrome estable oficial.
-- Instalar los requerimientos del proyecto en `requirements.txt` y agregar `rapidocr-onnxruntime` para el procesamiento local de OCR.
-- Exponer el puerto `8004` e iniciar el servidor FastAPI mediante Uvicorn.
-
-#### [MODIFY] [docker-compose.yml](file:///home/gorops/proyectos%20antigravity/zohar-v4-main/dw/docker-compose.yml)
-Actualizaremos el archivo Docker Compose para unificar todo el flujo de trabajo:
-- Modificar el servicio `download-model` para descargar **Gemma 4 E2B** (`gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf`) en lugar de Qwen.
-- Actualizar `llama-cpp` para arrancar con el modelo de Gemma 4, mapeando e interactuando en el puerto `8083` (puerto nativo de inferencia local del proyecto).
-- Añadir el servicio `api` (construido a partir del `Dockerfile` raíz) para levantar el dashboard y los scrapers en el mismo stack de contenedores.
-- Conectar las variables de entorno de la base de datos (`DATABASE_URL=postgresql://postgres:postgres@db:5432/maritime_dw`) y del LLM (`LOCAL_LLM_URL=http://llama-cpp:8083`) para que se intercomuniquen nativamente dentro de la red del contenedor.
-
-### 2. Alimentación Automática del Second Brain
+#### [MODIFY] [core/rsi_brain.py](file:///home/gorops/proyectos%20antigravity/zohar-v4-main/core/rsi_brain.py)
+- Añadir la función `run_atomic_metadata_curation_step()`:
+  1. Busca 1 proyecto en la base de datos o en el Second Brain que contenga valores por defecto (`Desconocido`, `General`, `PENDIENTE`).
+  2. Carga los primeros párrafos del estudio/resumen extraído.
+  3. Realiza la inferencia ultraligera con Gemma 4 E2B (`llm_client.py`).
+  4. Actualiza PostgreSQL (`semarnat_projects`) y regenera la nota Markdown del proyecto.
+  5. Escribe la lección aprendida en `second_brain/03_Inferences/rsi_learning_curation.md`.
 
 #### [MODIFY] [api/main.py](file:///home/gorops/proyectos%20antigravity/zohar-v4-main/api/main.py)
-Actualizaremos el pipeline de descargas unitarias `/api/scraper/download-clave` para:
-- Ejecutar la sincronización de la bóveda Markdown mediante `SecondBrainBuilder(BASE_DIR).build_vault()`.
-- Ejecutar la regeneración del índice semántico de embeddings locales con `SemanticSearchEngine(BASE_DIR).build_index()`.
-- De esta manera, tan pronto como el usuario descargue o ingeste un proyecto individual (estudios/resolutivos/resúmenes), este se integrará de inmediato al Second Brain y estará disponible para búsquedas semánticas o chat con RAG en el dashboard sin requerir Obsidian.
+- Añadir endpoints de control para el Toggle del Dashboard:
+  - `GET /api/rsi/toggle-status`: Devuelve si la auto-curaduría atómica está activa.
+  - `POST /api/rsi/toggle`: Activa o desactiva la tarea en segundo plano.
+- Integrar el bucle `asyncio` background worker para la auto-curaduría atómica.
+
+---
+
+### Componente 2: Matriz de Contratos de Etapa & Auto-Healing (`core/`)
+
+#### [NEW] [core/stage_contracts.py](file:///home/gorops/proyectos%20antigravity/zohar-v4-main/core/stage_contracts.py)
+- Definir verificadores de contrato para cada etapa de la cadena:
+  - **Etapa 1 (Ingesta DOM):** `validate_ingested_clave(clave, files)` -> bool
+  - **Etapa 2 (OCR/Markdown):** `validate_markdown_extraction(md_path)` -> bool
+  - **Etapa 3 (DW Persistence):** `validate_dw_record(clave)` -> bool
+  - **Etapa 4 (Second Brain):** `validate_vault_note(clave)` -> bool
+  - **Etapa 5 (Inferencia LLM):** `validate_inference_report(clave)` -> bool
+- Si una etapa falla, se registra la anomalía y se encola para auto-healing en la siguiente iteración RSI.
+
+---
+
+### Componente 3: Toggle UI en el Dashboard Glassmorphism (`dashboard/`)
+
+#### [MODIFY] [dashboard/index.html](file:///home/gorops/proyectos%20antigravity/zohar-v4-main/dashboard/index.html)
+- Agregar el switch/toggle **"RSI Auto-Curaduría"** en la barra superior de control del Dashboard con indicador de pulso en vivo.
+
+#### [MODIFY] [dashboard/static/app.js](file:///home/gorops/proyectos%20antigravity/zohar-v4-main/dashboard/static/app.js)
+- Vincular la interacción del Toggle con `POST /api/rsi/toggle`.
+- Escuchar eventos SSE de curaduría atómica para actualizar dinámicamente el contador de "Fichas Curadas" y badges en pantalla.
 
 ---
 
 ## Verification Plan
 
+### Automated Tests
+- Crear suite de prueba para la curaduría atómica y validación de contratos:
+  ```bash
+  .venv/bin/pytest tests/test_atomic_rsi_and_contracts.py -v
+  ```
+
 ### Manual Verification
-1. Generar la build del nuevo contenedor de Docker localmente:
-   `docker compose -f dw/docker-compose.yml build`
-2. Levantar el stack completo (DB, Redis, Neo4j, llama-cpp, FastAPI) en segundo plano:
-   `docker compose -f dw/docker-compose.yml up -d`
-3. Probar la comunicación del API en `http://localhost:8004/api/model/status` y verificar que apunte correctamente a la instancia containerizada de `llama-cpp` corriendo Gemma 4.
-4. Ejecutar una descarga desde el workflow en el dashboard y verificar que el Second Brain se actualice de forma reactiva (con logs SSE de compilación semántica de embeddings).
+1. Iniciar el servidor con `./start_server.sh`.
+2. Activar el Toggle **"RSI Auto-Curaduría"** desde el Dashboard.
+3. Observar los logs en tiempo real SSE y la auto-corrección de fichas con campos "Desconocido".
+4. Verificar la creación de lecciones aprendidas en `second_brain/03_Inferences/rsi_learning_curation.md`.

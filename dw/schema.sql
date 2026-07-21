@@ -34,3 +34,33 @@ CREATE TABLE IF NOT EXISTS public.project_evaluations (
 );
 
 CREATE INDEX IF NOT EXISTS idx_evaluations_veredicto ON public.project_evaluations(veredicto);
+
+-- 3. Download Verification Manifest Table (Pre-Extraction Gate)
+CREATE TABLE IF NOT EXISTS public.download_manifest (
+    clave VARCHAR(50),
+    file_type VARCHAR(20),
+    file_path TEXT PRIMARY KEY,
+    sha256 VARCHAR(64),
+    file_size BIGINT,
+    page_count INT,
+    status VARCHAR(20),
+    verified_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_manifest_status ON public.download_manifest(status);
+CREATE INDEX IF NOT EXISTS idx_manifest_clave ON public.download_manifest(clave);
+
+-- 4. Vector Document Embeddings Table (Phase 6 RAG Engine)
+CREATE TABLE IF NOT EXISTS public.document_embeddings (
+    id SERIAL PRIMARY KEY,
+    clave VARCHAR(50),
+    section_title TEXT,
+    chunk_text TEXT,
+    embedding JSONB,
+    sha256 VARCHAR(64),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_embeddings_clave ON public.document_embeddings(clave);
+
+

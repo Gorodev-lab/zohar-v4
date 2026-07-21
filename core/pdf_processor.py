@@ -99,12 +99,21 @@ def iter_pages_as_markdown(
         logger.error("PDF no encontrado: %s", pdf_path)
         return
 
+    # Pre-Extraction Gate: Verificar Integridad Estricta
+    from core.download_verifier import PDFDownloadVerifier
+    verifier = PDFDownloadVerifier()
+    v_res = verifier.verify_pdf_file(pdf_path)
+    if not v_res.get("valid", False):
+        logger.warning("🚫 PRE-EXTRACTION GATE BLOQUEADO: El PDF %s no es válido: %s", pdf_path, v_res.get("reason"))
+        return
+
     try:
         doc = fitz.open(str(pdf_path))
         total_pages = doc.page_count
     except Exception as exc:
         logger.error("No se pudo abrir PDF %s: %s", pdf_path, exc)
         return
+
 
     # Instanciamos perezosamente el motor de RapidOCR y lo reutilizamos en el loop
     rapid_ocr_engine = None

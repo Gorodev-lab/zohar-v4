@@ -2778,3 +2778,241 @@ def run_rsi_endpoint(cycles: int = Query(3, ge=1, le=10), dry_run: bool = Query(
     gen = run_rsi_stream(max_cycles=cycles, dry_run=dry_run)
     return _sse_response(gen)
 
+
+# Global state para Toggle de RSI Atómico
+ATOMIC_RSI_ACTIVE = False
+_atomic_rsi_task = None
+
+async def _atomic_rsi_worker_loop():
+    """Background worker que ejecuta 1 iteración atómica de curaduría cada 30 segundos."""
+    global ATOMIC_RSI_ACTIVE
+    from core.rsi_brain import run_atomic_metadata_curation_step
+    logger.info("Iniciando background worker de RSI Auto-Curaduría Atómica...")
+    while ATOMIC_RSI_ACTIVE:
+        try:
+            res = await asyncio.to_thread(run_atomic_metadata_curation_step)
+            if res.get("curated"):
+                logger.info("RSI Atómico curó ficha %s: %s", res.get("clave"), res.get("metadata"))
+                await broadcaster.broadcast({"status": "progress", "msg": f"RSI Atómico curó ficha {res.get('clave')}", "curation": res})
+        except Exception as exc:
+            logger.warning("Error en worker RSI atómico: %s", exc)
+        await asyncio.sleep(30)
+
+@app.get("/api/rsi/toggle-status", tags=["rsi"])
+def get_atomic_rsi_toggle_status():
+    """Retorna el estado activo/inactivo del Toggle de RSI Auto-Curaduría Atómica."""
+    global ATOMIC_RSI_ACTIVE
+    return {"active": ATOMIC_RSI_ACTIVE}
+
+@app.post("/api/rsi/toggle", tags=["rsi"])
+async def toggle_atomic_rsi(payload: dict):
+    """Activa o desactiva el Toggle de RSI Auto-Curaduría Atómica desde el Dashboard UI."""
+    global ATOMIC_RSI_ACTIVE, _atomic_rsi_task
+    enable = payload.get("enable", not ATOMIC_RSI_ACTIVE)
+    ATOMIC_RSI_ACTIVE = enable
+
+    if ATOMIC_RSI_ACTIVE:
+        if _atomic_rsi_task is None or _atomic_rsi_task.done():
+            _atomic_rsi_task = asyncio.create_task(_atomic_rsi_worker_loop())
+        msg = "RSI Auto-Curaduría Atómica ACTIVADA"
+    else:
+        if _atomic_rsi_task and not _atomic_rsi_task.done():
+            _atomic_rsi_task.cancel()
+        msg = "RSI Auto-Curaduría Atómica DESACTIVADA"
+
+    logger.info(msg)
+    return {"active": ATOMIC_RSI_ACTIVE, "msg": msg}
+
+
+@app.post("/api/extract/structured", tags=["extraction"])
+def extract_structured_project(payload: dict):
+    """
+    Endpoint para ejecutar la Extracción Estructurada Avanzada con LLM.
+    Persiste los resultados en PostgreSQL (project_evaluations) y en el Vault de Obsidian.
+    """
+    clave = payload.get("clave")
+    if not clave:
+        raise HTTPException(status_code=400, detail="Se requiere 'clave'")
+
+    md_file = BASE_DIR / "extractions" / f"{clave}.md"
+    if not md_file.exists():
+        # Buscar en subdirectorios
+        found = list((BASE_DIR / "extractions").rglob(f"{clave}*.md"))
+        if found:
+            md_file = found[0]
+        else:
+            raise HTTPException(status_code=404, detail=f"No se encontró archivo Markdown para la clave {clave}")
+
+    md_content = md_file.read_text(encoding="utf-8", errors="ignore")
+    
+    from core.structured_extractor import StructuredExtractor
+    from core.dw_pipeline import upsert_project_evaluation
+    from core.second_brain import SecondBrainBuilder
+
+    extractor = StructuredExtractor()
+    evaluation = extractor.extract_from_markdown(clave, md_content)
+    eval_dict = evaluation.model_dump()
+
+    # 1. Upsert PostgreSQL
+    dw_res = upsert_project_evaluation(eval_dict)
+
+    # 2. Update Obsidian Frontmatter
+    builder = SecondBrainBuilder(base_dir=BASE_DIR)
+    obsidian_updated = builder.update_note_frontmatter(clave, eval_dict)
+
+    return {
+        "status": "PASS",
+        "clave": clave,
+        "evaluation": eval_dict,
+        "dw_status": dw_res,
+        "obsidian_updated": obsidian_updated
+    }
+
+
+@app.post("/api/extract/batch", tags=["extraction"])
+def extract_structured_batch(payload: dict):
+    """Ejecuta la extracción estructurada en lote para múltiples proyectos pendientes."""
+    limit = payload.get("limit", 5)
+    extractions_dir = BASE_DIR / "extractions"
+    md_files = list(extractions_dir.glob("*.md"))[:limit]
+
+    results = []
+    from core.structured_extractor import StructuredExtractor
+    from core.dw_pipeline import upsert_project_evaluation
+    from core.second_brain import SecondBrainBuilder
+
+    extractor = StructuredExtractor()
+    builder = SecondBrainBuilder(base_dir=BASE_DIR)
+
+    for f in md_files:
+        clave = f.stem
+        try:
+            md_content = f.read_text(encoding="utf-8", errors="ignore")
+            evaluation = extractor.extract_from_markdown(clave, md_content)
+            eval_dict = evaluation.model_dump()
+
+            dw_res = upsert_project_evaluation(eval_dict)
+            obsidian_updated = builder.update_note_frontmatter(clave, eval_dict)
+
+            results.append({
+                "clave": clave,
+                "status": "PASS",
+                "dw_status": dw_res.get("status"),
+                "obsidian_updated": obsidian_updated
+            })
+        except Exception as exc:
+
+            results.append({
+                "clave": clave,
+                "status": "ERROR",
+                "message": str(exc)
+            })
+
+    return {"total": len(results), "results": results}
+
+
+
+@app.get("/api/downloads/verify-status", tags=["downloads"])
+def get_downloads_verification_status():
+    """Retorna las estadísticas globales de verificación e integridad de descargas PDF."""
+    from core.dw_pipeline import get_download_manifest_stats
+    return get_download_manifest_stats()
+
+
+@app.post("/api/downloads/verify-all", tags=["downloads"])
+def verify_all_downloads_endpoint(payload: dict = None):
+    """Audita todos los PDFs descargados en downloads/ y actualiza la tabla download_manifest."""
+    limit = (payload or {}).get("limit", 100)
+    downloads_dir = BASE_DIR / "downloads"
+    if not downloads_dir.exists():
+        return {"total_audited": 0, "verified": 0, "corrupt": 0}
+
+    pdf_files = list(downloads_dir.rglob("*.pdf"))[:limit]
+    
+    from core.download_verifier import PDFDownloadVerifier
+    from core.dw_pipeline import record_download_verification
+
+    verifier = PDFDownloadVerifier()
+    results = {"total_audited": len(pdf_files), "verified": 0, "corrupt": 0, "items": []}
+
+    for path in pdf_files:
+        clave_match = re.search(r"(\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})", path.name)
+        clave = clave_match.group(1) if clave_match else path.stem
+        file_type = "resumen" if "resumen" in str(path).lower() else ("estudio" if "estudio" in str(path).lower() else "resolutivo")
+
+        v_res = verifier.verify_pdf_file(path, expected_clave=clave)
+        record_download_verification(clave, file_type, str(path), v_res)
+
+        if v_res.get("valid", False):
+            results["verified"] += 1
+        else:
+            results["corrupt"] += 1
+
+        results["items"].append({
+            "clave": clave,
+            "file_type": file_type,
+            "status": v_res.get("status"),
+            "valid": v_res.get("valid"),
+            "reason": v_res.get("reason"),
+            "file_size": v_res.get("file_size")
+        })
+
+    return results
+
+
+@app.post("/api/rag/query", tags=["rag"])
+def rag_query_endpoint(payload: dict):
+    """
+    Ejecuta el pipeline RAG completo:
+    Recuperación vectorial Top-K + Filtrado por metadatos + Síntesis LLM con Citas.
+    """
+    query = payload.get("query")
+    if not query:
+        raise HTTPException(status_code=400, detail="Se requiere 'query'")
+
+    filters = payload.get("filters", {})
+    top_k = payload.get("top_k", 5)
+
+    from core.rag_engine import RAGEngine
+    engine = RAGEngine(base_dir=BASE_DIR)
+    return engine.query_rag(query, filters=filters, top_k=top_k)
+
+
+@app.get("/api/rag/search", tags=["rag"])
+def rag_search_endpoint(query: str, clave: Optional[str] = None, top_k: int = 5):
+    """Búsqueda semántica vectorial pura de chunks con score de similitud."""
+    from core.rag_engine import RAGEngine
+    engine = RAGEngine(base_dir=BASE_DIR)
+    filters = {"clave": clave} if clave else None
+    return {"query": query, "chunks": engine.retrieve_context(query, filters=filters, top_k=top_k)}
+
+
+@app.post("/api/rag/reindex", tags=["rag"])
+def rag_reindex_endpoint(payload: dict = None):
+    """Indexa masivamente los documentos Markdown en extractions/ para el motor RAG."""
+    limit = (payload or {}).get("limit", 50)
+    extractions_dir = BASE_DIR / "extractions"
+    if not extractions_dir.exists():
+        return {"indexed": 0, "status": "No extractions found"}
+
+    md_files = list(extractions_dir.glob("*.md"))[:limit]
+    from core.rag_engine import RAGEngine
+    engine = RAGEngine(base_dir=BASE_DIR)
+
+    results = []
+    for f in md_files:
+        clave = f.stem
+        try:
+            content = f.read_text(encoding="utf-8", errors="ignore")
+            res = engine.index_document(clave, content)
+            results.append(res)
+        except Exception as exc:
+            results.append({"clave": clave, "status": "ERROR", "message": str(exc)})
+
+    return {"total": len(results), "indexed": results}
+
+
+
+
+
+

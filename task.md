@@ -1,4 +1,8 @@
-- [x] Crear el Dockerfile optimizado con soporte para Selenium Headless (Google Chrome estable) en la raíz del proyecto
-- [x] Actualizar dw/docker-compose.yml para configurar Gemma 4 E2B en el puerto 8083 y añadir el servicio 'api'
-- [x] Modificar api/main.py en el pipeline de descarga de clave para reconstruir el índice de búsqueda semántica automáticamente
-- [x] Verificar que el servidor FastAPI inicia y responde correctamente
+# Tareas de Implementación — RSI Atómico & Contratos de Etapa 🌌
+
+  - [ ] Añadir botón/switch "RSI Auto-Curaduría" en `dashboard/index.html`.
+  - [ ] Conectar handlers de Toggle y actualización en vivo SSE en `dashboard/static/app.js`.
+
+- [ ] **Componente 5: Pruebas & Verificación**
+  - [ ] Crear y ejecutar `tests/test_atomic_rsi_and_contracts.py`.
+  - [ ] Ejecutar pytest para validar la suite completa (34+ passed).
