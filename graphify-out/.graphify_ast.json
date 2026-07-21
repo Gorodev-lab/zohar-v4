@@ -6961,6 +6961,198 @@
       "_origin": "ast"
     },
     {
+      "id": "scrapers_base",
+      "label": "base.py",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_make_chrome_driver",
+      "label": "make_chrome_driver()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L25",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_py_path",
+      "label": "Path",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L25",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_safe_click",
+      "label": "safe_click()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L90",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_element_exists",
+      "label": "element_exists()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L124",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_extract_pdf_urls_from_network_log",
+      "label": "extract_pdf_urls_from_network_log()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L140",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_download_file_with_retry",
+      "label": "download_file_with_retry()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L163",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_wait_for_downloads",
+      "label": "wait_for_downloads()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L188",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_safe_move",
+      "label": "safe_move()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L247",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_basewebscraper",
+      "label": "BaseWebScraper",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L267",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_basewebscraper_init",
+      "label": ".__init__()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L269",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_basewebscraper_get_driver",
+      "label": ".get_driver()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L274",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_basewebscraper_quit_driver",
+      "label": ".quit_driver()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L279",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_basewebscraper_enter",
+      "label": ".__enter__()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L287",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_basewebscraper_exit",
+      "label": ".__exit__()",
+      "file_type": "code",
+      "source_file": "scrapers/base.py",
+      "source_location": "L290",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_rationale_1",
+      "label": "scrapers/base.py ================ Módulo base para scrapers web (SEMARNAT, ASEA,",
+      "file_type": "rationale",
+      "source_file": "scrapers/base.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_rationale_26",
+      "label": "Factoría estandarizada para Chrome Selenium WebDriver.     Configura descarga si",
+      "file_type": "rationale",
+      "source_file": "scrapers/base.py",
+      "source_location": "L26",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_rationale_91",
+      "label": "Clic robusto con scroll automático, retry y fallback a JavaScript.",
+      "file_type": "rationale",
+      "source_file": "scrapers/base.py",
+      "source_location": "L91",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_rationale_125",
+      "label": "Verifica la existencia de un elemento en el DOM sin lanzar excepción.",
+      "file_type": "rationale",
+      "source_file": "scrapers/base.py",
+      "source_location": "L125",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_rationale_141",
+      "label": "Extrae URLs de PDFs desde los registros de performance CDP de Chrome.",
+      "file_type": "rationale",
+      "source_file": "scrapers/base.py",
+      "source_location": "L141",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_rationale_171",
+      "label": "Descarga un archivo vía HTTP utilizando httpx/requests con reintentos.",
+      "file_type": "rationale",
+      "source_file": "scrapers/base.py",
+      "source_location": "L171",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_rationale_195",
+      "label": "Espera activa inteligente de dos fases para detectar y aguardar la finalización",
+      "file_type": "rationale",
+      "source_file": "scrapers/base.py",
+      "source_location": "L195",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_rationale_248",
+      "label": "Mueve archivos evitando colisiones añadiendo sufijos _v2, _v3 si ya existen.",
+      "file_type": "rationale",
+      "source_file": "scrapers/base.py",
+      "source_location": "L248",
+      "_origin": "ast"
+    },
+    {
+      "id": "scrapers_base_rationale_268",
+      "label": "Clase base con ciclo de vida Selenium WebDriver.",
+      "file_type": "rationale",
+      "source_file": "scrapers/base.py",
+      "source_location": "L268",
+      "_origin": "ast"
+    },
+    {
       "id": "scrapers_gazette_scraper",
       "label": "gazette_scraper.py",
       "file_type": "code",
@@ -7137,11 +7329,11 @@
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_make_chrome_driver",
-      "label": "make_chrome_driver()",
+      "id": "scrapers_semarnat_downloader_download_pdf_via_requests",
+      "label": "download_pdf_via_requests()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L65",
+      "source_location": "L71",
       "_origin": "ast"
     },
     {
@@ -7149,55 +7341,7 @@
       "label": "Path",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L65",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_safe_click",
-      "label": "safe_click()",
-      "file_type": "code",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L138",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_element_exists",
-      "label": "element_exists()",
-      "file_type": "code",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L169",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_extract_pdf_urls_from_network_log",
-      "label": "extract_pdf_urls_from_network_log()",
-      "file_type": "code",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L185",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_download_pdf_via_requests",
-      "label": "download_pdf_via_requests()",
-      "file_type": "code",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L208",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_wait_for_downloads",
-      "label": "wait_for_downloads()",
-      "file_type": "code",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L232",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_safe_move",
-      "label": "safe_move()",
-      "file_type": "code",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L299",
+      "source_location": "L71",
       "_origin": "ast"
     },
     {
@@ -7205,7 +7349,7 @@
       "label": "mover_estudios_y_resolutivos()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L319",
+      "source_location": "L75",
       "_origin": "ast"
     },
     {
@@ -7213,7 +7357,7 @@
       "label": "_classify_by_keyword()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L342",
+      "source_location": "L98",
       "_origin": "ast"
     },
     {
@@ -7221,7 +7365,7 @@
       "label": "extract_initial_pages_text()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L351",
+      "source_location": "L107",
       "_origin": "ast"
     },
     {
@@ -7229,7 +7373,7 @@
       "label": "clasificar_pdf_con_llm()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L368",
+      "source_location": "L124",
       "_origin": "ast"
     },
     {
@@ -7237,7 +7381,7 @@
       "label": "extract_metadata_from_dom()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L437",
+      "source_location": "L193",
       "_origin": "ast"
     },
     {
@@ -7245,7 +7389,7 @@
       "label": "renombrar_archivos_por_clave()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L507",
+      "source_location": "L263",
       "_origin": "ast"
     },
     {
@@ -7253,7 +7397,7 @@
       "label": "SemarnatDownloader",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L584",
+      "source_location": "L340",
       "_origin": "ast"
     },
     {
@@ -7261,7 +7405,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L590",
+      "source_location": "L346",
       "_origin": "ast"
     },
     {
@@ -7269,7 +7413,7 @@
       "label": "._get_driver()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L607",
+      "source_location": "L363",
       "_origin": "ast"
     },
     {
@@ -7277,7 +7421,7 @@
       "label": "._quit_driver()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L612",
+      "source_location": "L368",
       "_origin": "ast"
     },
     {
@@ -7285,7 +7429,7 @@
       "label": ".descargar_clave()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L620",
+      "source_location": "L376",
       "_origin": "ast"
     },
     {
@@ -7293,7 +7437,7 @@
       "label": "._descargar_clave_gen_with_retry()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L627",
+      "source_location": "L383",
       "_origin": "ast"
     },
     {
@@ -7301,7 +7445,7 @@
       "label": "._descargar_clave_gen()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L666",
+      "source_location": "L422",
       "_origin": "ast"
     },
     {
@@ -7309,7 +7453,7 @@
       "label": "._extract_clave_from_page()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1025",
+      "source_location": "L781",
       "_origin": "ast"
     },
     {
@@ -7317,7 +7461,7 @@
       "label": ".batch_desde_lista()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1036",
+      "source_location": "L792",
       "_origin": "ast"
     },
     {
@@ -7325,7 +7469,7 @@
       "label": ".batch_desde_csv()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1061",
+      "source_location": "L817",
       "_origin": "ast"
     },
     {
@@ -7333,7 +7477,7 @@
       "label": ".__del__()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1073",
+      "source_location": "L829",
       "_origin": "ast"
     },
     {
@@ -7341,7 +7485,7 @@
       "label": ".__enter__()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1076",
+      "source_location": "L832",
       "_origin": "ast"
     },
     {
@@ -7349,7 +7493,7 @@
       "label": ".__exit__()",
       "file_type": "code",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1079",
+      "source_location": "L835",
       "_origin": "ast"
     },
     {
@@ -7361,163 +7505,107 @@
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_66",
-      "label": "Chrome configurado: descarga sin diálogo, sin visor PDF, CDP logging.",
-      "file_type": "rationale",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L66",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_rationale_139",
-      "label": "Click robusto con scroll, retry y fallback JS.",
-      "file_type": "rationale",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L139",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_rationale_170",
-      "label": "Verifica existencia de elemento sin lanzar excepción.",
-      "file_type": "rationale",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L170",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_rationale_186",
-      "label": "Extrae URLs de PDF desde CDP performance logs.",
-      "file_type": "rationale",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L186",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_rationale_215",
-      "label": "Descarga PDF usando requests con cookies de sesión Selenium.",
-      "file_type": "rationale",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L215",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_rationale_239",
-      "label": "Espera activa inteligente de dos fases.     Fase 1: detectar inicio (hasta 30s).",
-      "file_type": "rationale",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L239",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_rationale_300",
-      "label": "Mueve evitando colisiones: agrega _v2, _v3... si ya existe.",
-      "file_type": "rationale",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L300",
-      "_origin": "ast"
-    },
-    {
-      "id": "scrapers_semarnat_downloader_rationale_325",
+      "id": "scrapers_semarnat_downloader_rationale_81",
       "label": "Clasifica por prefijo 'estudio.' / 'resolutivo.' y mueve.",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L325",
+      "source_location": "L81",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_343",
+      "id": "scrapers_semarnat_downloader_rationale_99",
       "label": "Detecta tipo por keywords en el nombre del archivo.",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L343",
+      "source_location": "L99",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_352",
+      "id": "scrapers_semarnat_downloader_rationale_108",
       "label": "Extrae el texto de las primeras 1 o 2 páginas del PDF de forma perezosa.",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L352",
+      "source_location": "L108",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_369",
+      "id": "scrapers_semarnat_downloader_rationale_125",
       "label": "Usa el modelo local Gemma para clasificar el PDF con Self-Recursive Improvement.",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L369",
+      "source_location": "L125",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_438",
+      "id": "scrapers_semarnat_downloader_rationale_194",
       "label": "Intenta extraer metadatos estructurados directamente del DOM de la página de res",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L438",
+      "source_location": "L194",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_515",
+      "id": "scrapers_semarnat_downloader_rationale_271",
       "label": "Clasifica y renombra PDFs nuevos por clave SEMARNAT.      Regla de fallback posi",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L515",
+      "source_location": "L271",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_585",
+      "id": "scrapers_semarnat_downloader_rationale_341",
       "label": "Descargador automático de documentos SINAT/SEMARNAT.     Usa Chrome + Selenium c",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L585",
+      "source_location": "L341",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_621",
+      "id": "scrapers_semarnat_downloader_rationale_377",
       "label": "Wrapper síncrono. Consume _descargar_clave_gen, retorna último evento.",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L621",
+      "source_location": "L377",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_630",
+      "id": "scrapers_semarnat_downloader_rationale_386",
       "label": "Wrapper de reintentos sobre _descargar_clave_gen.          - Reintenta hasta max",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L630",
+      "source_location": "L386",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_669",
+      "id": "scrapers_semarnat_downloader_rationale_425",
       "label": "Generador SSE. Emite dicts con:             {\"status\": str, \"msg\": str, \"level\":",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L669",
+      "source_location": "L425",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_1026",
+      "id": "scrapers_semarnat_downloader_rationale_782",
       "label": "Intenta extraer la clave SINAT del DOM de la página.",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1026",
+      "source_location": "L782",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_1042",
+      "id": "scrapers_semarnat_downloader_rationale_798",
       "label": "Descarga una lista de bitácoras en batch.",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1042",
+      "source_location": "L798",
       "_origin": "ast"
     },
     {
-      "id": "scrapers_semarnat_downloader_rationale_1067",
+      "id": "scrapers_semarnat_downloader_rationale_823",
       "label": "Descarga bitácoras desde un CSV.",
       "file_type": "rationale",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1067",
+      "source_location": "L823",
       "_origin": "ast"
     },
     {
@@ -25117,6 +25205,404 @@
       "weight": 1.0
     },
     {
+      "source": "scrapers_base",
+      "target": "logging",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "os",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "shutil",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "time",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L14",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "pathlib",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "typing",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "httpx",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "scrapers_base_make_chrome_driver",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L25",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_make_chrome_driver",
+      "target": "scrapers_base_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L25",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "scrapers_base_safe_click",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L90",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "scrapers_base_element_exists",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L124",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "scrapers_base_extract_pdf_urls_from_network_log",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L140",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "scrapers_base_download_file_with_retry",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L163",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_download_file_with_retry",
+      "target": "scrapers_base_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L163",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "scrapers_base_wait_for_downloads",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L188",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_wait_for_downloads",
+      "target": "scrapers_base_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L188",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_wait_for_downloads",
+      "target": "scrapers_base_py_path",
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L188",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "scrapers_base_safe_move",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L247",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_safe_move",
+      "target": "scrapers_base_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L247",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_safe_move",
+      "target": "scrapers_base_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L247",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_safe_move",
+      "target": "scrapers_base_py_path",
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L247",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base",
+      "target": "scrapers_base_basewebscraper",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L267",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_basewebscraper",
+      "target": "scrapers_base_basewebscraper_init",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L269",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_basewebscraper_init",
+      "target": "scrapers_base_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L269",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_basewebscraper",
+      "target": "scrapers_base_basewebscraper_get_driver",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L274",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_basewebscraper",
+      "target": "scrapers_base_basewebscraper_quit_driver",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L279",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_basewebscraper",
+      "target": "scrapers_base_basewebscraper_enter",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L287",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_basewebscraper",
+      "target": "scrapers_base_basewebscraper_exit",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L290",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_make_chrome_driver",
+      "target": "scrapers_base_py_path",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L53",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_basewebscraper_init",
+      "target": "scrapers_base_py_path",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L270",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_basewebscraper_get_driver",
+      "target": "scrapers_base_make_chrome_driver",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L276",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_basewebscraper_enter",
+      "target": "scrapers_base_basewebscraper_get_driver",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L288",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_basewebscraper_exit",
+      "target": "scrapers_base_basewebscraper_quit_driver",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L291",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_rationale_1",
+      "target": "scrapers_base",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_rationale_26",
+      "target": "scrapers_base_make_chrome_driver",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_rationale_91",
+      "target": "scrapers_base_safe_click",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L91",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_rationale_125",
+      "target": "scrapers_base_element_exists",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L125",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_rationale_141",
+      "target": "scrapers_base_extract_pdf_urls_from_network_log",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L141",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_rationale_171",
+      "target": "scrapers_base_download_file_with_retry",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L171",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_rationale_195",
+      "target": "scrapers_base_wait_for_downloads",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L195",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_rationale_248",
+      "target": "scrapers_base_safe_move",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L248",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_base_rationale_268",
+      "target": "scrapers_base_basewebscraper",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/base.py",
+      "source_location": "L268",
+      "weight": 1.0
+    },
+    {
       "source": "scrapers_gazette_scraper",
       "target": "logging",
       "relation": "imports",
@@ -25559,48 +26045,12 @@
     },
     {
       "source": "scrapers_semarnat_downloader",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
-      "relation": "contains",
+      "target": "scrapers_base",
+      "relation": "imports_from",
+      "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L65",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_make_chrome_driver",
-      "target": "scrapers_semarnat_downloader_py_path",
-      "relation": "references",
-      "context": "parameter_type",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L65",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader",
-      "target": "scrapers_semarnat_downloader_safe_click",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L138",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader",
-      "target": "scrapers_semarnat_downloader_element_exists",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L169",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader",
-      "target": "scrapers_semarnat_downloader_extract_pdf_urls_from_network_log",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L185",
+      "source_location": "L61",
       "weight": 1.0
     },
     {
@@ -25609,7 +26059,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L208",
+      "source_location": "L71",
       "weight": 1.0
     },
     {
@@ -25619,75 +26069,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L208",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader",
-      "target": "scrapers_semarnat_downloader_wait_for_downloads",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L232",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_wait_for_downloads",
-      "target": "scrapers_semarnat_downloader_py_path",
-      "relation": "references",
-      "context": "parameter_type",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L232",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_wait_for_downloads",
-      "target": "scrapers_semarnat_downloader_py_path",
-      "relation": "references",
-      "context": "generic_arg",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L232",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader",
-      "target": "scrapers_semarnat_downloader_safe_move",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L299",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_safe_move",
-      "target": "scrapers_semarnat_downloader_py_path",
-      "relation": "references",
-      "context": "parameter_type",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L299",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_safe_move",
-      "target": "scrapers_semarnat_downloader_py_path",
-      "relation": "references",
-      "context": "parameter_type",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L299",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_safe_move",
-      "target": "scrapers_semarnat_downloader_py_path",
-      "relation": "references",
-      "context": "return_type",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L299",
+      "source_location": "L71",
       "weight": 1.0
     },
     {
@@ -25696,7 +26078,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L319",
+      "source_location": "L75",
       "weight": 1.0
     },
     {
@@ -25706,7 +26088,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L319",
+      "source_location": "L75",
       "weight": 1.0
     },
     {
@@ -25716,7 +26098,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L319",
+      "source_location": "L75",
       "weight": 1.0
     },
     {
@@ -25726,7 +26108,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L319",
+      "source_location": "L75",
       "weight": 1.0
     },
     {
@@ -25735,7 +26117,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L342",
+      "source_location": "L98",
       "weight": 1.0
     },
     {
@@ -25744,7 +26126,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L351",
+      "source_location": "L107",
       "weight": 1.0
     },
     {
@@ -25754,7 +26136,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L351",
+      "source_location": "L107",
       "weight": 1.0
     },
     {
@@ -25763,7 +26145,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L368",
+      "source_location": "L124",
       "weight": 1.0
     },
     {
@@ -25773,7 +26155,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L368",
+      "source_location": "L124",
       "weight": 1.0
     },
     {
@@ -25782,7 +26164,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L437",
+      "source_location": "L193",
       "weight": 1.0
     },
     {
@@ -25791,7 +26173,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L507",
+      "source_location": "L263",
       "weight": 1.0
     },
     {
@@ -25801,7 +26183,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L507",
+      "source_location": "L263",
       "weight": 1.0
     },
     {
@@ -25811,7 +26193,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L507",
+      "source_location": "L263",
       "weight": 1.0
     },
     {
@@ -25821,7 +26203,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L507",
+      "source_location": "L263",
       "weight": 1.0
     },
     {
@@ -25831,7 +26213,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L507",
+      "source_location": "L263",
       "weight": 1.0
     },
     {
@@ -25841,7 +26223,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L507",
+      "source_location": "L263",
       "weight": 1.0
     },
     {
@@ -25850,7 +26232,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L584",
+      "source_location": "L340",
       "weight": 1.0
     },
     {
@@ -25859,7 +26241,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L590",
+      "source_location": "L346",
       "weight": 1.0
     },
     {
@@ -25869,7 +26251,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L590",
+      "source_location": "L346",
       "weight": 1.0
     },
     {
@@ -25879,7 +26261,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L590",
+      "source_location": "L346",
       "weight": 1.0
     },
     {
@@ -25889,7 +26271,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L590",
+      "source_location": "L346",
       "weight": 1.0
     },
     {
@@ -25899,7 +26281,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L590",
+      "source_location": "L346",
       "weight": 1.0
     },
     {
@@ -25908,7 +26290,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L607",
+      "source_location": "L363",
       "weight": 1.0
     },
     {
@@ -25917,7 +26299,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L612",
+      "source_location": "L368",
       "weight": 1.0
     },
     {
@@ -25926,7 +26308,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L620",
+      "source_location": "L376",
       "weight": 1.0
     },
     {
@@ -25935,7 +26317,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L627",
+      "source_location": "L383",
       "weight": 1.0
     },
     {
@@ -25944,7 +26326,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L666",
+      "source_location": "L422",
       "weight": 1.0
     },
     {
@@ -25953,7 +26335,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1025",
+      "source_location": "L781",
       "weight": 1.0
     },
     {
@@ -25962,7 +26344,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1036",
+      "source_location": "L792",
       "weight": 1.0
     },
     {
@@ -25972,7 +26354,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1036",
+      "source_location": "L792",
       "weight": 1.0
     },
     {
@@ -25981,7 +26363,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1061",
+      "source_location": "L817",
       "weight": 1.0
     },
     {
@@ -25991,7 +26373,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1061",
+      "source_location": "L817",
       "weight": 1.0
     },
     {
@@ -26000,7 +26382,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1073",
+      "source_location": "L829",
       "weight": 1.0
     },
     {
@@ -26009,7 +26391,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1076",
+      "source_location": "L832",
       "weight": 1.0
     },
     {
@@ -26018,27 +26400,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1079",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_make_chrome_driver",
-      "target": "scrapers_semarnat_downloader_py_path",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L91",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_mover_estudios_y_resolutivos",
-      "target": "scrapers_semarnat_downloader_safe_move",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L332",
+      "source_location": "L835",
       "weight": 1.0
     },
     {
@@ -26048,7 +26410,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L383",
+      "source_location": "L139",
       "weight": 1.0
     },
     {
@@ -26058,7 +26420,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L548",
+      "source_location": "L304",
       "weight": 1.0
     },
     {
@@ -26068,17 +26430,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L552",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_renombrar_archivos_por_clave",
-      "target": "scrapers_semarnat_downloader_safe_move",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L568",
+      "source_location": "L308",
       "weight": 1.0
     },
     {
@@ -26088,17 +26440,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L599",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_semarnatdownloader_get_driver",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L609",
+      "source_location": "L355",
       "weight": 1.0
     },
     {
@@ -26108,7 +26450,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L623",
+      "source_location": "L379",
       "weight": 1.0
     },
     {
@@ -26118,7 +26460,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L639",
+      "source_location": "L395",
       "weight": 1.0
     },
     {
@@ -26128,7 +26470,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L663",
+      "source_location": "L419",
       "weight": 1.0
     },
     {
@@ -26138,17 +26480,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L696",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_semarnatdownloader_descargar_clave_gen",
-      "target": "scrapers_semarnat_downloader_element_exists",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L816",
+      "source_location": "L452",
       "weight": 1.0
     },
     {
@@ -26158,17 +26490,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L839",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_semarnatdownloader_descargar_clave_gen",
-      "target": "scrapers_semarnat_downloader_extract_pdf_urls_from_network_log",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L854",
+      "source_location": "L595",
       "weight": 1.0
     },
     {
@@ -26178,7 +26500,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L865",
+      "source_location": "L621",
       "weight": 1.0
     },
     {
@@ -26188,7 +26510,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L869",
+      "source_location": "L625",
       "weight": 1.0
     },
     {
@@ -26198,17 +26520,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L930",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_semarnatdownloader_descargar_clave_gen",
-      "target": "scrapers_semarnat_downloader_wait_for_downloads",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L979",
+      "source_location": "L686",
       "weight": 1.0
     },
     {
@@ -26218,7 +26530,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1046",
+      "source_location": "L802",
       "weight": 1.0
     },
     {
@@ -26228,7 +26540,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1071",
+      "source_location": "L827",
       "weight": 1.0
     },
     {
@@ -26238,7 +26550,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1074",
+      "source_location": "L830",
       "weight": 1.0
     },
     {
@@ -26248,7 +26560,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1080",
+      "source_location": "L836",
       "weight": 1.0
     },
     {
@@ -26261,183 +26573,120 @@
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_66",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L66",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_rationale_139",
-      "target": "scrapers_semarnat_downloader_safe_click",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L139",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_rationale_170",
-      "target": "scrapers_semarnat_downloader_element_exists",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L170",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_rationale_186",
-      "target": "scrapers_semarnat_downloader_extract_pdf_urls_from_network_log",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L186",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_rationale_215",
-      "target": "scrapers_semarnat_downloader_download_pdf_via_requests",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L215",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_rationale_239",
-      "target": "scrapers_semarnat_downloader_wait_for_downloads",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L239",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_rationale_300",
-      "target": "scrapers_semarnat_downloader_safe_move",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L300",
-      "weight": 1.0
-    },
-    {
-      "source": "scrapers_semarnat_downloader_rationale_325",
+      "source": "scrapers_semarnat_downloader_rationale_81",
       "target": "scrapers_semarnat_downloader_mover_estudios_y_resolutivos",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L325",
+      "source_location": "L81",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_343",
+      "source": "scrapers_semarnat_downloader_rationale_99",
       "target": "scrapers_semarnat_downloader_classify_by_keyword",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L343",
+      "source_location": "L99",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_352",
+      "source": "scrapers_semarnat_downloader_rationale_108",
       "target": "scrapers_semarnat_downloader_extract_initial_pages_text",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L352",
+      "source_location": "L108",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_369",
+      "source": "scrapers_semarnat_downloader_rationale_125",
       "target": "scrapers_semarnat_downloader_clasificar_pdf_con_llm",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L369",
+      "source_location": "L125",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_438",
+      "source": "scrapers_semarnat_downloader_rationale_194",
       "target": "scrapers_semarnat_downloader_extract_metadata_from_dom",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L438",
+      "source_location": "L194",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_515",
+      "source": "scrapers_semarnat_downloader_rationale_271",
       "target": "scrapers_semarnat_downloader_renombrar_archivos_por_clave",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L515",
+      "source_location": "L271",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_585",
+      "source": "scrapers_semarnat_downloader_rationale_341",
       "target": "scrapers_semarnat_downloader_semarnatdownloader",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L585",
+      "source_location": "L341",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_621",
+      "source": "scrapers_semarnat_downloader_rationale_377",
       "target": "scrapers_semarnat_downloader_semarnatdownloader_descargar_clave",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L621",
+      "source_location": "L377",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_630",
+      "source": "scrapers_semarnat_downloader_rationale_386",
       "target": "scrapers_semarnat_downloader_semarnatdownloader_descargar_clave_gen_with_retry",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L630",
+      "source_location": "L386",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_669",
+      "source": "scrapers_semarnat_downloader_rationale_425",
       "target": "scrapers_semarnat_downloader_semarnatdownloader_descargar_clave_gen",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L669",
+      "source_location": "L425",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_1026",
+      "source": "scrapers_semarnat_downloader_rationale_782",
       "target": "scrapers_semarnat_downloader_semarnatdownloader_extract_clave_from_page",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1026",
+      "source_location": "L782",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_1042",
+      "source": "scrapers_semarnat_downloader_rationale_798",
       "target": "scrapers_semarnat_downloader_semarnatdownloader_batch_desde_lista",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1042",
+      "source_location": "L798",
       "weight": 1.0
     },
     {
-      "source": "scrapers_semarnat_downloader_rationale_1067",
+      "source": "scrapers_semarnat_downloader_rationale_823",
       "target": "scrapers_semarnat_downloader_semarnatdownloader_batch_desde_csv",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L1067",
+      "source_location": "L823",
       "weight": 1.0
     },
     {
@@ -31048,26 +31297,6 @@
       "weight": 1.0
     },
     {
-      "source": "diag_click",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "diag_click.py",
-      "source_location": "L13",
-      "weight": 1.0
-    },
-    {
-      "source": "diag_click_v2",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "diag_click_v2.py",
-      "source_location": "L13",
-      "weight": 1.0
-    },
-    {
       "source": "dw_neo4j_loader",
       "target": "core_graph_builder_parse_semarnat_key",
       "relation": "imports",
@@ -31509,7 +31738,7 @@
     },
     {
       "source": "scrapers_gazette_scraper",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
+      "target": "scrapers_base_make_chrome_driver",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -31519,12 +31748,82 @@
     },
     {
       "source": "scrapers_semarnat_downloader",
+      "target": "scrapers_base_make_chrome_driver",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader",
+      "target": "scrapers_base_safe_click",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader",
+      "target": "scrapers_base_element_exists",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader",
+      "target": "scrapers_base_extract_pdf_urls_from_network_log",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader",
+      "target": "scrapers_base_download_file_with_retry",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader",
+      "target": "scrapers_base_wait_for_downloads",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader",
+      "target": "scrapers_base_safe_move",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader",
       "target": "core_pdf_processor_iter_pages_as_markdown",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L353",
+      "source_location": "L109",
       "weight": 1.0
     },
     {
@@ -31534,7 +31833,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L374",
+      "source_location": "L130",
       "weight": 1.0
     },
     {
@@ -31544,27 +31843,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L374",
-      "weight": 1.0
-    },
-    {
-      "source": "scratch_check_semarnat_search",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "scratch/check_semarnat_search.py",
-      "source_location": "L10",
-      "weight": 1.0
-    },
-    {
-      "source": "scratch_diagnose_portal",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "scratch/diagnose_portal.py",
-      "source_location": "L15",
+      "source_location": "L130",
       "weight": 1.0
     },
     {
@@ -31985,16 +32264,6 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_sinat_downloader_harness.py",
       "source_location": "L88",
-      "weight": 1.0
-    },
-    {
-      "source": "tests_test_sinat_downloader_harness",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "tests/test_sinat_downloader_harness.py",
-      "source_location": "L364",
       "weight": 1.0
     },
     {
@@ -32728,13 +32997,33 @@
       "weight": 1.0
     },
     {
+      "source": "scrapers_semarnat_downloader_download_pdf_via_requests",
+      "target": "scrapers_base_download_file_with_retry",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L72",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader_mover_estudios_y_resolutivos",
+      "target": "scrapers_base_safe_move",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L88",
+      "weight": 1.0
+    },
+    {
       "source": "scrapers_semarnat_downloader_extract_initial_pages_text",
       "target": "core_pdf_processor_iter_pages_as_markdown",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L356",
+      "source_location": "L112",
       "weight": 1.0
     },
     {
@@ -32744,7 +33033,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L376",
+      "source_location": "L132",
       "weight": 1.0
     },
     {
@@ -32754,17 +33043,17 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scrapers/semarnat_downloader.py",
-      "source_location": "L410",
+      "source_location": "L166",
       "weight": 1.0
     },
     {
-      "source": "scratch_check_semarnat_search_check_search",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
+      "source": "scrapers_semarnat_downloader_renombrar_archivos_por_clave",
+      "target": "scrapers_base_safe_move",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
-      "source_file": "scratch/check_semarnat_search.py",
-      "source_location": "L15",
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L324",
       "weight": 1.0
     },
     {
@@ -35423,13 +35712,57 @@
     },
     {
       "source": "scrapers_gazette_scraper_gazettescraper_get_driver",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
+      "target": "scrapers_base_make_chrome_driver",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "scrapers/gazette_scraper.py",
       "source_location": "L54",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader_semarnatdownloader_get_driver",
+      "target": "scrapers_base_make_chrome_driver",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L365",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader_semarnatdownloader_descargar_clave_gen",
+      "target": "scrapers_base_element_exists",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L572",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader_semarnatdownloader_descargar_clave_gen",
+      "target": "scrapers_base_extract_pdf_urls_from_network_log",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L610",
+      "weight": 1.0
+    },
+    {
+      "source": "scrapers_semarnat_downloader_semarnatdownloader_descargar_clave_gen",
+      "target": "scrapers_base_wait_for_downloads",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scrapers/semarnat_downloader.py",
+      "source_location": "L735",
       "weight": 1.0
     },
     {
@@ -35507,28 +35840,6 @@
       "confidence_score": 1.0,
       "source_file": "tests/test_sinat_downloader_harness.py",
       "source_location": "L228",
-      "weight": 1.0
-    },
-    {
-      "source": "tests_test_sinat_downloader_harness_testsinatbuttoncount_test_key_3_buttons_headful",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "tests/test_sinat_downloader_harness.py",
-      "source_location": "L368",
-      "weight": 1.0
-    },
-    {
-      "source": "tests_test_sinat_downloader_harness_testsinatbuttoncount_test_key_2_buttons_headful",
-      "target": "scrapers_semarnat_downloader_make_chrome_driver",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "tests/test_sinat_downloader_harness.py",
-      "source_location": "L392",
       "weight": 1.0
     }
   ],
