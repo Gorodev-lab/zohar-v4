@@ -4,3 +4,15 @@ logs/
 .venv/
 .pytest_cache/
 graphify-out/
+zohar-v4/
+dw/postgres_data/
+dw/redis_data/
+dw/neo4j_data/
+dw/neo4j_logs/
+dw/checkpoints/
+downloads/
+data/harness_test/
+data/inference_cache/
+__pycache__/
+graphify-out/
+*.pdf

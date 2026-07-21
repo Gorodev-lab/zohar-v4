@@ -55,8 +55,9 @@ def calculate_item_score(ground_truth: dict, extracted: dict) -> float:
     return total_points / max_points
 
 def main():
-    gt_path = "dataset_ground_truth.json"
-    if not os.path.exists(gt_path):
+    from core.config import PROJECT_ROOT, PYTHON_EXE
+    gt_path = PROJECT_ROOT / "dataset_ground_truth.json"
+    if not gt_path.exists():
         print(f"Error: {gt_path} no encontrado.", file=sys.stderr)
         sys.exit(1)
         
@@ -66,8 +67,8 @@ def main():
     total_score = 0.0
     count = 0
     
-    # Determinar el ejecutable de python correcto (usar el del venv si existe)
-    python_exe = ".venv/bin/python" if os.path.exists(".venv/bin/python") else "python"
+    python_exe = PYTHON_EXE
+    infer_script = str(PROJECT_ROOT / "infer.py")
     
     for gt in ground_truth_list:
         clave = gt.get("Clave")
@@ -79,10 +80,11 @@ def main():
         # Ejecutar infer.py
         try:
             res = subprocess.run(
-                [python_exe, "infer.py", "--clave", clave],
+                [python_exe, infer_script, "--clave", clave],
                 capture_output=True,
                 text=True,
-                timeout=120.0
+                timeout=180.0,
+                cwd=str(PROJECT_ROOT),
             )
             
             # Parsear salida
