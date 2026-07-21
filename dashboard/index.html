@@ -120,7 +120,7 @@
       </button>
 
       <button class="tab-btn" data-tab="SERVER_CONTROL" id="tab-SERVER_CONTROL" aria-controls="panel-SERVER_CONTROL" role="tab" aria-selected="false">
-        <span class="tab-btn__icon" aria-hidden="true">⚡</span>
+        <span class="tab-btn__icon" aria-hidden="true">[S]</span>
         <span class="tab-btn__label">SERVER_CONTROL</span>
       </button>
 
@@ -847,6 +847,8 @@
           </div>
         </div>
       </div>
+    </section>
+
       <!-- ─────────────────────────────
            TAB 8: SERVER_CONTROL
       ───────────────────────────── -->
@@ -858,12 +860,12 @@
       >
         <div class="panel-header">
           <div class="panel-header__left">
-            <h1 class="panel-header__title"><span aria-hidden="true">⚡</span> SERVER_CONTROL & TELEMETRÍA</h1>
+            <h1 class="panel-header__title">SERVER_CONTROL & TELEMETRÍA</h1>
             <span class="panel-header__meta" id="srv-telemetry-meta">Monitor de Procesos y Control de Servidores</span>
           </div>
           <div class="panel-header__actions">
             <button class="btn btn--primary" id="btn-run-harness" onclick="runHarnessBootstrap()" style="font-size:11px; font-weight:bold;">
-              <span>🚀 BOOTSTRAP & SANITY CHECK</span>
+              <span>[MANIOBRA] BOOTSTRAP & SANITY CHECK</span>
             </button>
           </div>
         </div>
@@ -871,14 +873,14 @@
         <!-- Banner de Emergencia / Alerta Temprana -->
         <div id="srv-anomaly-banner" style="display:none; background:rgba(231,76,60,0.15); border:1px solid var(--color-red); padding:12px 16px; margin:10px 20px; align-items:center; justify-content:space-between;">
           <div style="display:flex; align-items:center; gap:10px;">
-            <span style="font-size:18px;">🚨</span>
+            <span style="font-family:var(--font-mono); font-weight:bold; color:var(--color-red);">[ALERTA]</span>
             <div>
               <span id="srv-anomaly-title" style="font-family:var(--font-mono); font-weight:bold; color:var(--color-red); font-size:12px;">ANOMALÍA DETECTADA EN TIEMPO REAL</span>
               <p id="srv-anomaly-desc" style="font-size:11px; margin:2px 0 0 0; color:var(--color-text);">Error de sintaxis o timeout detectado en el ciclo actual.</p>
             </div>
           </div>
           <button id="btn-emergency-abort" class="btn btn--danger" onclick="manageServerAction('stop_rsi')" style="font-size:11px; font-weight:bold;">
-            <span>🚨 ABORTAR PROCESO AHORA</span>
+            <span>[ABORTAR] PROCESO AHORA</span>
           </button>
         </div>
 
@@ -890,7 +892,7 @@
             <!-- Card 1: Llama-Server (8083) -->
             <div style="background:var(--color-surface); border:1px solid var(--color-border); padding:14px; display:flex; flex-direction:column; gap:10px;">
               <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color-dim); padding-bottom:6px;">
-                <span style="font-family:var(--font-mono); font-weight:bold; font-size:12px; color:var(--color-amber);">🦙 LLAMA-SERVER (8083)</span>
+                <span style="font-family:var(--font-mono); font-weight:bold; font-size:12px; color:var(--color-amber);">[LLAMA] LLAMA-SERVER (8083)</span>
                 <span id="srv-llama-badge" style="font-family:var(--font-mono); font-size:10px; font-weight:bold; color:var(--color-text-muted);">OFFLINE</span>
               </div>
               <div style="font-family:var(--font-mono); font-size:10px; display:flex; flex-direction:column; gap:4px;">
@@ -898,16 +900,16 @@
                 <div style="display:flex; justify-content:space-between;"><span class="text-muted">Latencia:</span><span id="srv-llama-lat">─ ms</span></div>
               </div>
               <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:4px;">
-                <button class="btn btn--secondary" style="font-size:10px; padding:4px;" onclick="manageServerAction('start_llama')">▶ INICIAR</button>
-                <button class="btn btn--danger" style="font-size:10px; padding:4px;" onclick="manageServerAction('stop_llama')">■ DETENER</button>
-                <button class="btn" style="font-size:10px; padding:4px;" onclick="manageServerAction('restart_llama')">↺ REINICIAR</button>
+                <button class="btn btn--secondary" style="font-size:10px; padding:4px;" onclick="manageServerAction('start_llama')">INICIAR</button>
+                <button class="btn btn--danger" style="font-size:10px; padding:4px;" onclick="manageServerAction('stop_llama')">DETENER</button>
+                <button class="btn" style="font-size:10px; padding:4px;" onclick="manageServerAction('restart_llama')">REINICIAR</button>
               </div>
             </div>
 
             <!-- Card 2: Motor RSI Multi-Objetivo -->
             <div style="background:var(--color-surface); border:1px solid var(--color-border); padding:14px; display:flex; flex-direction:column; gap:10px;">
               <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color-dim); padding-bottom:6px;">
-                <span style="font-family:var(--font-mono); font-weight:bold; font-size:12px; color:var(--color-amber);">⚡ RSI WORKER ENGINE</span>
+                <span style="font-family:var(--font-mono); font-weight:bold; font-size:12px; color:var(--color-amber);">[RSI] WORKER ENGINE</span>
                 <span id="srv-rsi-badge" style="font-family:var(--font-mono); font-size:10px; font-weight:bold; color:var(--color-text-muted);">IDLE</span>
               </div>
               <div style="font-family:var(--font-mono); font-size:10px; display:flex; flex-direction:column; gap:4px;">
@@ -915,15 +917,15 @@
                 <div style="display:flex; justify-content:space-between;"><span class="text-muted">Target:</span><span>scrapers/semarnat_downloader.py</span></div>
               </div>
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
-                <button class="btn btn--primary" style="font-size:10px; padding:4px;" onclick="manageServerAction('start_rsi')">⚡ INICIAR RSI</button>
-                <button class="btn btn--danger" style="font-size:10px; padding:4px;" onclick="manageServerAction('stop_rsi')">⛔ ABORTAR RSI</button>
+                <button class="btn btn--primary" style="font-size:10px; padding:4px;" onclick="manageServerAction('start_rsi')">INICIAR RSI</button>
+                <button class="btn btn--danger" style="font-size:10px; padding:4px;" onclick="manageServerAction('stop_rsi')">ABORTAR RSI</button>
               </div>
             </div>
 
             <!-- Card 3: Backend API & Base de Datos -->
             <div style="background:var(--color-surface); border:1px solid var(--color-border); padding:14px; display:flex; flex-direction:column; gap:10px;">
               <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color-dim); padding-bottom:6px;">
-                <span style="font-family:var(--font-mono); font-weight:bold; font-size:12px; color:var(--color-amber);">🐘 POSTGRES & FASTAPI</span>
+                <span style="font-family:var(--font-mono); font-weight:bold; font-size:12px; color:var(--color-amber);">[DB] POSTGRES & FASTAPI</span>
                 <span id="srv-db-badge" style="font-family:var(--font-mono); font-size:10px; font-weight:bold; color:var(--color-green);">ONLINE</span>
               </div>
               <div style="font-family:var(--font-mono); font-size:10px; display:flex; flex-direction:column; gap:4px;">
@@ -931,7 +933,7 @@
                 <div style="display:flex; justify-content:space-between;"><span class="text-muted">Postgres (5432):</span><span id="srv-pg-val" style="color:var(--color-green);">ONLINE</span></div>
               </div>
               <div style="display:grid; grid-template-columns:1fr; gap:6px; margin-top:4px;">
-                <button class="btn btn--secondary" style="font-size:10px; padding:4px;" onclick="runDataWarehousePipeline()">▸ RUN DW PIPELINE</button>
+                <button class="btn btn--secondary" style="font-size:10px; padding:4px;" onclick="runDataWarehousePipeline()">RUN DW PIPELINE</button>
               </div>
             </div>
 
@@ -962,6 +964,6 @@
 
 </div><!-- /shell -->
 
-<script src="/static/app.js?v=4.0.2"></script>
+<script src="/static/app.js?v=4.0.3"></script>
 </body>
 </html>
