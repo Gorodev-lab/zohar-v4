@@ -2694,6 +2694,14 @@ async def manage_server(payload: dict):
         raise HTTPException(400, detail=f"Acción no reconocida: '{action}'")
 
 
+@app.post("/api/harness/run", tags=["system"])
+async def run_harness_endpoint():
+    """Ejecuta el Harness de Maniobra Única (zohar_harness.py) y retorna el dictamen de sanidad."""
+    from zohar_harness import run_harness
+    report = await asyncio.to_thread(run_harness)
+    return report
+
+
 
 
 
