@@ -125,12 +125,63 @@ def run_harness() -> dict:
     llm_test = test_local_llm_ping()
     results["LLM_Sanity_Test"] = llm_test
 
-    # 4. Dictamen global (Green Light Status)
+    # 4. Chequeo de Salud de Memoria (Contratos de datos)
+    print("\n  [DIAGNOSTICO DE MEMORIA] Comprobando base de datos...")
+    total_projects = 0
+    incomplete_projects = 0
+    db_available = results["PostgreSQL"]["status"] == "ONLINE"
+    
+    if db_available:
+        try:
+            from sqlalchemy import create_engine, text
+            from core.config import DATABASE_URL
+            engine = create_engine(DATABASE_URL)
+            with engine.connect() as conn:
+                res = conn.execute(text("""
+                    SELECT count(*), 
+                           sum(case when promovente='Desconocido' or state='Desconocido' or promovente is null or state is null then 1 else 0 end) 
+                    FROM semarnat_projects
+                """)).fetchone()
+                if res:
+                    total_projects = res[0] or 0
+                    incomplete_projects = int(res[1] or 0)
+            print(f"  [MEMORIA]  Estado: {total_projects - incomplete_projects}/{total_projects} curados. Incompletos: {incomplete_projects}")
+        except Exception as e:
+            print(f"  [WARN] No se pudo leer estadísticas de memoria: {e}")
+            db_available = False
+    else:
+        print("  [MEMORIA]  OFFLINE (PostgreSQL no disponible)")
+
+    # 5. Dictamen global (Green Light Status)
     all_critical_online = all(
         results[name]["status"] == "ONLINE"
         for name, spec in SERVICES.items() if spec["critical"]
     )
     green_light = all_critical_online and (llm_test["status"] == "PASS")
+
+    # 6. Auto-curación defensiva (Self-Healing de memoria) si el stack está GREEN
+    curation_result = None
+    if green_light and db_available and incomplete_projects > 0:
+        print("\n  [AUTO-CURACIÓN] Detectados metadatos incompletos. Iniciando ciclo RSI de auto-mejora...")
+        try:
+            from core.rsi_brain import run_atomic_metadata_curation_step
+            curation_res = run_atomic_metadata_curation_step()
+            curation_result = curation_res
+            if curation_res.get("curated"):
+                print(f"  [PASS] Curación atómica completada para clave: {curation_res.get('clave')}")
+                print(f"         Metadata extraída: {curation_res.get('metadata')}")
+                incomplete_projects = max(0, incomplete_projects - 1)
+            else:
+                print(f"  [WARN] El ciclo de curación no modificó ningún registro: {curation_res.get('status')}")
+        except Exception as exc:
+            print(f"  [FAIL] Error durante el ciclo de curación RSI: {exc}")
+
+    results["Memory_Curation_Test"] = {
+        "total_projects": total_projects,
+        "incomplete_projects": incomplete_projects,
+        "curated_in_harness": curation_result.get("curated", False) if curation_result else False,
+        "curation_status": curation_result.get("status", "skipped") if curation_result else "skipped"
+    }
 
     report = {
         "green_light": green_light,
@@ -141,6 +192,7 @@ def run_harness() -> dict:
     print("\n----------------------------------------------------------")
     if green_light:
         print("  [GREEN LIGHT STATUS]: TODO EL STACK ESTÁ DISPONIBLE Y OPERATIVO.")
+        print(f"                        Memoria: {total_projects - incomplete_projects}/{total_projects} proyectos curados.")
     else:
         print("  [RED LIGHT STATUS]: ALGUNOS SERVICIOS REQUIEREN ATENCIÓN.")
     print("----------------------------------------------------------\n")
