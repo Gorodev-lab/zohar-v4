@@ -114,58 +114,80 @@ def run_atomic_metadata_curation_step() -> dict:
     sb_builder = SecondBrainBuilder(PROJECT_ROOT)
     extractions_dir = PROJECT_ROOT / "extractions"
 
-    # 1. Buscar una clave en la base de datos que tenga metadatos "Desconocido" o nulos
+    # 1. Buscar claves en la base de datos que tengan metadatos "Desconocido" o nulos (obtenemos una lista)
     clave = None
+    candidates_claves = []
     try:
         engine = create_engine(DATABASE_URL)
         with engine.connect() as conn:
             result = conn.execute(text("""
                 SELECT clave FROM semarnat_projects 
                 WHERE promovente = 'Desconocido' OR state = 'Desconocido' OR promovente IS NULL OR state IS NULL
-                LIMIT 1
-            """)).fetchone()
-            if result:
-                clave = result[0]
+                LIMIT 30
+            """)).fetchall()
+            candidates_claves = [r[0] for r in result]
     except Exception as exc:
         logger.warning("Error consultando base de datos para buscar proyectos incompletos: %s", exc)
 
+    # 2. Buscar el texto de origen para alguna de las claves
+    text_content = ""
+    source_file_name = ""
+
+    for c_clave in candidates_claves:
+        candidates = [
+            extractions_dir / f"{c_clave}.estudio.00.md",
+            extractions_dir / f"{c_clave}.resumen.00.md",
+            extractions_dir / f"{c_clave}.resolutivo.00.md",
+            extractions_dir / f"{c_clave}.md",
+            PROJECT_ROOT / "second_brain" / "01_Sources" / f"{c_clave}.estudio.00.md",
+            PROJECT_ROOT / "second_brain" / "01_Sources" / f"{c_clave}.resumen.00.md",
+            PROJECT_ROOT / "second_brain" / "01_Sources" / f"{c_clave}.md",
+        ]
+        
+        for cand in candidates:
+            if cand.exists():
+                try:
+                    text = cand.read_text(encoding="utf-8", errors="ignore").strip()
+                    if len(text) > 100:
+                        text_content = text
+                        source_file_name = cand.name
+                        clave = c_clave
+                        break
+                except Exception:
+                    pass
+        if text_content:
+            break
+
     if not clave:
-        # Fallback: tomar cualquier archivo de extractions si la BD no tiene claves incompletas
+        # Fallback: tomar cualquier archivo de extractions si la BD no tiene claves incompletas con archivos locales
         if extractions_dir.exists():
             md_files = list(extractions_dir.glob("*.md"))
             for md_file in md_files:
                 candidate_clave = md_file.name.split(".")[0].upper()
                 if len(candidate_clave) >= 10:  # Posible clave
-                    clave = candidate_clave
-                    break
-
-    if not clave:
-        return {"status": "no_curation_needed", "curated": False}
-
-    # 2. Buscar el texto de origen para esa clave
-    text_content = ""
-    source_file_name = f"Clave {clave}"
-    
-    # Rutas candidatas
-    candidates = [
-        extractions_dir / f"{clave}.estudio.00.md",
-        extractions_dir / f"{clave}.resumen.00.md",
-        extractions_dir / f"{clave}.resolutivo.00.md",
-        extractions_dir / f"{clave}.md",
-        PROJECT_ROOT / "second_brain" / "01_Sources" / f"{clave}.estudio.00.md",
-        PROJECT_ROOT / "second_brain" / "01_Sources" / f"{clave}.resumen.00.md",
-        PROJECT_ROOT / "second_brain" / "01_Sources" / f"{clave}.md",
-    ]
-    
-    for cand in candidates:
-        if cand.exists():
-            try:
-                text_content = cand.read_text(encoding="utf-8", errors="ignore").strip()
-                source_file_name = cand.name
-                if len(text_content) > 100:
-                    break
-            except Exception:
-                pass
+                    # Buscar su archivo correspondiente
+                    candidates = [
+                        extractions_dir / f"{candidate_clave}.estudio.00.md",
+                        extractions_dir / f"{candidate_clave}.resumen.00.md",
+                        extractions_dir / f"{candidate_clave}.resolutivo.00.md",
+                        md_file,
+                        PROJECT_ROOT / "second_brain" / "01_Sources" / f"{candidate_clave}.estudio.00.md",
+                        PROJECT_ROOT / "second_brain" / "01_Sources" / f"{candidate_clave}.resumen.00.md",
+                        PROJECT_ROOT / "second_brain" / "01_Sources" / md_file.name,
+                    ]
+                    for cand in candidates:
+                        if cand.exists():
+                            try:
+                                text = cand.read_text(encoding="utf-8", errors="ignore").strip()
+                                if len(text) > 100:
+                                    text_content = text
+                                    source_file_name = cand.name
+                                    clave = candidate_clave
+                                    break
+                            except Exception:
+                                pass
+                    if text_content:
+                        break
 
     if not text_content:
         return {"status": "no_source_text", "curated": False, "clave": clave}
