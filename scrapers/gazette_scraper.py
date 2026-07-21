@@ -50,7 +50,7 @@ class GazetteScraper:
         return self.IFRAME_URL.format(year=year)
 
     def _get_driver(self):
-        from scrapers.semarnat_downloader import make_chrome_driver
+        from scrapers.base import make_chrome_driver
         return make_chrome_driver(self.output_dir, self.headless)
 
     def _parse_pdf_links(self, html: str, base_url: str) -> list[dict]:
