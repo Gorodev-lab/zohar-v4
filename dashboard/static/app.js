@@ -2073,6 +2073,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let rsiPollHandle = null;
 
+async function toggleAtomicRSI(enable) {
+  try {
+    const res = await fetch('/api/rsi/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enable: enable })
+    });
+    const data = await res.json();
+    const toggleEl = document.getElementById('toggle-atomic-rsi');
+    if (toggleEl) toggleEl.checked = data.active;
+    showToast(data.msg, data.active ? 'ok' : 'info');
+  } catch (err) {
+    showToast(`Error de conexión al cambiar Toggle RSI: ${err.message}`, 'error');
+  }
+}
+
+async function syncAtomicRSIStatus() {
+  try {
+    const res = await fetch('/api/rsi/toggle-status');
+    const data = await res.json();
+    const toggleEl = document.getElementById('toggle-atomic-rsi');
+    if (toggleEl) toggleEl.checked = data.active;
+  } catch (err) {
+    console.warn('Error obteniendo estado del Toggle RSI:', err);
+  }
+}
+
+window.toggleAtomicRSI = toggleAtomicRSI;
+
 async function toggleRSI() {
   const status = await fetch('/api/rsi/status').then(r => r.json());
   if (status.running) {
@@ -2095,9 +2124,11 @@ async function refreshRSIStatus() {
 
 function initRSIActions() {
   refreshRSIStatus();
+  syncAtomicRSIStatus();
   if (rsiPollHandle) clearInterval(rsiPollHandle);
   rsiPollHandle = setInterval(refreshRSIStatus, 3000);
 }
+
 
 function initRsiScraperActions() {
   const btnRun = $('#btn-run-rsi-scraper');

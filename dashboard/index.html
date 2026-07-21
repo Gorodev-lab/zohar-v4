@@ -184,10 +184,19 @@
         </div>
       </div>
 
-      <!-- Auto-Mejora RSI (Scraper) Controls -->
+      <!-- Auto-Mejora RSI (Scraper & Auto-Curaduría) Controls -->
       <div class="sidebar__scraper-section" style="border-top: 1px solid var(--border-color-dim); padding-top: 10px; margin-top: 10px;">
-        <div class="sidebar__section-label">─ auto-mejora (RSI)</div>
+        <div class="sidebar__section-label">─ auto-curaduría (RSI)</div>
         
+        <!-- Toggle Atómico -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; background:var(--color-surface-2); padding:6px 8px; border:1px solid var(--border-color-dim);">
+          <span class="text-xs" style="font-family:var(--font-mono); font-weight:bold; color:var(--color-amber);">AUTO-CURADURÍA</span>
+          <label class="switch" style="position:relative; display:inline-block; width:34px; height:18px;">
+            <input type="checkbox" id="toggle-atomic-rsi" onchange="toggleAtomicRSI(this.checked)" style="opacity:0; width:0; height:0;">
+            <span class="slider round" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#333; transition:.3s; border-radius:18px;"></span>
+          </label>
+        </div>
+
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
           <label class="text-xs text-muted" for="rsi-scraper-cycles">CICLOS:</label>
           <input id="rsi-scraper-cycles" class="input input--inline" type="number" value="3" min="1" max="10" style="width:40px; height:20px; font-size:10px; text-align:center;">
@@ -216,6 +225,7 @@
           </div>
         </div>
       </div>
+
 
 
       <!-- Sys stats mini cards at bottom -->
