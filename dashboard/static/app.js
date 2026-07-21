@@ -2336,4 +2336,98 @@ async function runHarnessBootstrap() {
 
 window.runHarnessBootstrap = runHarnessBootstrap;
 
+// ═════════════════════════════════════════════════════════════════════════════
+// FASE 6 — FUNCIONES DE MOTOR RAG & BÚSQUEDA SEMÁNTICA VECTORIAL
+// ═════════════════════════════════════════════════════════════════════════════
+
+async function executeRAGQuery() {
+  const queryInput = $('#rag-search-input');
+  const claveFilter = $('#rag-clave-filter');
+  const btn = $('#btn-rag-query');
+  const answerBody = $('#rag-answer-body');
+  const sourcesList = $('#rag-sources-list');
+  const contextPill = $('#rag-context-used-pill');
+
+  const query = queryInput ? queryInput.value.trim() : '';
+  if (!query) {
+    showToast('Ingresa una consulta para el Agente RAG', 'warning');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" aria-hidden="true">⏳</span> CONSULTANDO...';
+  answerBody.innerHTML = '<span class="text-muted" style="font-style:italic;">Buscando fuentes vectoriales y sintetizando respuesta con citas...</span>';
+
+  try {
+    const payload = { query: query, top_k: 5 };
+    if (claveFilter && claveFilter.value.trim()) {
+      payload.filters = { clave: claveFilter.value.trim() };
+    }
+
+    const res = await fetch('/api/rag/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    answerBody.textContent = data.answer || 'Sin respuesta generada.';
+    contextPill.textContent = `${data.context_used || 0} FUENTES`;
+
+    sourcesList.innerHTML = '';
+    if (data.sources && data.sources.length > 0) {
+      data.sources.forEach((s, idx) => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.style.flexDirection = 'column';
+        item.style.alignItems = 'flex-start';
+        item.style.padding = '8px';
+        item.style.gap = '4px';
+        item.style.background = 'rgba(0,0,0,0.3)';
+        item.style.border = '1px solid var(--border-color)';
+
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; width:100%; font-family:var(--font-mono); font-size:10px; color:var(--color-amber);">
+            <span>[${escHtml(s.clave)} | ${escHtml(s.section_title)}]</span>
+            <span class="badge badge--info">${s.pct || 0}% SIMILITUD</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-muted); line-height:1.4; max-height:80px; overflow-y:auto;">
+            ${escHtml(s.chunk_text)}
+          </div>
+        `;
+        sourcesList.appendChild(item);
+      });
+    } else {
+      sourcesList.innerHTML = '<div class="text-xs text-muted" style="font-style:italic;">No se recuperaron fuentes.</div>';
+    }
+
+    showToast('Consulta RAG completada', 'success');
+  } catch (err) {
+    answerBody.innerHTML = `<span class="text-alert">[ ERROR RAG: ${escHtml(String(err))} ]</span>`;
+    showToast('Error en consulta RAG', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span aria-hidden="true">▸</span> CONSULTAR RAG';
+  }
+}
+
+async function reindexRAGCorpus() {
+  showToast('Iniciando re-indexación RAG...', 'info');
+  try {
+    const res = await fetch('/api/rag/reindex', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit: 100 })
+    });
+    const data = await res.json();
+    showToast(`Corpus RAG re-indexado (${data.total} documentos)`, 'success');
+  } catch (err) {
+    showToast(`Error al re-indexar corpus: ${err}`, 'error');
+  }
+}
+
+window.executeRAGQuery = executeRAGQuery;
+window.reindexRAGCorpus = reindexRAGCorpus;
+
+
 
