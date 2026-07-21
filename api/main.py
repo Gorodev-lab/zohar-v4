@@ -2811,7 +2811,7 @@ async def _atomic_rsi_worker_loop():
             res = await asyncio.to_thread(run_atomic_metadata_curation_step)
             if res.get("curated"):
                 logger.info("RSI Atómico curó ficha %s: %s", res.get("clave"), res.get("metadata"))
-                await broadcaster.broadcast({"status": "progress", "msg": f"RSI Atómico curó ficha {res.get('clave')}", "curation": res})
+                live_broadcaster.broadcast("extractions_updated", res.get("clave"))
         except Exception as exc:
             logger.warning("Error en worker RSI atómico: %s", exc)
         await asyncio.sleep(30)
