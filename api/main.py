@@ -2083,14 +2083,14 @@ async def build_second_brain():
 
 @app.get("/api/second_brain/search", tags=["second_brain"])
 async def search_second_brain(q: str = Query(..., description="Consulta de búsqueda semántica")):
-    """Realiza una búsqueda semántica de notas del Second Brain."""
-    from core.semantic_search import SemanticSearchEngine
-    engine = SemanticSearchEngine(BASE_DIR)
+    """Realiza una búsqueda semántica híbrida (BM25 + Vectorial) de notas del Second Brain."""
+    from core.rag_engine import RAGEngine
+    engine = RAGEngine(base_dir=BASE_DIR)
     try:
-        results = engine.search(q)
+        results = engine.retrieve_hybrid(q, top_k=10)
         return {"results": results}
     except Exception as exc:
-        logger.error("Error en búsqueda semántica: %s", exc)
+        logger.error("Error en búsqueda semántica híbrida: %s", exc)
         raise HTTPException(500, detail=f"Error buscando notas semánticamente: {exc}")
 
 
@@ -3129,7 +3129,7 @@ def rag_reindex_endpoint(payload: dict = None):
     limit = (payload or {}).get("limit", 50)
     extractions_dir = BASE_DIR / "extractions"
     if not extractions_dir.exists():
-        return {"indexed": 0, "status": "No extractions found"}
+        return {"total": 0, "indexed": [], "status": "No extractions found"}
 
     md_files = list(extractions_dir.glob("*.md"))[:limit]
     from core.rag_engine import RAGEngine
@@ -3146,6 +3146,19 @@ def rag_reindex_endpoint(payload: dict = None):
             results.append({"clave": clave, "status": "ERROR", "message": str(exc)})
 
     return {"total": len(results), "indexed": results}
+
+
+@app.post("/api/rag/reindex-vault", tags=["rag"])
+async def reindex_vault():
+    """Indexa masivamente todas las notas del Second Brain para la búsqueda híbrida."""
+    from core.rag_engine import RAGEngine
+    ACTIVE_JOBS.add("rag_reindex")
+    try:
+        engine = RAGEngine(base_dir=BASE_DIR)
+        res = await asyncio.to_thread(engine.index_vault)
+        return res
+    finally:
+        ACTIVE_JOBS.discard("rag_reindex")
 
 
 
