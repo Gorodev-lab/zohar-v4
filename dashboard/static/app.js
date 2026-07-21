@@ -315,6 +315,58 @@ function initCorpusActions() {
     });
   }
 
+  const btnAnalyzeLlm = $('#btn-analyze-pdf-llm');
+  if (btnAnalyzeLlm) {
+    btnAnalyzeLlm.addEventListener('click', async () => {
+      if (!State.selectedPdf) {
+        showToast('Selecciona un PDF primero', 'warn');
+        if (logEl) appendLog(logEl, 'Selecciona un PDF primero', 'warn');
+        return;
+      }
+      const mdName = State.selectedPdf.name.replace(/\.pdf$/i, '.md');
+      btnAnalyzeLlm.disabled = true;
+      btnAnalyzeLlm.innerHTML = '⏳ ANALIZANDO CON GEMMA 4...';
+      showToast(`Analizando ${State.selectedPdf.name} con modelo local...`, 'info');
+      if (logEl) appendLog(logEl, `Iniciando análisis LLM local para: ${mdName}`, 'info');
+
+      try {
+        const res = await fetch(`/api/inference/${encodeURIComponent(mdName)}`);
+        const data = await res.json();
+        btnAnalyzeLlm.disabled = false;
+        btnAnalyzeLlm.innerHTML = '<span aria-hidden="true">⚡</span> ANALIZAR CON MODELO LOCAL';
+
+        if (viewerEl) {
+          viewerEl.classList.add('md-viewer');
+          const veredicto = data.veredicto || 'DESCONOCIDO';
+          const color = veredicto === 'FAVORABLE' ? 'var(--color-ok)' : veredicto === 'CONDICIONADO' ? 'var(--color-warn)' : 'var(--color-alert)';
+
+          let html = `<div style="padding:12px; border:1px solid ${color}; margin-bottom:16px; background:rgba(0,0,0,0.4);">
+            <h3 style="color:${color}; margin-bottom:8px;">VEREDICTO LLM LOCAL: ${escHtml(veredicto)} (Score: ${data.score ?? '─'})</h3>
+            <p><strong>Confianza:</strong> ${data.confianza_pct}% | <strong>Modelo:</strong> ${escHtml(data.meta?.modelo || 'Gemma 4 E2B')}</p>
+          </div>`;
+
+          if (data.yes_signals && data.yes_signals.length) {
+            html += `<p><strong style="color:var(--color-ok);">Señales Positivas:</strong></p><ul>${data.yes_signals.map(s => `<li>${escHtml(s)}</li>`).join('')}</ul>`;
+          }
+          if (data.no_signals && data.no_signals.length) {
+            html += `<p><strong style="color:var(--color-alert);">Señales Negativas:</strong></p><ul>${data.no_signals.map(s => `<li>${escHtml(s)}</li>`).join('')}</ul>`;
+          }
+          if (data.knockouts && data.knockouts.length) {
+            html += `<p><strong style="color:var(--color-alert);">Knockouts:</strong></p><ul>${data.knockouts.map(k => `<li>${escHtml(k)}</li>`).join('')}</ul>`;
+          }
+          viewerEl.innerHTML = html;
+        }
+        if (logEl) appendLog(logEl, `Análisis LLM completado: ${data.veredicto || 'OK'}`, 'ok');
+        showToast(`Inferencia completada: ${data.veredicto || 'OK'}`, 'ok');
+      } catch (err) {
+        btnAnalyzeLlm.disabled = false;
+        btnAnalyzeLlm.innerHTML = '<span aria-hidden="true">⚡</span> ANALIZAR CON MODELO LOCAL';
+        if (logEl) appendLog(logEl, `Error de análisis LLM: ${err.message}`, 'error');
+        showToast(`Error de análisis: ${err.message}`, 'error');
+      }
+    });
+  }
+
   if (btnExtract) {
     btnExtract.addEventListener('click', () => {
       if (!State.selectedPdf) {
