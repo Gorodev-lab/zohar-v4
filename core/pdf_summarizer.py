@@ -201,47 +201,137 @@ def extract_structured_metadata_with_llm(text_sample: str, filename: str) -> dic
     return default_meta
 
 
+def extract_pdf_prefix(pdf_path: Path, max_pages: int = 4) -> tuple[str, int, int]:
+    """
+    Abre el PDF y extrae el texto de las primeras `max_pages` páginas.
+    Retorna (texto_concatenado, total_paginas, paginas_escaneadas_count).
+    """
+    doc = fitz.open(str(pdf_path))
+    total_pages = len(doc)
+    full_text_list = []
+    scanned_pages_count = 0
+
+    pages_to_read = min(total_pages, max_pages)
+    for page_num in range(pages_to_read):
+        page = doc[page_num]
+        txt = page.get_text("text") or ""
+        
+        if not txt.strip():
+            scanned_pages_count += 1
+            txt = f"\n[Página {page_num + 1}: Contenido escaneado/imagen sin capa de texto seleccionable]\n"
+        
+        full_text_list.append(txt)
+
+    # Contar las páginas escaneadas reales del resto del documento de forma ultra-rápida
+    for page_num in range(pages_to_read, total_pages):
+        page = doc[page_num]
+        txt = page.get_text("text") or ""
+        if not txt.strip():
+            scanned_pages_count += 1
+
+    doc.close()
+    
+    concatenated_text = "\n".join(full_text_list)
+    return concatenated_text, total_pages, scanned_pages_count
+
+
+def extract_structured_summary_and_metadata_with_llm(text_prefix: str, filename: str) -> dict:
+    """Extrae el resumen ejecutivo, puntos clave y metadatos en un solo paso LLM."""
+    prompt = (
+        "Eres un analista ambiental e industrial experto y un extractor de datos estructurados para documentos oficiales de SEMARNAT.\n"
+        "Analiza el siguiente extracto del documento y genera un objeto JSON estrictamente válido.\n\n"
+        "Instrucciones de formato:\n"
+        "Genera un JSON con exactamente estas tres llaves en el primer nivel:\n"
+        "1. \"resumen_ejecutivo\": Un texto unificado en 2 párrafos concisos que sintetice la propuesta y hallazgos principales.\n"
+        "2. \"puntos_clave\": Una lista (array) de 3 a 5 viñetas concisas con datos clave (números, decisiones, fechas, impactos).\n"
+        "3. \"metadatos\": Un objeto con las siguientes llaves:\n"
+        "   - \"clave_proyecto\": Clave oficial del proyecto o identificador de SEMARNAT (o null si no aplica)\n"
+        "   - \"promovente\": Empresa o entidad promovente (o null si no aplica)\n"
+        "   - \"estado\": Estado o Entidad Federativa (o null si no aplica)\n"
+        "   - \"municipio\": Municipio o Ciudad (o null si no aplica)\n"
+        "   - \"estatus\": Estatus del trámite o resolutivo (ej. Aprobado, Pendiente, Evaluacion, o N/A)\n"
+        "   - \"tipo_actividad\": Breve descripción del tipo de obra o actividad\n"
+        "   - \"fechas_clave\": Una lista de fechas importantes mencionadas en el texto (o un array vacío)\n\n"
+        f"DOCUMENTO: {filename}\n"
+        f"EXTRACTO DEL DOCUMENTO (Primeras páginas):\n{text_prefix[:6000]}\n\n"
+        "Responde ÚNICAMENTE con el objeto JSON válido. No incluyas preámbulos, explicaciones ni bloques de código markdown."
+    )
+    
+    # Usamos n_predict=600 para dar espacio a la generación del JSON completo
+    res = _call_llama_api(prompt, n_predict=600, temp=0.1, timeout=240.0)
+    
+    default_res = {
+        "resumen_ejecutivo": f"Resumen ejecutivo no disponible para {filename}.",
+        "puntos_clave": [f"Documento {filename} procesado sin detalles del LLM."],
+        "metadatos": {
+            "clave_proyecto": None,
+            "promovente": None,
+            "estado": None,
+            "municipio": None,
+            "estatus": "N/A",
+            "tipo_actividad": "Documento general PDF",
+            "fechas_clave": []
+        }
+    }
+    
+    if not res:
+        return default_res
+
+    # Limpiar posibles bloques de código de markdown ```json
+    cleaned_json = re.sub(r"^```(json)?\s*", "", res.strip(), flags=re.IGNORECASE)
+    cleaned_json = re.sub(r"\s*```$", "", cleaned_json).strip()
+
+    try:
+        data = json.loads(cleaned_json)
+        if isinstance(data, dict):
+            # Rellenar llaves faltantes con valores por defecto
+            if "resumen_ejecutivo" not in data:
+                data["resumen_ejecutivo"] = default_res["resumen_ejecutivo"]
+            if "puntos_clave" not in data:
+                data["puntos_clave"] = default_res["puntos_clave"]
+            if "metadatos" not in data or not isinstance(data["metadatos"], dict):
+                data["metadatos"] = default_res["metadatos"]
+            else:
+                for k in default_res["metadatos"]:
+                    if k not in data["metadatos"]:
+                        data["metadatos"][k] = default_res["metadatos"][k]
+            return data
+    except Exception as exc:
+        logger.warning("No se pudo parsear el JSON de extracción unificada: %s. Respuesta original: %s", exc, res)
+
+    return default_res
+
+
 def summarize_pdf_file(pdf_path: Path, max_chunks: int = 5) -> dict:
     """
-    Procesa un PDF mediante el pipeline Map-Reduce completo:
-    1. Extracción con PyMuPDF (fitz) + detección de escaneo
-    2. Fase Map (resúmenes por chunk con overlap)
-    3. Fase Reduce (Resumen Ejecutivo unificado)
-    4. Extracción de Metadatos JSON estructurados
-    5. Persistencia en Second Brain (.md)
-    6. Persistencia en PostgreSQL (pdf_summaries)
-    7. Re-indexación automática en Búsqueda Semántica
+    Procesa un PDF en un único pase (Single-Pass) para Zohar v4 MVP:
+    1. Extracción con PyMuPDF (fitz) de las primeras 4 páginas
+    2. Llamada unificada al LLM para Resumen + Metadatos
+    3. Persistencia en Second Brain (.md)
+    4. Persistencia en PostgreSQL (pdf_summaries)
+    5. Re-indexación automática en Búsqueda Semántica
     """
     SECOND_BRAIN_SOURCES.mkdir(parents=True, exist_ok=True)
 
-    chunks, total_pages, scanned_pages = extract_pdf_chunks(pdf_path, chunk_word_size=500, overlap_words=50)
-    if not chunks:
+    t0 = time.time()
+    logger.info("Iniciando extracción Single-Pass para %s...", pdf_path.name)
+    
+    text_prefix, total_pages, scanned_pages = extract_pdf_prefix(pdf_path, max_pages=3)
+    if not text_prefix.strip() and total_pages == 0:
         return {"status": "empty_pdf", "filename": pdf_path.name, "total_pages": total_pages}
 
-    target_chunks = chunks[:max_chunks]
-    bullet_summaries = []
-
-    t0 = time.time()
-    logger.info("Iniciando Fase MAP para %s (%d fragmentos)...", pdf_path.name, len(target_chunks))
+    logger.info("Llamando al LLM local para generación de Resumen y Metadatos...")
+    result_data = extract_structured_summary_and_metadata_with_llm(text_prefix, pdf_path.name)
     
-    for idx, chk in enumerate(target_chunks):
-        summary_part = summarize_chunk_with_llm(chk, idx, len(target_chunks))
-        bullet_summaries.append(summary_part)
-
-    combined_map_summary = "\n".join(bullet_summaries)
-
-    # 2. Fase Reduce
-    logger.info("Iniciando Fase REDUCE para %s...", pdf_path.name)
-    executive_summary = reduce_summaries_with_llm(bullet_summaries, pdf_path.name)
-
-    # 3. Extracción de Metadatos JSON
-    logger.info("Extrayendo Metadatos Estructurados (JSON)...")
-    sample_text = "\n".join(target_chunks[:2])
-    metadata_json = extract_structured_metadata_with_llm(sample_text, pdf_path.name)
-
+    executive_summary = result_data.get("resumen_ejecutivo", "")
+    puntos_clave = result_data.get("puntos_clave", [])
+    metadata_json = result_data.get("metadatos", {})
+    
+    combined_map_summary = "\n".join([f"- {bullet}" for bullet in puntos_clave])
+    
     elapsed = round(time.time() - t0, 2)
 
-    # 4. Guardar nota en Second Brain
+    # Guardar nota en Second Brain
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
     note_stem = pdf_path.stem
     note_file = SECOND_BRAIN_SOURCES / f"{note_stem}.md"
@@ -253,19 +343,19 @@ def summarize_pdf_file(pdf_path: Path, max_chunks: int = 5) -> dict:
         f"- **Fecha de Procesamiento**: `{ts}`\n"
         f"- **Páginas Totales**: `{total_pages}`\n"
         f"- **Páginas Escaneadas/Imagen**: `{scanned_pages}`\n"
-        f"- **Fragmentos Procesados (Map)**: `{len(target_chunks)}`\n"
+        f"- **Fragmentos Procesados**: `1 (Single-Pass)`\n"
         f"- **Tiempo de Procesamiento**: `{elapsed}s`\n\n"
         f"## 📋 Metadatos Estructurados\n"
         f"```json\n{meta_pretty}\n```\n\n"
-        f"## 🚀 Resumen Ejecutivo (Fase Reduce)\n\n"
+        f"## 🚀 Resumen Ejecutivo\n\n"
         f"{executive_summary}\n\n"
-        f"## 🔍 Hallazgos Detallados por Fragmento (Fase Map)\n\n"
+        f"## 🔍 Puntos Clave Extraídos\n\n"
         f"{combined_map_summary}\n\n"
         f"----------------------------------------------------------\n"
     )
     note_file.write_text(note_content, encoding="utf-8")
 
-    # 5. Guardar en PostgreSQL
+    # Guardar en PostgreSQL
     try:
         engine = create_engine(DB_URL)
         init_pdf_table(engine)
@@ -284,7 +374,7 @@ def summarize_pdf_file(pdf_path: Path, max_chunks: int = 5) -> dict:
                 {
                     "fn": pdf_path.name,
                     "tp": total_pages,
-                    "cc": len(target_chunks),
+                    "cc": 1,
                     "sm": combined_map_summary,
                     "ex": executive_summary,
                     "mj": json.dumps(metadata_json, ensure_ascii=False)
@@ -294,7 +384,7 @@ def summarize_pdf_file(pdf_path: Path, max_chunks: int = 5) -> dict:
     except Exception as exc:
         logger.warning("Error registrando en PostgreSQL: %s", exc)
 
-    # 6. Re-indexación Semántica Automática
+    # Re-indexación Semántica Automática
     indexed_semantic = False
     try:
         engine_sem = SemanticSearchEngine(PROJECT_ROOT)
@@ -309,7 +399,7 @@ def summarize_pdf_file(pdf_path: Path, max_chunks: int = 5) -> dict:
         "filename": pdf_path.name,
         "total_pages": total_pages,
         "scanned_pages": scanned_pages,
-        "chunk_count": len(target_chunks),
+        "chunk_count": 1,
         "elapsed_seconds": elapsed,
         "metadata_json": metadata_json,
         "note_path": str(note_file),
@@ -374,10 +464,19 @@ def batch_summarize_unprocessed_pdfs_gen(max_files: int = 5, max_chunks: int = 4
             }
         except Exception as exc:
             logger.error("Error procesando %s en batch: %s", pdf_file.name, exc)
+            # Mover archivo a cuarentena para evitar bucles infinitos de reintento
+            try:
+                corrupt_dir = pdf_file.parent / "_corruptos"
+                corrupt_dir.mkdir(exist_ok=True)
+                pdf_file.rename(corrupt_dir / pdf_file.name)
+                logger.info("PDF corrupto/ilegible movido a cuarentena: %s", corrupt_dir / pdf_file.name)
+            except Exception as move_exc:
+                logger.error("No se pudo mover el PDF corrupto a cuarentena: %s", move_exc)
+
             yield {
                 "status": "warning",
                 "pct": round(((idx + 1) / total_to_process) * 100, 1),
-                "msg": f"⚠️ Error en {pdf_file.name}: {exc}",
+                "msg": f"⚠️ Error en {pdf_file.name} (movido a cuarentena): {exc}",
                 "file": pdf_file.name,
             }
 
