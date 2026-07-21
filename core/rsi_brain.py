@@ -105,72 +105,145 @@ def run_atomic_metadata_curation_step() -> dict:
     import json
     from core.second_brain import SecondBrainBuilder
     from core.llm_client import generate_completion
+    from core.text_utils import build_targeted_snippet
+    from sqlalchemy import create_engine, text
+    from core.config import DATABASE_URL, PROJECT_ROOT
 
     logger = logging.getLogger("rsi_curation")
 
     sb_builder = SecondBrainBuilder(PROJECT_ROOT)
     extractions_dir = PROJECT_ROOT / "extractions"
 
-    if not extractions_dir.exists():
-        return {"status": "no_extractions", "curated": False}
+    # 1. Buscar una clave en la base de datos que tenga metadatos "Desconocido" o nulos
+    clave = None
+    try:
+        engine = create_engine(DATABASE_URL)
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT clave FROM semarnat_projects 
+                WHERE promovente = 'Desconocido' OR state = 'Desconocido' OR promovente IS NULL OR state IS NULL
+                LIMIT 1
+            """)).fetchone()
+            if result:
+                clave = result[0]
+    except Exception as exc:
+        logger.warning("Error consultando base de datos para buscar proyectos incompletos: %s", exc)
 
-    # Buscar archivos de extracción .md
-    md_files = list(extractions_dir.glob("*.md"))
-    if not md_files:
-        return {"status": "no_md_files", "curated": False}
+    if not clave:
+        # Fallback: tomar cualquier archivo de extractions si la BD no tiene claves incompletas
+        if extractions_dir.exists():
+            md_files = list(extractions_dir.glob("*.md"))
+            for md_file in md_files:
+                candidate_clave = md_file.name.split(".")[0].upper()
+                if len(candidate_clave) >= 10:  # Posible clave
+                    clave = candidate_clave
+                    break
 
-    # Seleccionar 1 archivo para curaduría
-    for md_file in md_files:
-        content = md_file.read_text(encoding="utf-8", errors="ignore")
-        if len(content.strip()) < 100:
-            continue
+    if not clave:
+        return {"status": "no_curation_needed", "curated": False}
 
-        # Inferencia atómica ultraligera (<300 tokens prompt)
-        snippet = content[:1500]
-        sys_prompt = """
-        Extrae en JSON únicamente los metadatos disponibles en este texto de proyecto ambiental:
-        {
-          "promovente": "Nombre de la empresa o persona (o null)",
-          "sector": "Sector productivo (ej. Turismo, Energía, Inmobiliario, Transporte) (o null)",
-          "estado": "Estado o entidad federativa (o null)",
-          "municipio": "Municipio (o null)"
-        }
-        """
+    # 2. Buscar el texto de origen para esa clave
+    text_content = ""
+    source_file_name = f"Clave {clave}"
+    
+    # Rutas candidatas
+    candidates = [
+        extractions_dir / f"{clave}.estudio.00.md",
+        extractions_dir / f"{clave}.resumen.00.md",
+        extractions_dir / f"{clave}.resolutivo.00.md",
+        extractions_dir / f"{clave}.md",
+        PROJECT_ROOT / "second_brain" / "01_Sources" / f"{clave}.estudio.00.md",
+        PROJECT_ROOT / "second_brain" / "01_Sources" / f"{clave}.resumen.00.md",
+        PROJECT_ROOT / "second_brain" / "01_Sources" / f"{clave}.md",
+    ]
+    
+    for cand in candidates:
+        if cand.exists():
+            try:
+                text_content = cand.read_text(encoding="utf-8", errors="ignore").strip()
+                source_file_name = cand.name
+                if len(text_content) > 100:
+                    break
+            except Exception:
+                pass
 
-        try:
-            res = generate_completion(
-                prompt=f"Texto del proyecto:\n{snippet}",
-                system_prompt=sys_prompt,
-                response_json=True,
-                max_chars=2000
-            )
+    if not text_content:
+        return {"status": "no_source_text", "curated": False, "clave": clave}
 
-            if isinstance(res, dict) and not res.get("is_fallback"):
-                promovente = res.get("promovente")
-                sector = res.get("sector")
-                estado = res.get("estado")
-                municipio = res.get("municipio")
+    # Inferencia atómica ultraligera (<300 tokens prompt)
+    snippet = build_targeted_snippet(text_content)
+    sys_prompt = """
+    Extrae en JSON únicamente los metadatos disponibles en este texto de proyecto ambiental de SEMARNAT:
+    {
+      "promovente": "Nombre de la empresa o persona (o null si no se menciona)",
+      "sector": "Sector productivo (ej. Turismo, Energía, Inmobiliario, Transporte) (o null)",
+      "estado": "Estado o entidad federativa mexicana (o null)",
+      "municipio": "Municipio mexicano (o null)"
+    }
+    Responde ÚNICAMENTE con el objeto JSON válido.
+    """
 
-                if any([promovente, sector, estado, municipio]):
-                    clave = md_file.stem.split(".")[0]
-                    # Registrar aprendizaje
-                    save_rsi_learning(
-                        target_file=str(md_file.name),
-                        func_name="run_atomic_metadata_curation_step",
-                        cycle_num=1,
-                        metric_before=0.0,
-                        metric_after=1.0,
-                        summary_diff=f"Clave {clave}: Promovente='{promovente}', Sector='{sector}', Estado='{estado}'",
-                        auto_repaired=True
+    try:
+        res = generate_completion(
+            prompt=f"Texto del proyecto:\n{snippet}",
+            system_prompt=sys_prompt,
+            response_json=True,
+            max_chars=2500
+        )
+
+        if isinstance(res, dict) and not res.get("is_fallback"):
+            promovente = res.get("promovente") or "Desconocido"
+            sector = res.get("sector") or "Desconocido"
+            estado = res.get("estado") or "Desconocido"
+            municipio = res.get("municipio") or "Desconocido"
+
+            # 3. Guardar en PostgreSQL
+            try:
+                engine = create_engine(DATABASE_URL)
+                with engine.begin() as conn:
+                    conn.execute(
+                        text("""
+                            UPDATE semarnat_projects
+                            SET promovente = COALESCE(NULLIF(:promovente, 'Desconocido'), promovente),
+                                state = COALESCE(NULLIF(:estado, 'Desconocido'), state),
+                                sector = COALESCE(NULLIF(:sector, 'Desconocido'), sector)
+                            WHERE clave = :clave
+                        """),
+                        {
+                            "promovente": promovente,
+                            "estado": estado,
+                            "sector": sector,
+                            "clave": clave
+                        }
                     )
-                    return {
-                        "status": "PASS",
-                        "curated": True,
-                        "clave": clave,
-                        "metadata": {"promovente": promovente, "sector": sector, "estado": estado, "municipio": municipio}
-                    }
-        except Exception as exc:
-            logger.warning("Error en curaduría atómica para %s: %s", md_file.name, exc)
+                logger.info("Base de datos actualizada para %s: promovente='%s', estado='%s'", clave, promovente, estado)
+            except Exception as db_exc:
+                logger.warning("Error actualizando Postgres en curación: %s", db_exc)
 
-    return {"status": "no_curation_needed", "curated": False}
+            # 4. Regenerar notas en el Second Brain
+            try:
+                sb_builder.build_vault()
+                logger.info("Second Brain reconstruido con éxito.")
+            except Exception as sb_exc:
+                logger.warning("Error reconstruyendo Second Brain: %s", sb_exc)
 
+            # Registrar aprendizaje
+            save_rsi_learning(
+                target_file=source_file_name,
+                func_name="run_atomic_metadata_curation_step",
+                cycle_num=1,
+                metric_before=0.0,
+                metric_after=1.0,
+                summary_diff=f"Clave {clave}: Promovente='{promovente}', Sector='{sector}', Estado='{estado}', Municipio='{municipio}'",
+                auto_repaired=True
+            )
+            return {
+                "status": "PASS",
+                "curated": True,
+                "clave": clave,
+                "metadata": {"promovente": promovente, "sector": sector, "estado": estado, "municipio": municipio}
+            }
+    except Exception as exc:
+        logger.warning("Error en curaduría atómica para clave %s: %s", clave, exc)
+
+    return {"status": "error_curating", "curated": False, "clave": clave}
