@@ -177,12 +177,14 @@ async function loadStatus() {
     State.ramHistory.push(ram); State.ramHistory.shift();
     updateSparklines();
 
-    const cpuEl  = $('#status-cpu');
-    const ramEl  = $('#status-ram');
-    const diskEl = $('#status-disk');
-    const pill   = $('#sys-status-pill');
-    const dot    = $('#status-dot');
-    const txt    = $('#status-text');
+    const cpuEl      = $('#status-cpu');
+    const ramEl      = $('#status-ram');
+    const diskEl     = $('#status-disk');
+    const llamaEl    = $('#status-llama');
+    const workloadEl = $('#status-workload');
+    const pill       = $('#sys-status-pill');
+    const dot        = $('#status-dot');
+    const txt        = $('#status-text');
 
     if (cpuEl)  cpuEl.textContent  = `${cpu}%`;
     if (ramEl)  ramEl.textContent  = `${ram}%`;
@@ -190,6 +192,31 @@ async function loadStatus() {
     if (pill)   pill.classList.add('status-pill--online');
     if (txt)    txt.textContent = 'ONLINE';
     if (dot)    dot.style.background = '';
+
+    // Llama status
+    if (llamaEl && d.llama) {
+      const st = d.llama.status || 'offline';
+      llamaEl.textContent = st.toUpperCase();
+      llamaEl.style.color = st === 'online' ? '#00FF66' : st === 'booting' ? '#FFB000' : '#888888';
+    }
+
+    // Workload status
+    if (workloadEl) {
+      const jobs = d.active_jobs || [];
+      if (jobs.length > 0) {
+        workloadEl.textContent = jobs[0].toUpperCase();
+        workloadEl.className = 'sys-metric__value workload-pill workload-pill--active';
+      } else {
+        workloadEl.textContent = 'IDLE';
+        workloadEl.className = 'sys-metric__value workload-pill workload-pill--idle';
+      }
+    }
+
+    // Resource alert highlight
+    const metricCpu = $('#metric-cpu');
+    const metricRam = $('#metric-ram');
+    if (metricCpu) metricCpu.classList.toggle('sys-metric--alert', cpu > 85);
+    if (metricRam) metricRam.classList.toggle('sys-metric--alert', ram > 85);
 
     // Sidebar stats
     updateSidebarStats(d);
@@ -942,7 +969,22 @@ function initScraperActions() {
       const level = evt.level === 'warning' ? 'warn'
                   : evt.status === 'complete' ? 'ok'
                   : evt.status === 'error' ? 'error' : 'info';
-      appendLog(logEl, evt.msg || evt.status, level);
+
+      let msg = evt.msg || evt.status;
+      if (evt.source) {
+        const badgeClass = evt.source === 'ASEA' ? 'badge--asea' : 'badge--semarnat';
+        msg = `<span class="badge ${badgeClass}">${evt.source}</span> ${escHtml(msg)}`;
+      } else {
+        msg = escHtml(msg);
+      }
+      appendLog(logEl, msg, level);
+
+      if (evt.n_semarnat !== undefined || evt.n_asea !== undefined) {
+        const bdEl = $('#scraper-source-breakdown');
+        if (bdEl) {
+          bdEl.innerHTML = `<span style="color:#FFB000;">SEMARNAT: ${evt.n_semarnat || 0}</span> | <span style="color:#00E5FF;">ASEA: ${evt.n_asea || 0}</span>`;
+        }
+      }
 
       if (evt.status === 'complete') {
         es.close();
@@ -972,15 +1014,17 @@ function initScraperActions() {
 
   if (btnExtractKeys) {
     btnExtractKeys.addEventListener('click', () => {
-      const year = $('#scraper-year')?.value || '2026';
-      runSse(`/api/scraper/extract-keys?year=${year}`, `Extraer claves ${year}`);
+      const year   = $('#scraper-year')?.value || '2026';
+      const source = $('#scraper-source')?.value || 'all';
+      runSse(`/api/scraper/extract-keys?year=${year}&source=${source}`, `Extraer claves (${source.toUpperCase()}) ${year}`);
     });
   }
 
   if (btnRunPipeline) {
     btnRunPipeline.addEventListener('click', () => {
-      const year = $('#scraper-year')?.value || '2026';
-      runSse(`/api/scraper/run-pipeline?year=${year}`, `Pipeline ${year}`);
+      const year   = $('#scraper-year')?.value || '2026';
+      const source = $('#scraper-source')?.value || 'all';
+      runSse(`/api/scraper/run-pipeline?year=${year}&source=${source}`, `Pipeline (${source.toUpperCase()}) ${year}`);
     });
   }
 
@@ -988,6 +1032,13 @@ function initScraperActions() {
     btnDownloadRemaining.addEventListener('click', () => {
       const year = $('#scraper-year')?.value || '2026';
       runSse(`/api/scraper/download-remaining?year=${year}`, `Descarga pendientes ${year}`);
+    });
+  }
+
+  const btnBatchSummaries = $('#btn-batch-summaries');
+  if (btnBatchSummaries) {
+    btnBatchSummaries.addEventListener('click', () => {
+      runSse('/api/scraper/batch-summaries?max_files=5', 'Auto-resumen batch (5 PDFs)');
     });
   }
 }
@@ -1351,6 +1402,41 @@ function initSecondBrainActions() {
       }
     });
   }
+
+  const btnAutolink = $('#btn-autolink-sb');
+  if (btnAutolink) {
+    btnAutolink.addEventListener('click', async () => {
+      btnAutolink.disabled = true;
+      if (progEl) { progEl.classList.remove('hidden'); setProgress(progEl, 30); }
+      appendLog(logEl, 'Ejecutando auto-etiquetado y generación de wikilinks...', 'info');
+
+      try {
+        const r = await fetch('/api/second_brain/autolink', { method: 'POST' });
+        if (progEl) setProgress(progEl, 80);
+        const d = await r.json();
+
+        if (progEl) {
+          setProgress(progEl, 100);
+          setTimeout(() => progEl.classList.add('hidden'), 1500);
+        }
+
+        if (r.ok && d.status === 'ok') {
+          appendLog(logEl, `Auto-etiquetado completado: ${d.processed} notas procesadas (${d.tags_added} tags, ${d.wikilinks_added} wikilinks)`, 'ok');
+          showToast(`Second Brain: ${d.processed} notas enriquecidas`, 'ok');
+          await loadStatus();
+          await loadWikiNotesList();
+        } else {
+          appendLog(logEl, `Error: ${d.msg || 'Fallo en auto-etiquetado'}`, 'error');
+          showToast('Error procesando autolink', 'error');
+        }
+      } catch (err) {
+        appendLog(logEl, `Fallo de red: ${err}`, 'error');
+        if (progEl) progEl.classList.add('hidden');
+      } finally {
+        btnAutolink.disabled = false;
+      }
+    });
+  }
 }
 
 /* =========================================================================
@@ -1385,8 +1471,14 @@ async function loadWorkflowGacetas() {
         li.setAttribute('role', 'option');
         const countLabel = gaceta.clave_count > 0 ? `[${gaceta.clave_count}]` : '[─]';
         const sizeKB = gaceta.size_bytes ? `${(gaceta.size_bytes/1024).toFixed(0)}KB` : '';
+        const isAsea = gaceta.source === 'ASEA' || gaceta.name.toUpperCase().startswith?.('ASEA_') || gaceta.name.toUpperCase().startsWith('ASEA_');
+        const badgeClass = isAsea ? 'badge--asea' : 'badge--semarnat';
+        const badgeText = isAsea ? 'ASEA' : 'SEMARNAT';
+
         li.innerHTML = `
-          <span class="file-item__name" title="${escHtml(gaceta.name)}">▫ ${escHtml(gaceta.name)}</span>
+          <span class="file-item__name" title="${escHtml(gaceta.name)}">
+            <span class="badge ${badgeClass}" style="margin-right:4px; font-size:9px;">${badgeText}</span>${escHtml(gaceta.name)}
+          </span>
           <span class="file-item__badge text-muted">${countLabel} ${sizeKB}</span>
         `;
         li.addEventListener('click', () => {
@@ -1445,9 +1537,14 @@ async function loadWorkflowGacetaKeys(gacetaName) {
 
       const projName = item.project_name || `Proyecto ${item.clave}`;
       const location = item.location || 'Desconocida';
+      const srcTag   = item.source || (item.clave?.startsWith('ASEA') ? 'ASEA' : 'SEMARNAT');
+      const badgeClass = srcTag === 'ASEA' ? 'badge--asea' : 'badge--semarnat';
 
       tr.innerHTML = `
-        <td style="font-family:var(--font-mono); font-weight:700; color:var(--color-amber);">${escHtml(item.clave)}</td>
+        <td style="font-family:var(--font-mono); font-weight:700;">
+          <span class="badge ${badgeClass}" style="margin-right:4px;">${srcTag}</span>
+          <span style="color:var(--color-amber);">${escHtml(item.clave)}</span>
+        </td>
         <td style="font-size:11px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(projName)}">${escHtml(projName)}</td>
         <td style="font-size:11px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(location)}">${escHtml(location)}</td>
         <td>${cell(item.has_pdf_estudio)}</td>

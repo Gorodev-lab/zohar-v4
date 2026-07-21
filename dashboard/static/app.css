@@ -225,6 +225,20 @@ html, body {
   text-align: right;
 }
 
+.sys-metric--alert {
+  border-color: var(--color-alert) !important;
+  animation: alert-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes alert-pulse {
+  0%, 100% { border-color: var(--color-alert); }
+  50%      { border-color: rgba(255, 68, 68, 0.3); }
+}
+
+.workload-pill--idle   { color: var(--color-ok); }
+.workload-pill--active { color: var(--color-amber); animation: blink 1.2s step-start infinite; }
+.workload-pill--warn   { color: var(--color-alert); font-weight: 700; }
+
 .topbar__right {
   display: flex;
   align-items: center;
@@ -928,6 +942,8 @@ html, body {
 .badge--law    { color: var(--color-purple); border-color: var(--color-purple); }
 .badge--bio    { color: var(--color-ok);     border-color: var(--color-ok); }
 .badge--warn   { color: var(--color-alert);  border-color: var(--color-alert); }
+.badge--semarnat { color: #FFB000; border-color: rgba(255, 176, 0, 0.5); background: rgba(255, 176, 0, 0.12); }
+.badge--asea     { color: #00E5FF; border-color: rgba(0, 229, 255, 0.5); background: rgba(0, 229, 255, 0.12); }
 
 /* =========================================================================
    GRAPH

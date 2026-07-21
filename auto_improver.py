@@ -635,7 +635,7 @@ def call_llama_server(prompt: str) -> str:
     formatted_prompt = f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
     payload = {
         "prompt": formatted_prompt,
-        "n_predict": 384,
+        "n_predict": 1400,
         "temperature": 0.2,
         "stop": ["<end_of_turn>", "<eos>"]
     }
@@ -672,6 +672,15 @@ def extract_python_block(raw: str) -> str:
     m2 = re.search(r"```\s*(.*?)\s*```", raw, re.DOTALL)
     if m2:
         return m2.group(1).strip()
+
+    # Fallback: bloque abierto pero sin cerrar (respuesta cortada por n_predict).
+    # Tomamos desde el primer ```python (o ```) hasta el final de la respuesta.
+    m3 = re.search(r"```python\s*(.*)$", raw, re.DOTALL | re.IGNORECASE)
+    if m3:
+        return m3.group(1).strip()
+    m4 = re.search(r"```\s*(.*)$", raw, re.DOTALL)
+    if m4:
+        return m4.group(1).strip()
 
     return ""
 

@@ -352,9 +352,11 @@ async def root():
     return HTMLResponse("<h1>Zohar v4 — Dashboard no disponible</h1>", status_code=503)
 
 
+ACTIVE_JOBS: set[str] = set()
+
 @app.get("/api/status", tags=["system"])
 async def api_status():
-    """Retorna métricas del sistema: CPU, RAM, disco, uptime, Second Brain."""
+    """Retorna métricas del sistema: CPU, RAM, disco, uptime, Second Brain y estado de LLM local."""
     boot_time = psutil.boot_time()
     uptime_sec = int(time.time() - boot_time)
     disk = psutil.disk_usage("/")
@@ -368,17 +370,24 @@ async def api_status():
         sb_stats["entities"] = len(list((sb_dir / "02_Entities").glob("*.md")))
         sb_stats["inferences"] = len(list((sb_dir / "03_Inferences").glob("*.md")))
 
+    cpu = psutil.cpu_percent(interval=0.1)
+    ram = psutil.virtual_memory().percent
+    llama_status_res = await get_llama_status()
+
     return {
         "status": "ok",
         "uptime_seconds": uptime_sec,
-        "cpu_pct": psutil.cpu_percent(interval=0.1),
-        "ram_pct": psutil.virtual_memory().percent,
+        "cpu_pct": cpu,
+        "ram_pct": ram,
         "ram_used_gb": round(psutil.virtual_memory().used / 1e9, 2),
         "disk_free_gb": round(disk.free / 1e9, 2),
         "disk_used_pct": disk.percent,
         "platform": platform.system(),
         "python": platform.python_version(),
         "second_brain": sb_stats,
+        "llama": llama_status_res,
+        "active_jobs": list(ACTIVE_JOBS),
+        "resource_alert": cpu > 85.0 or ram > 85.0,
     }
 
 
@@ -1171,6 +1180,15 @@ def extract_project_info_from_text(clave: str, text: str) -> tuple[str, str, str
     return project_name, location, promovente
 
 
+def _determine_source(file_path: str) -> str:
+    if not file_path:
+        return "SEMARNAT"
+    p = Path(file_path)
+    if "asea" in file_path.lower() or p.name.startswith("ASEA_") or p.parent.name == "asea":
+        return "ASEA"
+    return "SEMARNAT"
+
+
 @app.get("/api/scraper/extract-keys", tags=["scraper"])
 async def extract_keys(year: int = Query(2026), source: str = Query("sinat", description="sinat | asea | all")):
     r"""
@@ -1196,17 +1214,29 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
                     header = next(reader, None)
                     for row in reader:
                         if len(row) >= 3:
-                            row_clave, row_year, row_file = row[:3]
-                            row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
-                            row_loc = row[4] if len(row) > 4 else ""
-                            row_prom = row[5] if len(row) > 5 else "Desconocido"
+                            row_clave = row[0]
+                            row_year = row[1]
+                            if len(row) >= 7:
+                                row_source = row[2]
+                                row_file = row[3]
+                                row_proj_name = row[4]
+                                row_loc = row[5]
+                                row_prom = row[6]
+                            else:
+                                row_file = row[2]
+                                row_source = _determine_source(row_file)
+                                row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
+                                row_loc = row[4] if len(row) > 4 else ""
+                                row_prom = row[5] if len(row) > 5 else "Desconocido"
+
                             # Si es placeholder huérfano, omitirlo
                             if row_clave == "23QR2024TD085" and not row_file:
                                 continue
-                            is_row_asea = row_file and ("asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_"))
+                            is_row_asea = row_source == "ASEA" or (row_file and ("asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_")))
                             item = {
                                 "CLAVE": row_clave,
                                 "YEAR": int(row_year),
+                                "SOURCE": "ASEA" if is_row_asea else "SEMARNAT",
                                 "FILE": row_file,
                                 "PROJECT_NAME": row_proj_name,
                                 "LOCATION": row_loc,
@@ -1221,13 +1251,13 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
             except Exception as exc:
                 logger.warning("Error leyendo CSV existente para preservar claves: %s", exc)
 
-        yield {"status": "progress", "msg": f"Descargando/Verificando gacetas ecológicas ({source}) {year}...", "pct": 5}
+        yield {"status": "progress", "msg": f"Descargando/Verificando gacetas ecológicas ({source.upper()}) {year}...", "pct": 5}
 
         gacetas_descargadas = []
 
         # 1. Obtener gacetas de SINAT si corresponde
         if source == "sinat" or source == "all":
-            yield {"status": "progress", "msg": f"Buscando gacetas SINAT {year}...", "pct": 10}
+            yield {"status": "progress", "msg": f"Buscando gacetas SEMARNAT {year}...", "pct": 10}
             scraper = GazetteScraper(output_dir=str(GACETAS_DIR))
             sinat_files = []
             for event in scraper._descargar_gacetas_ano_gen(year):
@@ -1303,6 +1333,7 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
             # Buscar todas las claves válidas en el texto
             found_keys = _CLAVE_RE.findall(text_content.upper())
             gaceta_count = 0
+            src_tag = _determine_source(str(g_pdf_path))
             for clave in found_keys:
                 if clave not in seen_claves:
                     seen_claves.add(clave)
@@ -1310,6 +1341,7 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
                     new_claves.append({
                         "CLAVE": clave,
                         "YEAR": year,
+                        "SOURCE": src_tag,
                         "FILE": str(g_pdf_path),
                         "PROJECT_NAME": proj_name,
                         "LOCATION": loc,
@@ -1320,17 +1352,20 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
             if gaceta_count > 0:
                 yield {
                     "status": "progress",
-                    "msg": f"Extraídas {gaceta_count} claves de: {g_pdf_path.name}",
+                    "msg": f"[{src_tag}] Extraídas {gaceta_count} claves de: {g_pdf_path.name}",
                     "pct": pct,
+                    "source": src_tag,
+                    "gaceta": g_pdf_path.name,
+                    "count": gaceta_count
                 }
 
         # Generar CSV combinando existentes y nuevas
         final_claves = existing_claves + new_claves
         DATA_DIR.mkdir(parents=True, exist_ok=True)
-        fieldnames = ["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION", "PROMOVENTE"]
+        fieldnames = ["CLAVE", "YEAR", "SOURCE", "FILE", "PROJECT_NAME", "LOCATION", "PROMOVENTE"]
         if final_claves:
-            # Ordenar para consistencia
-            final_claves.sort(key=lambda x: (x.get("FILE", ""), x.get("CLAVE", "")))
+            # Ordenar por origen, archivo y clave para consistencia
+            final_claves.sort(key=lambda x: (x.get("SOURCE", ""), x.get("FILE", ""), x.get("CLAVE", "")))
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
@@ -1343,17 +1378,23 @@ async def extract_keys(year: int = Query(2026), source: str = Query("sinat", des
                 writer.writerow({
                     "CLAVE": "23QR2024TD085",
                     "YEAR": year,
+                    "SOURCE": "SEMARNAT",
                     "FILE": "",
                     "PROJECT_NAME": "Proyecto 23QR2024TD085",
                     "LOCATION": "Desconocida",
                     "PROMOVENTE": "Desconocido"
                 })
 
+        n_semarnat = sum(1 for c in final_claves if c.get("SOURCE") == "SEMARNAT")
+        n_asea = sum(1 for c in final_claves if c.get("SOURCE") == "ASEA")
+
         yield {
             "status": "complete",
-            "msg": f"CSV generado: {csv_path.name} ({len(final_claves)} claves de proyectos válidas)",
+            "msg": f"CSV generado: {csv_path.name} ({len(final_claves)} claves válidas: {n_semarnat} SEMARNAT | {n_asea} ASEA)",
             "csv_path": str(csv_path),
             "n_claves": len(final_claves),
+            "n_semarnat": n_semarnat,
+            "n_asea": n_asea,
             "n_invalidas": 0,
         }
 
@@ -1513,16 +1554,28 @@ def run_pipeline_generator(year: int, source: str, rebuild_wiki: bool = True):
                 header = next(reader, None)
                 for row in reader:
                     if len(row) >= 3:
-                        row_clave, row_year, row_file = row[:3]
-                        row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
-                        row_loc = row[4] if len(row) > 4 else ""
-                        row_prom = row[5] if len(row) > 5 else "Desconocido"
+                        row_clave = row[0]
+                        row_year = row[1]
+                        if len(row) >= 7:
+                            row_source = row[2]
+                            row_file = row[3]
+                            row_proj_name = row[4]
+                            row_loc = row[5]
+                            row_prom = row[6]
+                        else:
+                            row_file = row[2]
+                            row_source = _determine_source(row_file)
+                            row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
+                            row_loc = row[4] if len(row) > 4 else ""
+                            row_prom = row[5] if len(row) > 5 else "Desconocido"
+
                         if row_clave == "23QR2024TD085" and not row_file:
                             continue
-                        is_row_asea = row_file and ("asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_"))
+                        is_row_asea = row_source == "ASEA" or (row_file and ("asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_")))
                         item = {
                             "CLAVE": row_clave,
                             "YEAR": int(row_year),
+                            "SOURCE": "ASEA" if is_row_asea else "SEMARNAT",
                             "FILE": row_file,
                             "PROJECT_NAME": row_proj_name,
                             "LOCATION": row_loc,
@@ -1542,6 +1595,7 @@ def run_pipeline_generator(year: int, source: str, rebuild_wiki: bool = True):
         md_path = EXTRACTIONS_DIR / f"{g_pdf.stem}.md"
         if md_path.exists() and md_path.stat().st_size > 0:
             text = md_path.read_text(encoding="utf-8", errors="ignore")
+            src_tag = _determine_source(str(g_pdf))
             for clave in _CLAVE_RE.findall(text.upper()):
                 if clave not in seen_claves:
                     seen_claves.add(clave)
@@ -1549,6 +1603,7 @@ def run_pipeline_generator(year: int, source: str, rebuild_wiki: bool = True):
                     new_claves.append({
                         "CLAVE": clave,
                         "YEAR": year,
+                        "SOURCE": src_tag,
                         "FILE": str(g_pdf),
                         "PROJECT_NAME": proj_name,
                         "LOCATION": loc,
@@ -1557,10 +1612,10 @@ def run_pipeline_generator(year: int, source: str, rebuild_wiki: bool = True):
                     
     final_claves = existing_claves + new_claves
     if final_claves:
-        final_claves.sort(key=lambda x: (x.get("FILE", ""), x.get("CLAVE", "")))
+        final_claves.sort(key=lambda x: (x.get("SOURCE", ""), x.get("FILE", ""), x.get("CLAVE", "")))
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv_module.DictWriter(f, fieldnames=["CLAVE", "YEAR", "FILE", "PROJECT_NAME", "LOCATION", "PROMOVENTE"])
+            writer = csv_module.DictWriter(f, fieldnames=["CLAVE", "YEAR", "SOURCE", "FILE", "PROJECT_NAME", "LOCATION", "PROMOVENTE"])
             writer.writeheader()
             writer.writerows(final_claves)
     yield {"status": "progress", "msg": f"Claves: {len(final_claves)} encontradas en total ({len(all_pdfs)} gacetas procesadas)", "pct": 65, "stage": "keys"}
@@ -2096,7 +2151,7 @@ async def get_second_brain_note(name: str = Query(..., description="Nombre de la
     raise HTTPException(404, detail=f"Nota '{name}' no encontrada en la bóveda")
 
 
-@app.get("/api/scraper/gacetas-summary", tags=["scraper"])
+@app.get("/api/workflow/gacetas", tags=["workflow"])
 async def get_gacetas_summary(year: int = Query(2026), source: str = Query("all", description="sinat | asea | all")):
     """
     Retorna el listado de todas las gacetas del año con el conteo de claves
@@ -2115,8 +2170,10 @@ async def get_gacetas_summary(year: int = Query(2026), source: str = Query("all"
     
     summary = {}
     for g in gacetas_pdfs:
+        src = _determine_source(str(g))
         summary[g.stem.upper()] = {
             "name": g.name,
+            "source": src,
             "size_bytes": g.stat().st_size,
             "clave_count": 0
         }
@@ -2125,14 +2182,21 @@ async def get_gacetas_summary(year: int = Query(2026), source: str = Query("all"
         try:
             import csv
             with open(csv_path, "r", encoding="utf-8") as f:
-                # Omitir header
+                reader = csv.reader(f)
                 f.readline()
-                for row in csv.reader(f):
+                for row in reader:
                     if len(row) >= 3:
-                        row_clave, _, row_file = row[:3]
+                        row_clave = row[0]
+                        if len(row) >= 7:
+                            row_source = row[2]
+                            row_file = row[3]
+                        else:
+                            row_file = row[2]
+                            row_source = _determine_source(row_file)
+                            
                         if row_file:
                             stem = Path(row_file).stem.upper()
-                            is_file_asea = "asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_")
+                            is_file_asea = row_source == "ASEA" or "asea" in row_file.lower() or Path(row_file).name.startswith("ASEA_")
                             
                             # Validar que coincida con el origen filtrado
                             if source == "sinat" and is_file_asea:
@@ -2145,6 +2209,7 @@ async def get_gacetas_summary(year: int = Query(2026), source: str = Query("all"
                             else:
                                 summary[stem] = {
                                     "name": Path(row_file).name,
+                                    "source": "ASEA" if is_file_asea else "SEMARNAT",
                                     "size_bytes": 0,
                                     "clave_count": 1
                                 }
@@ -2154,7 +2219,7 @@ async def get_gacetas_summary(year: int = Query(2026), source: str = Query("all"
     return {"gacetas": list(summary.values())}
 
 
-@app.get("/api/scraper/gaceta-keys", tags=["scraper"])
+@app.get("/api/workflow/gacetas/{gaceta_name}/keys", tags=["workflow"])
 async def get_gaceta_keys(gaceta_name: str, year: int = Query(2026)):
     """
     Retorna la lista de claves asociadas a una gaceta específica y el estado
@@ -2170,19 +2235,24 @@ async def get_gaceta_keys(gaceta_name: str, year: int = Query(2026)):
 
     try:
         with open(csv_path, "r", encoding="utf-8") as f:
-            # Leer usando csv.reader para robustez
             reader = csv.reader(f)
-            # Omitir header
             f.readline()
             for row in reader:
                 if len(row) >= 3:
-                    row_clave, _, row_file = row[:3]
-                    row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
-                    row_loc = row[4] if len(row) > 4 else "Desconocida"
+                    row_clave = row[0]
+                    if len(row) >= 7:
+                        row_source = row[2]
+                        row_file = row[3]
+                        row_proj_name = row[4]
+                        row_loc = row[5]
+                    else:
+                        row_file = row[2]
+                        row_source = _determine_source(row_file)
+                        row_proj_name = row[3] if len(row) > 3 else f"Proyecto {row_clave}"
+                        row_loc = row[4] if len(row) > 4 else "Desconocida"
                     
                     # Comprobar si pertenece a la gaceta consultada
                     if row_file and Path(row_file).stem.upper() == target_stem:
-                        # Comprobar estado de archivos en disco para esta clave (soporta legado y nuevo renombrado)
                         has_pdf_estudio = (DOWNLOADS_DIR / "estudios" / f"{row_clave}.pdf").exists() or bool(list((DOWNLOADS_DIR / "estudios").glob(f"{row_clave}.estudio.*.pdf")))
                         has_pdf_resumen = (DOWNLOADS_DIR / "resumenes" / f"{row_clave}.pdf").exists() or bool(list((DOWNLOADS_DIR / "resumenes").glob(f"{row_clave}.resumen.*.pdf")))
                         has_pdf_resolutivo = (DOWNLOADS_DIR / "resolutivos" / f"{row_clave}.pdf").exists() or bool(list((DOWNLOADS_DIR / "resolutivos").glob(f"{row_clave}.resolutivo.*.pdf")))
@@ -2196,6 +2266,7 @@ async def get_gaceta_keys(gaceta_name: str, year: int = Query(2026)):
 
                         claves_info.append({
                             "clave": row_clave,
+                            "source": row_source,
                             "project_name": row_proj_name,
                             "location": row_loc,
                             "has_pdf_estudio": has_pdf_estudio,
@@ -2211,6 +2282,53 @@ async def get_gaceta_keys(gaceta_name: str, year: int = Query(2026)):
         logger.error("Error leyendo claves para gaceta %s: %s", gaceta_name, exc)
 
     return {"gaceta": gaceta_name, "claves": claves_info}
+
+
+@app.get("/api/scraper/gacetas-summary", tags=["scraper"], include_in_schema=False)
+async def get_gacetas_summary_legacy(year: int = Query(2026), source: str = Query("all")):
+    return await get_gacetas_summary(year, source)
+
+
+@app.get("/api/scraper/gaceta-keys", tags=["scraper"], include_in_schema=False)
+async def get_gaceta_keys_legacy(gaceta_name: str = Query(...), year: int = Query(2026)):
+    return await get_gaceta_keys(gaceta_name, year)
+
+
+@app.get("/api/classifier/classify", tags=["classifier"])
+async def api_classify_item(input_string: str = Query(..., description="Clave SINAT o nombre de archivo")):
+    """Clasifica heurísticamente una clave o archivo sin uso de LLM."""
+    from core.classifier import classify_item
+    return classify_item(input_string)
+
+
+@app.get("/api/scraper/batch-summaries", tags=["scraper"])
+async def batch_summaries_endpoint(max_files: int = Query(5, ge=1, le=20)):
+    """Ejecuta un lote de auto-resúmenes de PDFs pendientes usando el generador batch Map-Reduce."""
+    from core.pdf_summarizer import batch_summarize_unprocessed_pdfs_gen
+
+    async def event_generator():
+        ACTIVE_JOBS.add("batch_summaries")
+        try:
+            for event in batch_summarize_unprocessed_pdfs_gen(max_files=max_files):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0.1)
+        finally:
+            ACTIVE_JOBS.discard("batch_summaries")
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.post("/api/second_brain/autolink", tags=["second_brain"])
+async def autolink_second_brain():
+    """Ejecuta el auto-etiquetado YAML y la vinculación de wikilinks en el Second Brain."""
+    from core.second_brain import SecondBrainBuilder
+    ACTIVE_JOBS.add("second_brain_autolink")
+    try:
+        builder = SecondBrainBuilder(BASE_DIR)
+        res = await asyncio.to_thread(builder.autolink_vault)
+        return res
+    finally:
+        ACTIVE_JOBS.discard("second_brain_autolink")
 
 
 @app.get("/api/llm/status", tags=["llm"])
