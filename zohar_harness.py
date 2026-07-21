@@ -50,20 +50,20 @@ def run_cmd(cmd: list[str], cwd: Path | None = None) -> tuple[int, str]:
 
 def restore_docker_stack() -> bool:
     """Intenta restaurar los contenedores Docker caídos."""
-    print("🚀  [AUTO-RESTAURACIÓN] Levantando contenedores Docker...")
+    print("  [AUTO-RESTAURACIÓN] Levantando contenedores Docker...")
     code, out = run_cmd(["docker", "compose", "-f", "dw/docker-compose.yml", "up", "-d"])
     if code == 0:
-        print("✅  Contenedores iniciados correctamente.")
+        print("  [PASS] Contenedores iniciados correctamente.")
         time.sleep(3.0)
         return True
     else:
-        print(f"❌  Error iniciando Docker: {out}")
+        print(f"  [FAIL] Error iniciando Docker: {out}")
         return False
 
 
 def test_local_llm_ping() -> dict:
     """Ejecuta un ping de sanidad en tiempo real al modelo local Gemma 4 E2B."""
-    print("🦙  [SANITY CHECK] Probando inferencia con el modelo local Gemma 4 E2B...")
+    print("  [SANITY CHECK] Probando inferencia con el modelo local Gemma 4 E2B...")
     t0 = time.time()
     payload = {
         "prompt": "<start_of_turn>user\nPing de diagnóstico Zohar v4: confirma estado OK.<end_of_turn>\n<start_of_turn>model\n",
@@ -78,24 +78,24 @@ def test_local_llm_ping() -> dict:
             if res.status_code == 200:
                 data = res.json()
                 content = data.get("content", "").strip()
-                print(f"✅  Inferencia exitosa en {elapsed_ms}ms! Respuesta: \"{content[:60]}...\"")
+                print(f"  [PASS] Inferencia exitosa en {elapsed_ms}ms! Respuesta: \"{content[:60]}...\"")
                 return {
                     "status": "PASS",
                     "latency_ms": elapsed_ms,
                     "response_preview": content[:100],
                 }
             else:
-                print(f"⚠️  Respuesta HTTP {res.status_code} de Llama-Server: {res.text[:100]}")
+                print(f"  [WARN] Respuesta HTTP {res.status_code} de Llama-Server: {res.text[:100]}")
                 return {"status": "FAIL", "error": f"HTTP {res.status_code}"}
     except Exception as exc:
-        print(f"❌  Error conectando con Llama-Server: {exc}")
+        print(f"  [FAIL] Error conectando con Llama-Server: {exc}")
         return {"status": "FAIL", "error": str(exc)}
 
 
 def run_harness() -> dict:
     """Ejecuta la maniobra completa de verificación, restauración y sanidad."""
     print("==========================================================")
-    print("🌌  ZOHAR V4 — HARNESS DE MANIOBRA ÚNICA & DIAGNÓSTICO")
+    print("  ZOHAR V4 — HARNESS DE MANIOBRA ÚNICA & DIAGNÓSTICO")
     print("==========================================================")
 
     results = {}
@@ -106,15 +106,15 @@ def run_harness() -> dict:
         ok = check_port(spec["host"], spec["port"])
         results[name] = {"port": spec["port"], "status": "ONLINE" if ok else "OFFLINE"}
         if ok:
-            print(f"  🟢 {name:<28} (Puerto {spec['port']}): ONLINE")
+            print(f"  [ONLINE]  {name:<28} (Puerto {spec['port']})")
         else:
-            print(f"  🔴 {name:<28} (Puerto {spec['port']}): OFFLINE")
+            print(f"  [OFFLINE] {name:<28} (Puerto {spec['port']})")
             if spec["critical"]:
                 down_found = True
 
     # 2. Auto-restauración si hay fallos críticos
     if down_found:
-        print("\n⚠️  Servicios críticos no detectados. Intentando auto-restauración...")
+        print("\n  [WARN] Servicios críticos no detectados. Intentando auto-restauración...")
         restore_docker_stack()
         # Re-comprobar
         for name, spec in SERVICES.items():
@@ -140,9 +140,9 @@ def run_harness() -> dict:
 
     print("\n----------------------------------------------------------")
     if green_light:
-        print("🟢  [GREEN LIGHT STATUS]: TODO EL STACK ESTÁ DISPONIBLE Y OPERATIVO.")
+        print("  [GREEN LIGHT STATUS]: TODO EL STACK ESTÁ DISPONIBLE Y OPERATIVO.")
     else:
-        print("🔴  [RED LIGHT STATUS]: ALGUNOS SERVICIOS REQUIEREN ATENCIÓN.")
+        print("  [RED LIGHT STATUS]: ALGUNOS SERVICIOS REQUIEREN ATENCIÓN.")
     print("----------------------------------------------------------\n")
 
     return report
