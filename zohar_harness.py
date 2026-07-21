@@ -72,7 +72,7 @@ def test_local_llm_ping() -> dict:
         "stop": ["<end_of_turn>", "<eos>"]
     }
     try:
-        with httpx.Client(timeout=10.0) as client:
+        with httpx.Client(timeout=30.0) as client:
             res = client.post(f"{LOCAL_LLM_URL}/completion", json=payload)
             elapsed_ms = int((time.time() - t0) * 1000)
             if res.status_code == 200:
