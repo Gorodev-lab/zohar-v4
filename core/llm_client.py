@@ -93,6 +93,8 @@ def generate_completion(
         payload = {
             "prompt": formatted_prompt,
             "temperature": 0.1,
+            "n_predict": 512,
+            "stop": ["<end_of_turn>", "<eos>"],
         }
         
         try:

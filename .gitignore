@@ -16,9 +16,35 @@ __pycache__/
 downloads/
 extractions/
 second_brain/
+descargas_prueba/
+test_full_download/
 data/inference_cache/
 data/graph_cache.json
 data/claves_*.csv
+data/harness_test/
+models/
+dw/postgres_data/
+dw/redis_data/
+dw/neo4j_data/
+dw/neo4j_logs/
+
+# Temporary / diagnostic / backup files
+*.bak
+*.bak*
+*.rsi_bak
+*.pre_patch_*
+debug_failed_*.py
+patch_*.py
+diag_*.py
+diagnose_*.py
+fix_import.py
+test_descarga.py
+test_humo.py
+scraper.log
+scraper_ledger.db
+zohar_rsi.log
+zohar_rsi.log*
+autoresearch/rsi.pid
 
 # OS specific files
 .DS_Store
@@ -28,8 +54,3 @@ Thumbs.db
 scratch/*.png
 scratch/portal_screenshot.png
 scratch/search_result.png
-data/*.json
-data/*.json.bak
-data/graph_cache.json
-data/graph_cache.json.bak
-

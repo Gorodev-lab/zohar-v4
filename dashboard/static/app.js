@@ -1795,6 +1795,7 @@ async function activateModelChatTab() {
   await loadModelChatStatus();
   await loadModelChatTools();
   await populateChatClaveSelect();
+  await populateChatEvalSelect();
 }
 
 async function loadModelChatStatus() {
@@ -1840,6 +1841,33 @@ async function loadModelChatTools() {
     }
   } catch (err) {
     toolsList.innerHTML = '<span class="text-alert">[ Error cargando herramientas ]</span>';
+  }
+}
+
+async function populateChatEvalSelect() {
+  const select = $('#chat-eval-select');
+  const inputChat = $('#chat-user-input');
+  if (!select) return;
+
+  try {
+    const res = await fetch('/api/eval/questions');
+    const d = await res.json();
+    if (d.questions) {
+      d.questions.forEach(q => {
+        const opt = document.createElement('option');
+        opt.value = q.question;
+        opt.textContent = q.label || q.question.substring(0, 30);
+        select.appendChild(opt);
+      });
+    }
+
+    select.onchange = () => {
+      if (select.value && inputChat) {
+        inputChat.value = select.value;
+      }
+    };
+  } catch (err) {
+    console.error('populateChatEvalSelect error:', err);
   }
 }
 
@@ -2032,6 +2060,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initLlamaServerActions();
   initSecondBrainActions();
   initRSIActions();
+  initRsiScraperActions();
   initWorkflowSubTabs();
   initLiveUpdates(); // Suscripción activa a SSE para cambios en archivos
 
@@ -2068,3 +2097,69 @@ function initRSIActions() {
   if (rsiPollHandle) clearInterval(rsiPollHandle);
   rsiPollHandle = setInterval(refreshRSIStatus, 3000);
 }
+
+function initRsiScraperActions() {
+  const btnRun = $('#btn-run-rsi-scraper');
+  const logEl  = $('#rsi-scraper-log');
+  const progEl = $('#rsi-scraper-progress');
+  const pctEl  = $('#rsi-scraper-pct');
+
+  if (!btnRun) return;
+
+  btnRun.addEventListener('click', () => {
+    const cycles = $('#rsi-scraper-cycles')?.value || 3;
+    const dryRun = $('#rsi-scraper-dryrun')?.checked ? 'true' : 'false';
+
+    if (State.rsiSseSource) {
+      State.rsiSseSource.close();
+      State.rsiSseSource = null;
+    }
+
+    appendLog(logEl, `Iniciando RSI Scraper (ciclos=${cycles}, dry_run=${dryRun})...`, 'info');
+    setProgress(progEl, 0);
+    if (pctEl) pctEl.textContent = '0%';
+    btnRun.disabled = true;
+
+    const url = `/api/rsi/run?cycles=${cycles}&dry_run=${dryRun}`;
+    const es = new EventSource(url);
+    State.rsiSseSource = es;
+
+    es.onmessage = (e) => {
+      try {
+        const evt = JSON.parse(e.data);
+        if (evt.pct !== undefined) {
+          setProgress(progEl, evt.pct);
+          if (pctEl) pctEl.textContent = `${evt.pct}%`;
+        }
+
+        const level = (evt.status === 'error' || evt.status === 'cycle_rollback') ? 'error'
+                    : (evt.status === 'warning') ? 'warn'
+                    : (evt.status === 'cycle_success' || evt.status === 'complete') ? 'ok'
+                    : 'info';
+
+        if (evt.msg) {
+          appendLog(logEl, evt.msg, level);
+        }
+
+        if (evt.status === 'diff' && evt.diff) {
+          appendLog(logEl, `Diff: +${evt.diff.added_lines} / -${evt.diff.removed_lines} líneas`, 'info');
+        }
+
+        if (evt.status === 'complete' || evt.status === 'error') {
+          es.close();
+          btnRun.disabled = false;
+          showToast(evt.msg || 'RSI Finalizado', level === 'error' ? 'error' : 'ok');
+        }
+      } catch (err) {
+        appendLog(logEl, `Parse error: ${err.message}`, 'error');
+      }
+    };
+
+    es.onerror = () => {
+      appendLog(logEl, 'Conexión SSE perdida con RSI', 'error');
+      es.close();
+      btnRun.disabled = false;
+    };
+  });
+}
+
