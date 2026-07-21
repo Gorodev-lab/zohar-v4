@@ -352,7 +352,7 @@ function initCorpusActions() {
       }
       const mdName = State.selectedPdf.name.replace(/\.pdf$/i, '.md');
       btnAnalyzeLlm.disabled = true;
-      btnAnalyzeLlm.innerHTML = '⏳ ANALIZANDO CON GEMMA 4...';
+      btnAnalyzeLlm.innerHTML = 'ANALIZANDO CON GEMMA 4...';
       showToast(`Analizando ${State.selectedPdf.name} con modelo local...`, 'info');
       if (logEl) appendLog(logEl, `Iniciando análisis LLM local para: ${mdName}`, 'info');
 
@@ -360,7 +360,7 @@ function initCorpusActions() {
         const res = await fetch(`/api/inference/${encodeURIComponent(mdName)}`);
         const data = await res.json();
         btnAnalyzeLlm.disabled = false;
-        btnAnalyzeLlm.innerHTML = '<span aria-hidden="true">⚡</span> ANALIZAR CON MODELO LOCAL';
+        btnAnalyzeLlm.innerHTML = '<span aria-hidden="true">✦</span> ANALIZAR CON MODELO LOCAL';
 
         if (viewerEl) {
           viewerEl.classList.add('md-viewer');
@@ -387,7 +387,7 @@ function initCorpusActions() {
         showToast(`Inferencia completada: ${data.veredicto || 'OK'}`, 'ok');
       } catch (err) {
         btnAnalyzeLlm.disabled = false;
-        btnAnalyzeLlm.innerHTML = '<span aria-hidden="true">⚡</span> ANALIZAR CON MODELO LOCAL';
+        btnAnalyzeLlm.innerHTML = '<span aria-hidden="true">✦</span> ANALIZAR CON MODELO LOCAL';
         if (logEl) appendLog(logEl, `Error de análisis LLM: ${err.message}`, 'error');
         showToast(`Error de análisis: ${err.message}`, 'error');
       }
@@ -1202,7 +1202,7 @@ async function loadWikiNotesList() {
         }
 
         btnSemanticSearch.disabled = true;
-        btnSemanticSearch.innerHTML = '<span aria-hidden="true">⏳</span>...';
+        btnSemanticSearch.innerHTML = '<span>...</span>';
         appendLog(logEl, `Búsqueda semántica: "${query}"...`, 'info');
 
         try {
@@ -1223,31 +1223,33 @@ async function loadWikiNotesList() {
           // Renderizar los resultados semánticos
           listEl.innerHTML = '';
           searchData.results.forEach(result => {
+            const noteTitle = result.title || result.clave;
             const li = document.createElement('li');
             li.className = 'file-item';
-            li.dataset.title = result.title;
+            li.dataset.title = noteTitle;
             li.setAttribute('role', 'option');
             const prefix = result.category === 'root' ? '◆ ' : '▸ ';
             li.innerHTML = `
               <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-                <span class="file-item__name" title="${escHtml(result.name)}">${prefix}${escHtml(result.title)}</span>
+                <span class="file-item__name" title="${escHtml(result.chunk_text ? result.chunk_text.substring(0, 80) + '...' : noteTitle)}">${prefix}${escHtml(noteTitle)}</span>
                 <span class="text-xs" style="color:var(--accent-color); font-family:var(--font-mono); font-weight:bold; opacity:0.8;">${result.pct}%</span>
               </div>
             `;
             li.addEventListener('click', () => {
               listEl.querySelectorAll('.file-item').forEach(i => i.classList.remove('selected'));
               li.classList.add('selected');
-              loadWikiNote(result.title);
+              loadWikiNote(noteTitle);
             });
             listEl.appendChild(li);
           });
 
           if (searchStatusBar) searchStatusBar.classList.remove('hidden');
-          if (searchStatusText) searchStatusText.textContent = `Semántica para: "${query.substring(0, 12)}..."`;
+          if (searchStatusText) searchStatusText.textContent = `Semántica: "${query.substring(0, 12)}..."`;
 
           // Cargar la primera nota del resultado semántico
           if (searchData.results.length > 0) {
-            loadWikiNote(searchData.results[0].title);
+            const firstTitle = searchData.results[0].title || searchData.results[0].clave;
+            loadWikiNote(firstTitle);
           }
 
         } catch (err) {
@@ -2120,7 +2122,7 @@ async function loadModelChatTools() {
         item.style.cssText = 'background:var(--bg-surface-dim); border:1px solid var(--border-color); padding:8px 10px; font-family:var(--font-mono); font-size:10px; margin-bottom:8px;';
         item.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; font-weight:bold; color:var(--color-amber);">
-            <span>⚡ ${tool.name}()</span>
+            <span>✦ ${tool.name}()</span>
             <span style="font-size:8px; border:1px solid var(--color-green); color:var(--color-green); padding:0 4px; background:rgba(39, 174, 96, 0.1);">DISPONIBLE</span>
           </div>
           <span style="color:var(--text-muted); display:block; font-family:var(--font-sans); line-height:1.3;">${tool.description}</span>
@@ -2246,7 +2248,7 @@ async function sendChatMessage() {
         const argsStr = typeof call.arguments === 'object' ? JSON.stringify(call.arguments) : String(call.arguments);
         toolDiv.innerHTML = `
           <span class="log-line__ts" style="color:var(--color-amber);">[TOOL_CALL]</span>
-          <span class="log-line__msg" style="font-family:var(--font-mono); font-size:10px; color:var(--color-amber); font-weight:bold;">⚡ ${call.name}(${escHtml(argsStr)})</span>
+          <span class="log-line__msg" style="font-family:var(--font-mono); font-size:10px; color:var(--color-amber); font-weight:bold;">✦ ${call.name}(${escHtml(argsStr)})</span>
           <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-muted); margin-top:4px; max-height:120px; overflow-y:auto; white-space:pre-wrap; border:1px solid var(--border-color-dim); padding:6px; background:rgba(0,0,0,0.3);">
 [RESULTADO]:
 ${escHtml(call.result)}
@@ -2651,7 +2653,7 @@ async function executeRAGQuery() {
   }
 
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner" aria-hidden="true">⏳</span> CONSULTANDO...';
+  btn.innerHTML = '<span>...</span> CONSULTANDO...';
   answerBody.innerHTML = '<span class="text-muted" style="font-style:italic;">Buscando fuentes vectoriales y sintetizando respuesta con citas...</span>';
 
   try {
