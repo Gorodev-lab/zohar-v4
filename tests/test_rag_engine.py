@@ -90,3 +90,18 @@ def test_api_rag_endpoints():
     res_reindex = client.post("/api/rag/reindex", json={"limit": 2})
     assert res_reindex.status_code == 200
     assert "total" in res_reindex.json()
+
+
+def test_rag_hybrid_retrieval(tmp_path):
+    """Verifica la recuperación híbrida BM25 + Vectorial por RRF."""
+    engine = RAGEngine(base_dir=tmp_path)
+    sample_md = """# Proyecto Hidrocarburos PEMEX
+    ## Normativa
+    Cumple con la norma NOM-059-SEMARNAT-2010 y protección de manglar costero.
+    """
+    engine.index_document("21PU2025H0155", sample_md)
+
+    hybrid_res = engine.retrieve_hybrid("NOM-059 manglar", top_k=2)
+    assert len(hybrid_res) > 0
+    assert hybrid_res[0]["clave"] == "21PU2025H0155"
+    assert hybrid_res[0]["score"] > 0.0
