@@ -30,6 +30,26 @@ class SecondBrainBuilder:
         self.inferences_dir = self.sb_dir / "03_Inferences"
 
         self.clave_re = re.compile(r"(?<![A-Z0-9])(\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})(?![A-Z0-9])")
+        self.clave_anchored_re = re.compile(r"^\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5}$")
+        self._extraction_index: dict[str, list[Path]] | None = None
+
+    def _build_extraction_index(self) -> dict[str, list[Path]]:
+        """
+        Escanea extractions_dir UNA vez y agrupa archivos por clave SINAT
+        detectada en el nombre. Archivos sin clave (ASEA_*, gaceta_*, TEST_*)
+        quedan fuera del índice a propósito: no tienen equivalente SINAT.
+        """
+        index: dict[str, list[Path]] = {}
+        if not self.extractions_dir.exists():
+            return index
+
+        for path in self.extractions_dir.glob("*.md"):
+            candidate = path.name.split(".")[0].upper()
+            if self.clave_anchored_re.match(candidate):
+                index.setdefault(candidate, []).append(path)
+
+        logger.info("Índice de extracciones construido: %d claves con archivo", len(index))
+        return index
 
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -38,28 +58,38 @@ class SecondBrainBuilder:
 
     def get_extraction_path(self, clave: str) -> Path | None:
         """
-        Resuelve la ruta del archivo .md de extracción para una clave SINAT.
-
-        Prioridad:
-          1. {extractions_dir}/{clave}.estudio.00.md  (texto completo del estudio)
-          2. {extractions_dir}/{clave}.resumen.00.md  (resumen técnico)
-          3. {extractions_dir}/{clave}.md              (genérico)
-          4. None — no hay extracción disponible
+        Resuelve la ruta del archivo .md de extracción para una clave SINAT,
+        usando un índice construido en runtime (no requiere nombres exactos
+        ni versión fija). Prioridad: estudio > resumen > resolutivo > genérico,
+        tomando la versión más alta disponible por tipo.
 
         IMPORTANTE: devuelve la ruta del archivo de EXTRACCIÓN, no la ficha
         del second_brain en 02_Entities/. La ficha solo es un índice.
         """
-        candidates = [
-            self.extractions_dir / f"{clave}.estudio.00.md",
-            self.extractions_dir / f"{clave}.resumen.00.md",
-            self.extractions_dir / f"{clave}.md",
-        ]
-        for path in candidates:
-            if path.exists():
-                logger.debug("Extracción encontrada para %s: %s", clave, path.name)
-                return path
-        logger.warning("Sin extracción disponible para clave: %s", clave)
-        return None
+        if self._extraction_index is None:
+            self._extraction_index = self._build_extraction_index()
+
+        candidates = self._extraction_index.get(clave.upper(), [])
+        if not candidates:
+            logger.warning("Sin extracción disponible para clave: %s", clave)
+            return None
+
+        priority = ["estudio", "resumen", "resolutivo"]
+
+        def sort_key(p: Path):
+            parts = p.name.split(".")
+            doc_type = parts[1] if len(parts) > 2 else ""
+            version = parts[2] if len(parts) > 3 else "00"
+            try:
+                rank = priority.index(doc_type)
+            except ValueError:
+                rank = len(priority)
+            v_num = int(re.sub(r"\D", "", version)) if re.sub(r"\D", "", version) else 0
+            return (rank, -v_num)
+
+        best = sorted(candidates, key=sort_key)[0]
+        logger.debug("Extracción encontrada para %s: %s", clave, best.name)
+        return best
 
     def build_vault(self) -> dict:
         """
@@ -76,6 +106,7 @@ class SecondBrainBuilder:
             d.mkdir(parents=True, exist_ok=True)
 
         # 2. Escanear todo el corpus
+        self._extraction_index = self._build_extraction_index()
         pdfs = self._scan_pdfs()
         extractions = self._scan_extractions()
         inferences = self._scan_inferences()
@@ -448,6 +479,7 @@ class SecondBrainBuilder:
 type: source
 category: gaceta
 name: {name}
+source: {"ASEA" if is_asea else "SEMARNAT"}
 date_generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 ---
 
@@ -826,5 +858,120 @@ Como paso de cierre:
         except Exception as exc:
             logger.warning("Error actualizando Frontmatter de nota %s: %s", clave, exc)
             return False
+
+    def autolink_vault(self) -> dict:
+        """
+        Analiza masivamente todas las notas en second_brain/ para:
+        1. Inyectar etiquetas temáticas (tags: [...]) en el Frontmatter YAML.
+        2. Convertir menciones de texto de claves SINAT/gacetas/entidades en wikilinks [[Nota]].
+        """
+        if not self.sb_dir.exists():
+            return {"status": "error", "msg": "Directorio second_brain no existe"}
+
+        all_notes = list(self.sb_dir.rglob("*.md"))
+        if not all_notes:
+            return {"status": "ok", "processed": 0, "tags_added": 0, "wikilinks_added": 0}
+
+        note_titles = {note.stem: note.name for note in all_notes}
+
+        KEYWORD_TAGS = {
+            "baja california sur": "baja-california-sur",
+            "baja california": "baja-california",
+            "puebla": "puebla",
+            "quintana roo": "quintana-roo",
+            "veracruz": "veracruz",
+            "sonora": "sonora",
+            "sinaloa": "sinaloa",
+            "tabasco": "tabasco",
+            "hidrocarburos": "sector-hidrocarburos",
+            "petróleo": "sector-hidrocarburos",
+            "gas LP": "sector-hidrocarburos",
+            "eléctrico": "sector-electrico",
+            "energía": "sector-electrico",
+            "turístico": "sector-turistico",
+            "hotel": "sector-turistico",
+            "marina": "sector-turistico",
+            "desarrollo urbano": "desarrollo-urbano",
+            "inmobiliario": "desarrollo-urbano",
+            "mia particular": "mia-particular",
+            "mia regional": "mia-regional",
+            "informe preventivo": "informe-preventivo",
+            "nom-059": "nom-059",
+            "manglar": "manglar",
+            "arrecife": "arrecife",
+            "costero": "zona-costera",
+        }
+
+        tags_added_total = 0
+        wikilinks_added_total = 0
+        processed_count = 0
+
+        for note_path in all_notes:
+            try:
+                content = note_path.read_text(encoding="utf-8", errors="ignore")
+                original_content = content
+
+                yaml_block = ""
+                body = content
+                if content.startswith("---"):
+                    parts = content.split("---", 2)
+                    if len(parts) >= 3:
+                        yaml_block = parts[1]
+                        body = parts[2]
+
+                found_tags = set()
+                lower_body = body.lower()
+                for kw, tag in KEYWORD_TAGS.items():
+                    if kw.lower() in lower_body:
+                        found_tags.add(tag)
+
+                if "source: ASEA" in yaml_block or "ASEA" in note_path.name:
+                    found_tags.add("asea")
+                elif "source: SEMARNAT" in yaml_block or "SEMARNAT" in note_path.name:
+                    found_tags.add("semarnat")
+
+                if found_tags:
+                    tag_list_str = ", ".join(sorted(found_tags))
+                    if "tags:" in yaml_block:
+                        yaml_block = re.sub(r"tags:.*", f"tags: [{tag_list_str}]", yaml_block)
+                    else:
+                        yaml_block = yaml_block.strip() + f"\ntags: [{tag_list_str}]\n"
+                    tags_added_total += len(found_tags)
+
+                def replace_clave_with_wikilink(match):
+                    clave = match.group(1)
+                    target_stem = f"Proyecto - {clave}"
+                    if target_stem in note_titles:
+                        return f"[[{target_stem}|{clave}]]"
+                    return match.group(0)
+
+                body_new = re.sub(
+                    r"(?<!\[\[)(?<![A-Z0-9])(\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})(?![A-Z0-9])(?!\]\])",
+                    replace_clave_with_wikilink,
+                    body,
+                )
+
+                if body_new != body:
+                    wikilinks_added_total += 1
+                    body = body_new
+
+                if yaml_block:
+                    new_full_content = f"---{yaml_block}---{body}"
+                else:
+                    new_full_content = body
+
+                if new_full_content != original_content:
+                    note_path.write_text(new_full_content, encoding="utf-8")
+
+                processed_count += 1
+            except Exception as exc:
+                logger.warning("Error ejecutando autolink en nota %s: %s", note_path.name, exc)
+
+        return {
+            "status": "ok",
+            "processed": processed_count,
+            "tags_added": tags_added_total,
+            "wikilinks_added": wikilinks_added_total,
+        }
 
 

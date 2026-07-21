@@ -315,3 +315,75 @@ def summarize_pdf_file(pdf_path: Path, max_chunks: int = 5) -> dict:
         "note_path": str(note_file),
         "semantic_indexed": indexed_semantic
     }
+
+
+def batch_summarize_unprocessed_pdfs_gen(max_files: int = 5, max_chunks: int = 4):
+    """
+    Generador SSE para procesar de forma secuencial los PDFs pendientes de resumen.
+    Filtra archivos que ya tengan nota en `second_brain/01_Sources/`.
+    """
+    DOWNLOADS_DIR = PROJECT_ROOT / "downloads"
+    estudios_dir = DOWNLOADS_DIR / "estudios"
+    gacetas_dir = DOWNLOADS_DIR / "gacetas"
+
+    candidates = []
+    for dir_path in [estudios_dir, gacetas_dir]:
+        if dir_path.exists():
+            for pdf in dir_path.glob("*.pdf"):
+                note_file = SECOND_BRAIN_SOURCES / f"{pdf.stem}.md"
+                if not note_file.exists():
+                    candidates.append(pdf)
+
+    total_candidates = len(candidates)
+    if total_candidates == 0:
+        yield {
+            "status": "complete",
+            "pct": 100,
+            "msg": "No hay PDFs pendientes por resumir en el corpus.",
+            "processed": 0,
+        }
+        return
+
+    to_process = candidates[:max_files]
+    total_to_process = len(to_process)
+
+    yield {
+        "status": "running",
+        "pct": 0,
+        "msg": f"Iniciando resumen batch de {total_to_process} PDFs pendientes (de {total_candidates} encontrados)...",
+    }
+
+    processed_count = 0
+    for idx, pdf_file in enumerate(to_process):
+        pct = round((idx / total_to_process) * 100, 1)
+        yield {
+            "status": "running",
+            "pct": pct,
+            "msg": f"Procesando ({idx + 1}/{total_to_process}): {pdf_file.name}...",
+            "file": pdf_file.name,
+        }
+
+        try:
+            res = summarize_pdf_file(pdf_file, max_chunks=max_chunks)
+            processed_count += 1
+            yield {
+                "status": "running",
+                "pct": round(((idx + 1) / total_to_process) * 100, 1),
+                "msg": f"✓ Completado ({idx + 1}/{total_to_process}): {pdf_file.name} ({res.get('elapsed_seconds', 0)}s)",
+                "file": pdf_file.name,
+            }
+        except Exception as exc:
+            logger.error("Error procesando %s en batch: %s", pdf_file.name, exc)
+            yield {
+                "status": "warning",
+                "pct": round(((idx + 1) / total_to_process) * 100, 1),
+                "msg": f"⚠️ Error en {pdf_file.name}: {exc}",
+                "file": pdf_file.name,
+            }
+
+    yield {
+        "status": "complete",
+        "pct": 100,
+        "msg": f"Procesamiento batch finalizado. {processed_count}/{total_to_process} PDFs resumidos exitosamente.",
+        "processed": processed_count,
+    }
