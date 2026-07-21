@@ -2157,6 +2157,13 @@ function initRsiScraperActions() {
     };
 
     es.onerror = () => {
+      appendLog(logEl, 'Conexión SSE perdida con RSI', 'error');
+      es.close();
+      btnRun.disabled = false;
+    };
+  });
+}
+
 /* =========================================================================
    TELEMETRÍA EN TIEMPO REAL & GESTIÓN DE SERVIDORES
    ========================================================================= */
