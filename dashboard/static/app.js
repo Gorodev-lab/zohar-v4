@@ -2194,6 +2194,7 @@ function initTelemetryStream() {
       // 2. Actualizar Badges Postgres
       const dbBadge = $('#srv-db-badge');
       const pgVal = $('#srv-pg-val');
+      const dbCount = $('#srv-db-count');
       if (dbBadge) {
         dbBadge.textContent = data.postgres.status.toUpperCase();
         dbBadge.style.color = data.postgres.status === 'online' ? 'var(--color-green)' : 'var(--color-red)';
@@ -2201,6 +2202,9 @@ function initTelemetryStream() {
       if (pgVal) {
         pgVal.textContent = data.postgres.status.toUpperCase();
         pgVal.style.color = data.postgres.status === 'online' ? 'var(--color-green)' : 'var(--color-red)';
+      }
+      if (dbCount && data.postgres.total_proyectos !== undefined) {
+        dbCount.textContent = data.postgres.total_proyectos;
       }
 
       // 3. Actualizar Badges RSI Worker

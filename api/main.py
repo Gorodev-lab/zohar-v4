@@ -2261,6 +2261,13 @@ async def get_dw_status():
     }
 
 
+@app.get("/api/dw/pipeline-stats", tags=["dw"])
+async def get_dw_pipeline_stats():
+    """Retorna las estadísticas en tiempo real de la base de datos PostgreSQL."""
+    from core.dw_pipeline import get_db_stats
+    return get_db_stats()
+
+
 @app.get("/api/dw/run-pipeline", tags=["dw"])
 async def run_dw_pipeline():
     """
@@ -2634,11 +2641,14 @@ async def telemetry_stream():
                 except Exception:
                     pass
 
+            from core.dw_pipeline import get_db_stats
+            db_stats = get_db_stats() if pg_online else {}
+
             data = {
                 "status": "telemetry",
                 "fastapi": {"status": "online", "port": 8004},
                 "llama": {"status": "online" if llama_online else "offline", "port": 8083, "latency_ms": llama_latency},
-                "postgres": {"status": "online" if pg_online else "offline", "port": 5432},
+                "postgres": {"status": "online" if pg_online else "offline", "port": 5432, "total_proyectos": db_stats.get("total_proyectos", 0)},
                 "rsi": {"running": rsi_running, "pid": rsi_pid},
                 "hardware": {"cpu_pct": cpu, "ram_pct": ram, "disk_free_gb": round(disk, 2)},
                 "recent_logs": recent_logs,
