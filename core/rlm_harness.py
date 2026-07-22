@@ -19,6 +19,7 @@ import re
 import json
 import os
 import logging
+import uuid
 from typing import Dict, List, Any, Optional, Union, Tuple
 from core.llm_client import generate_completion
 
@@ -40,18 +41,27 @@ class RLMHarness:
     def __init__(
         self,
         redis_url: Optional[str] = None,
-        storage_prefix: str = "rlm_store:",
-        use_redis_if_available: bool = True
+        storage_prefix: Optional[str] = None,
+        use_redis_if_available: bool = True,
+        default_ttl: int = 3600
     ):
         """
         Inicializa el Arnés RLM.
 
         Args:
             redis_url: URL de conexión a Redis (ej. redis://localhost:6379/0).
-            storage_prefix: Prefijo para claves almacenadas en Redis.
+            storage_prefix: Prefijo para claves almacenadas en Redis. Si es None, se autogenera con uuid de sesión.
             use_redis_if_available: Si es True y Redis está configurado/instalado, se usa como backend.
+            default_ttl: Tiempo de vida por defecto en segundos para las variables en Redis.
         """
-        self.storage_prefix = storage_prefix
+        self.session_uuid = str(uuid.uuid4())
+        self.default_ttl = default_ttl
+        
+        if storage_prefix is None:
+            self.storage_prefix = f"zohar:rlm:{self.session_uuid}:"
+        else:
+            self.storage_prefix = storage_prefix
+            
         self._memory_store: Dict[str, str] = {}
         self._redis_client = None
         self._doc_counter: int = 0
@@ -63,7 +73,7 @@ class RLMHarness:
                 client = redis.Redis.from_url(target_redis_url, decode_responses=True)
                 client.ping()
                 self._redis_client = client
-                logger.info(f"RLMHarness: Conectado exitosamente a Redis ({target_redis_url})")
+                logger.info(f"RLMHarness: Conectado exitosamente a Redis ({target_redis_url}) con prefijo {self.storage_prefix}")
             except Exception as e:
                 logger.warning(f"RLMHarness: No se pudo conectar a Redis ({e}). Usando memoria local.")
                 self._redis_client = None
@@ -75,13 +85,14 @@ class RLMHarness:
         self._doc_counter += 1
         return f"[VAR_DOC_{self._doc_counter:02d}]"
 
-    def offload_text(self, text: str, var_name: Optional[str] = None) -> str:
+    def offload_text(self, text: str, var_name: Optional[str] = None, ttl: Optional[int] = None) -> str:
         """
         Almacena texto crudo y retorna su referencia simbólica.
 
         Args:
             text: Contenido de texto largo a descargar del contexto.
             var_name: Etiqueta simbólica personalizada (ej. '[VAR_DOC_01]'). Si es None, se auto-genera.
+            ttl: Tiempo de expiración de la clave en segundos. Si es None, usa default_ttl.
 
         Returns:
             Nombre de la variable simbólica asignada.
@@ -95,18 +106,22 @@ class RLMHarness:
             tag = f"[{tag}]"
 
         clean_tag = tag
+        effective_ttl = ttl if ttl is not None else self.default_ttl
 
         if self._redis_client:
             try:
                 redis_key = f"{self.storage_prefix}{clean_tag}"
-                self._redis_client.set(redis_key, text)
+                if effective_ttl > 0:
+                    self._redis_client.set(redis_key, text, ex=effective_ttl)
+                else:
+                    self._redis_client.set(redis_key, text)
             except Exception as e:
                 logger.error(f"Error guardando en Redis ({e}), cayendo a almacenamiento en memoria.")
                 self._memory_store[clean_tag] = text
         else:
             self._memory_store[clean_tag] = text
 
-        logger.debug(f"Offloaded text ({len(text)} chars) -> {clean_tag}")
+        logger.debug(f"Offloaded text ({len(text)} chars) -> {clean_tag} (TTL={effective_ttl})")
         return clean_tag
 
     def get_offloaded_text(self, var_name: str) -> Optional[str]:
