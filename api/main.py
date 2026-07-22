@@ -3485,3 +3485,11 @@ async def reindex_vault():
 
 
 
+
+# --- FASE 8: KNOWLEDGE GRAPH ROUTER ---
+from api.graph_routes import router as graph_router
+app.include_router(graph_router, prefix="/api/graph", tags=["Knowledge Graph"])
+
+# --- FASE 8: KNOWLEDGE GRAPH ROUTER ---
+from api.graph_routes import router as graph_router
+app.include_router(graph_router, prefix="/api/graph", tags=["Knowledge Graph"])
