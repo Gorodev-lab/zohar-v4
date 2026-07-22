@@ -177,3 +177,103 @@ def test_redis_ttl_enforcement():
             expected_key_3 = f"{harness.storage_prefix}[VAR_TEST_03]"
             mock_client.set.assert_called_with(expected_key_3, "Texto persistente")
 
+
+def test_dynamic_parameter_hydration():
+    """Verifica que el orquestador resuelva e hidrate parámetros según la signatura del sub-agente."""
+    harness = RLMHarness(use_redis_if_available=False)
+    orchestrator = RSILoopOrchestrator(harness)
+
+    # Variables de prueba
+    text1 = "Contenido confidencial del estudio ambiental"
+    var1 = harness.offload_text(text1)
+    
+    # Sub-agente que espera un texto hidratado (no está en blacklist de referencias)
+    def my_subagent_with_text(text_content: str, harness_arg=None):
+        return {
+            "received_text": text_content,
+            "has_harness": harness_arg is not None
+        }
+
+    # Registrar el sub-agente
+    orchestrator.register_subagent("custom_sub", my_subagent_with_text)
+
+    # Parámetros simulados enviados por el LLM
+    raw_params = {
+        "text_content": var1,
+        "harness_arg": "harness"
+    }
+    
+    # Probar inyección de harness por nombre exacto en signatura
+    def my_subagent_with_harness(harness: RLMHarness, doc_id: str):
+        return {
+            "doc_id_received": doc_id,
+            "has_harness_obj": harness is not None
+        }
+    orchestrator.register_subagent("harness_sub", my_subagent_with_harness)
+
+    # 1. Resolver para my_subagent_with_text
+    resolved_1 = orchestrator._resolve_and_hydrate_parameters(my_subagent_with_text, raw_params)
+    assert resolved_1["text_content"] == text1  # Debería estar hidratado
+    
+    # 2. Resolver para my_subagent_with_harness
+    raw_params_2 = {
+        "doc_id": var1
+    }
+    resolved_2 = orchestrator._resolve_and_hydrate_parameters(my_subagent_with_harness, raw_params_2)
+    assert resolved_2["doc_id"] == var1  # No debería estar hidratado porque doc_id está en ref_params
+    assert resolved_2["harness"] is harness  # Debería inyectar la instancia de harness
+
+
+def test_active_cleanup_of_unaccessed_keys():
+    """Verifica que las variables no accedidas sean eliminadas de Redis y memoria local."""
+    harness = RLMHarness(use_redis_if_available=False)
+    
+    # Crear variables
+    var_accessed = harness.offload_text("Texto que sí será leído")
+    var_dead = harness.offload_text("Texto huérfano que nadie leerá")
+    
+    # Acceder a una
+    text = harness.get_offloaded_text(var_accessed)
+    assert text == "Texto que sí será leído"
+    
+    # Limpieza
+    cleaned = harness.cleanup_unaccessed_keys()
+    
+    assert var_dead in cleaned
+    assert var_accessed not in cleaned
+    
+    # Verificar que el muerto ya no existe
+    assert harness.get_offloaded_text(var_dead) is None
+    # Verificar que el accedido sigue existiendo
+    assert harness.get_offloaded_text(var_accessed) == "Texto que sí será leído"
+
+
+def test_active_cleanup_redis():
+    """Verifica la autolimpieza de variables muertas en Redis."""
+    with patch("redis.Redis") as mock_redis_class:
+        mock_client = MagicMock()
+        mock_redis_class.from_url.return_value = mock_client
+        
+        with patch("core.rlm_harness.REDIS_AVAILABLE", True):
+            harness = RLMHarness(redis_url="redis://localhost:6379/0")
+            
+            var_accessed = harness.offload_text("Accedido", var_name="[VAR_ACC]")
+            var_dead = harness.offload_text("Muerto", var_name="[VAR_DEAD]")
+            
+            # Simulamos que get de Redis funciona
+            mock_client.get.return_value = "Accedido"
+            
+            # Accedemos a uno
+            harness.get_offloaded_text(var_accessed)
+            
+            # Limpiar
+            cleaned = harness.cleanup_unaccessed_keys()
+            
+            assert "[VAR_DEAD]" in cleaned
+            assert "[VAR_ACC]" not in cleaned
+            
+            # Verificar llamada a delete en redis
+            expected_deleted_key = f"{harness.storage_prefix}[VAR_DEAD]"
+            mock_client.delete.assert_any_call(expected_deleted_key)
+
+

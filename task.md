@@ -1,28 +1,18 @@
-# Tareas de Implementación — RSI Atómico & Contratos de Etapa 🌌
+# Tareas de Implementación — Optimización y Monitoreo del Modelo Local (Gemma-4) 🧠⚡
 
-- [x] **Componente 1: Motor Backend de RSI Atómico (`api/` & `core/`)**
-  - [x] Añadir la función `run_atomic_metadata_curation_step()` en `core/rsi_brain.py`.
-  - [x] Implementar UUID de sesión y prefijo dinámico en `RLMHarness`
-- [x] Agregar soporte de TTL (Time-To-Live) en escrituras a Redis desde `RLMHarness`
-- [x] Crear la heurística de estimación de tokens en `auto_improver.py`
-- [x] Desarrollar la lógica de sanitización y recorte inteligente para outputs de `pytest`
-- [x] Integrar el control del presupuesto de tokens dinámico en `build_prompt`
-- [x] Escribir nuevas pruebas unitarias en `tests/test_token_budget.py`
-- [x] Agregar pruebas de sesión/TTL de Redis en `tests/test_rlm_harness.py`
-- `[x]` Ejecutar suite completa de validación (pytest) para confirmar sanidad
-
-- [x] **Componente 2: Matriz de Contratos de Etapa & Auto-Healing (`core/`)**
-  - [x] Crear `core/stage_contracts.py` y los clasificadores por etapas.
-
-- [x] **Componente 3: Toggle UI en el Dashboard (`dashboard/`)**
-  - [x] Añadir switch/toggle "RSI Auto-Curaduría" en `dashboard/index.html`.
-  - [x] Conectar handlers de Toggle y actualización en vivo SSE en `dashboard/static/app.js`.
-
-- [x] **Componente 4: Robustez y Cuarentena de PDFs (`core/`)**
-  - [x] Migración de Map-Reduce a Single-Pass en `core/pdf_summarizer.py`.
-  - [x] Cuarentena automática de PDFs corruptos/ilegibles a subdirectorio `_corruptos/`.
-
-- [x] **Componente 5: Pruebas & Verificación**
-  - [x] Crear y ejecutar `tests/test_atomic_rsi_and_contracts.py`.
-  - [x] Crear y ejecutar `tests/test_text_utils.py`.
-  - [x] Ejecutar pytest para validar la suite completa (**61 passed, 2 deselected**).
+- [x] **Componente 1: Configuración de Inferencia y Orquestación (`dw/` y script base)**
+  - [x] Modificar `dw/docker-compose.yml` (parámetros de llama-cpp, healthcheck y montaje de docker.sock en api).
+  - [x] Modificar `start_llama_server.sh` (variables de hilos, contexto y caché KV).
+- [x] **Componente 2: Scaffolding, Semáforo y Métricas del Cliente LLM (`core/`)**
+  - [x] Implementar el bloqueo de concurrencia (`threading.Lock`) y parámetro `n_predict` en `core/llm_client.py`.
+  - [x] Implementar la medición y promedio de latencia por token en `core/llm_client.py`.
+  - [x] Ajustar límites de longitud de fragmentos y `n_predict` en `core/semantic_search.py`.
+  - [x] Agregar `n_predict` en llamadas a `generate_completion` de `core/rsi_brain.py`.
+- [x] **Componente 3: Endpoints y Tarea de Auto-Recuperación en FastAPI (`api/`)**
+  - [x] Implementar la lógica para obtener estadísticas de contenedor Docker en `api/main.py`.
+  - [x] Crear el endpoint `/api/status/model` en `api/main.py`.
+  - [x] Crear la tarea periódica `llama_self_healing_loop` y conectarla a `startup_event` en `api/main.py`.
+- [x] **Componente 4: Pruebas, Verificación y Despliegue**
+  - [x] Escribir y ejecutar pruebas para el endpoint `/api/status/model` y la concurrencia.
+  - [x] Detener y levantar los contenedores mediante docker compose para aplicar los cambios.
+  - [x] Validar la auto-recuperación matando manualmente el contenedor.

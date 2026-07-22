@@ -21,6 +21,7 @@ const State = {
   // Sparkline history
   cpuHistory:   new Array(20).fill(0),
   ramHistory:   new Array(20).fill(0),
+  llmLatencyHistory: new Array(20).fill(0),
   chatHistory:  [],
 };
 
@@ -131,6 +132,7 @@ function drawSparkline(canvasId, history, color = '#FFB000') {
 function updateSparklines() {
   drawSparkline('spark-cpu', State.cpuHistory, '#FFB000');
   drawSparkline('spark-ram', State.ramHistory, '#CC8D00');
+  drawSparkline('spark-llama', State.llmLatencyHistory, '#00FF66');
 }
 
 /* =========================================================================
@@ -647,15 +649,17 @@ function renderGraph(data, containerEl) {
   }
 
   const schema    = data.schema || {};
-  const IDX       = { i:0, t:1, l:2, st:3, yr:4, deg:5, com:6 };
+  const IDX       = { i:0, t:1, l:2, st:3, yr:4, deg:5, com:6, name:7, veredicto:8 };
   const nodes     = data.nodes.map(n => ({
-    id:     n[IDX.i],
-    type:   n[IDX.t],
-    label:  n[IDX.l],
-    color:  n[IDX.st] || '#FFB000',
-    year:   n[IDX.yr],
-    degree: n[IDX.deg] || 1,
-    com:    n[IDX.com] || 0,
+    id:           n[IDX.i],
+    type:         n[IDX.t],
+    label:        n[IDX.l],
+    color:        n[IDX.st] || '#FFB000',
+    year:         n[IDX.yr],
+    degree:       n[IDX.deg] || 1,
+    com:          n[IDX.com] || 0,
+    project_name: n[IDX.name],
+    veredicto:    n[IDX.veredicto],
   }));
 
   const links = data.links.map(l => ({
@@ -675,9 +679,10 @@ function renderGraph(data, containerEl) {
 
   const g = svg.append('g');
 
-  svg.call(d3.zoom()
+  const zoom = d3.zoom()
     .scaleExtent([0.05, 10])
-    .on('zoom', e => g.attr('transform', e.transform)));
+    .on('zoom', e => g.attr('transform', e.transform));
+  svg.call(zoom);
 
   const tooltip = d3.select(containerEl)
     .append('div')
@@ -712,12 +717,127 @@ function renderGraph(data, containerEl) {
     .attr('fill', d => d.color)
     .attr('fill-opacity', 0.8)
     .attr('stroke', d => d.color)
-    .attr('stroke-width', 1.5);
+    .attr('stroke-width', 1.5)
+    .attr('class', d => d.type === 'proyecto' && d.veredicto ? `verdict-${d.veredicto}` : '');
 
   node.append('text')
     .attr('dy', d => Math.sqrt(d.degree) * 4 + 11)
     .attr('text-anchor', 'middle')
     .text(d => d.label.length > 12 ? d.label.slice(0, 10) + '..' : d.label);
+
+  // Focus and Zoom function
+  function focusNode(nodeId) {
+    const target = nodes.find(n => n.id === nodeId);
+    if (!target) return;
+
+    // Highlight target node
+    node.style('opacity', d => d.id === target.id ? 1 : 0.15);
+    link.style('opacity', 0.05);
+
+    const scale = 1.5;
+    const x = W / 2 - target.x * scale;
+    const y = H / 2 - target.y * scale;
+
+    svg.transition()
+      .duration(750)
+      .call(zoom.transform, d3.zoomIdentity.translate(x, y).scale(scale));
+      
+    showGraphNodeDetail(target, links, focusNode);
+  }
+
+  // Interactive Node Search
+  const searchInput = document.getElementById('graph-node-search');
+  if (searchInput) {
+    // Clear previous listeners
+    const newSearch = searchInput.cloneNode(true);
+    searchInput.replaceWith(newSearch);
+    newSearch.addEventListener('input', () => {
+      const term = newSearch.value.toLowerCase().trim();
+      if (!term) {
+        node.style('opacity', 1);
+        link.style('opacity', 0.5);
+        return;
+      }
+      const matched = nodes.filter(n => 
+        n.id.toLowerCase().includes(term) || 
+        (n.project_name && n.project_name.toLowerCase().includes(term)) ||
+        n.label.toLowerCase().includes(term)
+      );
+
+      if (matched.length > 0) {
+        node.style('opacity', d => matched.some(m => m.id === d.id) ? 1 : 0.1);
+        link.style('opacity', l => {
+          const sId = l.source.id || l.source;
+          const tId = l.target.id || l.target;
+          return (matched.some(m => m.id === sId) || matched.some(m => m.id === tId)) ? 0.5 : 0.05;
+        });
+      }
+    });
+
+    newSearch.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const term = newSearch.value.toLowerCase().trim();
+        const match = nodes.find(n => 
+          n.id.toLowerCase() === term || 
+          n.label.toLowerCase() === term ||
+          (n.project_name && n.project_name.toLowerCase().includes(term))
+        );
+        if (match) {
+          focusNode(match.id);
+        }
+      }
+    });
+  }
+
+  // Physics force controllers
+  const chargeInput = document.getElementById('force-charge');
+  const distanceInput = document.getElementById('force-distance');
+  const collisionInput = document.getElementById('force-collision');
+  const valCharge = document.getElementById('val-charge');
+  const valDistance = document.getElementById('val-distance');
+  const valCollision = document.getElementById('val-collision');
+  const btnReset = document.getElementById('gfc-reset');
+
+  function updatePhysics() {
+    const charge = parseInt(chargeInput?.value || -100);
+    const dist = parseInt(distanceInput?.value || 70);
+    const coll = parseInt(collisionInput?.value || 12);
+
+    if (valCharge) valCharge.textContent = charge;
+    if (valDistance) valDistance.textContent = dist;
+    if (valCollision) valCollision.textContent = coll;
+
+    sim.force('charge').strength(charge);
+    sim.force('link').distance(dist);
+    sim.force('collision').radius(d => Math.sqrt(d.degree) * 5 + coll - 4);
+    sim.alpha(0.3).restart();
+  }
+
+  [chargeInput, distanceInput, collisionInput].forEach(inp => {
+    if (inp) {
+      const newInp = inp.cloneNode(true);
+      inp.replaceWith(newInp);
+    }
+  });
+
+  const newChargeInput = document.getElementById('force-charge');
+  const newDistanceInput = document.getElementById('force-distance');
+  const newCollisionInput = document.getElementById('force-collision');
+  const newBtnReset = document.getElementById('gfc-reset');
+
+  if (newChargeInput) newChargeInput.addEventListener('input', updatePhysics);
+  if (newDistanceInput) newDistanceInput.addEventListener('input', updatePhysics);
+  if (newCollisionInput) newCollisionInput.addEventListener('input', updatePhysics);
+
+  if (newBtnReset) {
+    newBtnReset.onclick = (e) => {
+      e.preventDefault();
+      if (newChargeInput) newChargeInput.value = -100;
+      if (newDistanceInput) newDistanceInput.value = 70;
+      if (newCollisionInput) newCollisionInput.value = 12;
+      updatePhysics();
+    };
+  }
 
   node.on('mousemove', (e, d) => {
     tooltip
@@ -728,44 +848,61 @@ function renderGraph(data, containerEl) {
         <div class="text-accent" style="font-weight:700;">${escHtml(d.label)}</div>
         <div class="text-muted">${d.type} · deg:${d.degree}</div>
         ${d.year ? `<div class="text-muted">${d.year}</div>` : ''}
+        ${d.project_name ? `<div class="text-muted" style="font-size:9px; max-width:180px; white-space:normal; margin-top:4px;">${escHtml(d.project_name)}</div>` : ''}
+        ${d.veredicto ? `<div class="mt-1" style="font-size:9px; font-weight:700; color:${d.veredicto === 'FAVORABLE' ? 'var(--color-ok)' : d.veredicto === 'CONDICIONADO' ? 'var(--color-warn)' : 'var(--color-alert)'};">VEREDICTO: ${d.veredicto}</div>` : ''}
       `);
-  }).on('mouseleave', () => tooltip.style('display', 'none'))
-    .on('click', (e, d) => {
-      e.stopPropagation();
-      tooltip.style('display', 'none');
-      if (typeof showGraphNodeDetail === 'function') {
-        showGraphNodeDetail({
-          id:         d.id,
-          label:      d.label,
-          type:       d.type,
-          year:       d.year,
-          degree:     d.degree,
-          community:  d.com,
-        });
-      }
+  }).on('mouseenter', (e, d) => {
+    const neighbors = new Set([d.id]);
+    links.forEach(l => {
+      const sId = l.source.id || l.source;
+      const tId = l.target.id || l.target;
+      if (sId === d.id) neighbors.add(tId);
+      if (tId === d.id) neighbors.add(sId);
     });
 
-  // Click on SVG background closes the detail panel
+    node.style('opacity', n => neighbors.has(n.id) ? 1 : 0.15);
+    link.style('opacity', l => {
+      const sId = l.source.id || l.source;
+      const tId = l.target.id || l.target;
+      return (sId === d.id || tId === d.id) ? 1 : 0.05;
+    });
+
+    d3.select(e.currentTarget).select('circle').attr('r', Math.max(5, Math.sqrt(d.degree) * 4 + 3));
+  }).on('mouseleave', (e, d) => {
+    node.style('opacity', 1);
+    link.style('opacity', 0.5);
+    d3.select(e.currentTarget).select('circle').attr('r', Math.max(3, Math.sqrt(d.degree) * 4));
+    tooltip.style('display', 'none');
+  }).on('click', (e, d) => {
+    e.stopPropagation();
+    tooltip.style('display', 'none');
+    showGraphNodeDetail(d, links, focusNode);
+  });
+
   svg.on('click', () => {
     const panel = document.getElementById('graph-detail-panel');
     if (panel) panel.classList.remove('graph-detail-panel--open');
+    node.style('opacity', 1);
+    link.style('opacity', 0.5);
   });
 
-  // Graph type filter
   const filterEl = $('#graph-filter-type');
   if (filterEl) {
-    filterEl.addEventListener('change', () => {
-      const type = filterEl.value;
+    const newFilter = filterEl.cloneNode(true);
+    filterEl.replaceWith(newFilter);
+    newFilter.addEventListener('change', () => {
+      const type = newFilter.value;
       node.style('opacity', d => (type === 'all' || d.type === type) ? 1 : 0.1);
       link.style('opacity', l => {
         if (type === 'all') return 0.5;
-        const sNode = nodes.find(n => n.id === (l.source?.id || l.source));
-        const tNode = nodes.find(n => n.id === (l.target?.id || l.target));
+        const sId = l.source.id || l.source;
+        const tId = l.target.id || l.target;
+        const sNode = nodes.find(n => n.id === sId);
+        const tNode = nodes.find(n => n.id === tId);
         return (sNode?.type === type || tNode?.type === type) ? 0.5 : 0.05;
       });
     });
   }
-
 
   sim.on('tick', () => {
     link
@@ -1047,6 +1184,10 @@ function initScraperActions() {
    LLAMA SERVER ACTIONS
    ========================================================================= */
 async function updateLlamaStatus() {
+  // Si la conexión SSE de telemetría está activa, delegar a ella para evitar polling redundante
+  if (telemetrySse && telemetrySse.readyState === EventSource.OPEN) {
+    return;
+  }
   const badge = $('#llama-status-badge');
   const btnStart = $('#btn-start-llama');
   const btnStop = $('#btn-stop-llama');
@@ -2685,15 +2826,111 @@ function initTelemetryStream() {
       const data = JSON.parse(e.data);
       if (data.status !== 'telemetry') return;
 
-      // 1. Actualizar Badges Llama-Server
+      // 1. Actualizar Badges y Sparkline de Llama-Server
       const llamaBadge = $('#srv-llama-badge');
       const llamaLat = $('#srv-llama-lat');
+      const topbarLlama = $('#status-llama');
+      const sidebarLlamaBadge = $('#llama-status-badge');
+      const btnStartLlama = $('#btn-start-llama');
+      const btnStopLlama = $('#btn-stop-llama');
+
+      const st = data.llama.status || 'offline';
+      const isOnline = st === 'online';
+      const isBooting = st === 'booting' || (data.llama.self_healing && data.llama.self_healing.restarting);
+      const latencyVal = isOnline ? (data.llama.avg_latency_per_token_ms || 0) : 0;
+
+      // Desplazar historial y redibujar sparkline en el topbar
+      State.llmLatencyHistory.push(latencyVal);
+      State.llmLatencyHistory.shift();
+      drawSparkline('spark-llama', State.llmLatencyHistory, isOnline ? '#00FF66' : (isBooting ? '#FFB000' : '#888888'));
+
+      // Actualizar texto y color en topbar
+      if (topbarLlama) {
+        if (isBooting) {
+          topbarLlama.textContent = 'REINICIANDO...';
+          topbarLlama.style.color = '#FFB000';
+        } else if (isOnline) {
+          topbarLlama.textContent = `${data.llama.avg_latency_per_token_ms} ms/t`;
+          topbarLlama.style.color = '#00FF66';
+        } else {
+          topbarLlama.textContent = 'OFFLINE';
+          topbarLlama.style.color = '#888888';
+        }
+      }
+
+      // Actualizar badge e iniciar/detener botones en sidebar
+      if (sidebarLlamaBadge) {
+        sidebarLlamaBadge.textContent = isBooting ? 'REINICIANDO...' : st.toUpperCase();
+        sidebarLlamaBadge.style.color = isOnline ? '#00FF66' : (isBooting ? '#FFB000' : '#888888');
+      }
+      if (btnStartLlama) btnStartLlama.disabled = isOnline || isBooting;
+      if (btnStopLlama) btnStopLlama.disabled = !isOnline && !isBooting;
+
+      // Actualizar tarjeta en SERVER_CONTROL
       if (llamaBadge) {
-        llamaBadge.textContent = data.llama.status.toUpperCase();
-        llamaBadge.style.color = data.llama.status === 'online' ? 'var(--color-green)' : 'var(--color-red)';
+        llamaBadge.textContent = isBooting ? 'REINICIANDO...' : st.toUpperCase();
+        llamaBadge.style.color = isOnline ? '#00FF66' : (isBooting ? '#FFB000' : '#888888');
       }
       if (llamaLat) {
-        llamaLat.textContent = data.llama.status === 'online' ? `${data.llama.latency_ms} ms` : '─ ms';
+        llamaLat.textContent = isOnline ? `${data.llama.latency_ms} ms` : '─ ms';
+      }
+
+      // Actualizar métricas del contenedor en SERVER_CONTROL
+      const srvCpu = $('#srv-llama-cpu');
+      const srvRam = $('#srv-llama-ram');
+      const srvRestarts = $('#srv-llama-restarts');
+      if (srvCpu) {
+        srvCpu.textContent = (isOnline && data.llama.container && data.llama.container.cpu_pct !== undefined) ? `${data.llama.container.cpu_pct}%` : '─%';
+      }
+      if (srvRam) {
+        srvRam.textContent = (isOnline && data.llama.container && data.llama.container.mem_used_gb !== undefined) ? `${data.llama.container.mem_used_gb} GB (${data.llama.container.mem_pct}%)` : '─ GB (─%)';
+      }
+      if (srvRestarts && data.llama.self_healing) {
+        srvRestarts.textContent = data.llama.self_healing.restart_count || 0;
+      }
+
+      // 1b. Actualizar widget de MODEL_CHAT
+      const chatMetricsContainer = $('#local-llm-metrics-container');
+      const chatLatencyVal = $('#llm-latency-val');
+      const chatCpuVal = $('#llm-cpu-val');
+      const chatRamVal = $('#llm-ram-val');
+      const chatHealingBadge = $('#llm-healing-badge');
+      const chatRestartingRow = $('#llm-healing-restarting-row');
+
+      const chatProvider = $('#chat-provider-val');
+      const providerName = chatProvider ? chatProvider.textContent.toLowerCase() : '';
+      const isLocalProvider = providerName.includes('local') || providerName.includes('llama') || providerName.includes('ollama');
+
+      if (chatMetricsContainer) {
+        if (isLocalProvider) {
+          chatMetricsContainer.style.display = 'block';
+          if (chatLatencyVal) {
+            chatLatencyVal.textContent = isOnline ? `${data.llama.avg_latency_per_token_ms} ms` : '─ ms';
+          }
+          if (chatCpuVal) {
+            chatCpuVal.textContent = (isOnline && data.llama.container && data.llama.container.cpu_pct !== undefined) ? `${data.llama.container.cpu_pct}%` : '─%';
+          }
+          if (chatRamVal) {
+            chatRamVal.textContent = (isOnline && data.llama.container && data.llama.container.mem_used_gb !== undefined) ? `${data.llama.container.mem_used_gb} GB (${data.llama.container.mem_pct}%)` : '─ GB (─%)';
+          }
+          if (chatHealingBadge) {
+            if (isBooting) {
+              chatHealingBadge.textContent = 'BOOTING';
+              chatHealingBadge.style.cssText = 'font-size:8px; padding:2px 4px; border:1px solid var(--color-amber); color:var(--color-amber); background:rgba(243, 156, 18, 0.1);';
+            } else if (isOnline) {
+              chatHealingBadge.textContent = 'ACTIVO';
+              chatHealingBadge.style.cssText = 'font-size:8px; padding:2px 4px; border:1px solid var(--color-green); color:var(--color-green); background:rgba(39, 174, 96, 0.1);';
+            } else {
+              chatHealingBadge.textContent = 'INACTIVO';
+              chatHealingBadge.style.cssText = 'font-size:8px; padding:2px 4px; border:1px solid var(--color-red); color:var(--color-red); background:rgba(231, 76, 60, 0.1);';
+            }
+          }
+          if (chatRestartingRow) {
+            chatRestartingRow.style.display = isBooting ? 'flex' : 'none';
+          }
+        } else {
+          chatMetricsContainer.style.display = 'none';
+        }
       }
 
       // 2. Actualizar Badges Postgres
@@ -2935,7 +3172,7 @@ function initGraphDetailPanel() {
   }
 }
 
-function showGraphNodeDetail(nodeData) {
+function showGraphNodeDetail(nodeData, linksList = [], onFocusCallback = null) {
   const panel = $('#graph-detail-panel');
   if (!panel) return;
 
@@ -2947,8 +3184,79 @@ function showGraphNodeDetail(nodeData) {
   set('gdp-degree', nodeData.degree ?? nodeData.connections ?? '─');
   set('gdp-com',    nodeData.community ?? nodeData.cluster ?? '─');
 
+  // Render Real Name Row if it exists
+  const nameRow = $('#gdp-name-row');
+  if (nameRow) {
+    if (nodeData.project_name && nodeData.project_name !== `Proyecto ${nodeData.id}`) {
+      nameRow.classList.remove('hidden');
+      set('gdp-name', nodeData.project_name);
+    } else {
+      nameRow.classList.add('hidden');
+    }
+  }
+
+  // Render Verdict Row if it exists
+  const verdictRow = $('#gdp-verdict-row');
+  if (verdictRow) {
+    if (nodeData.veredicto) {
+      verdictRow.classList.remove('hidden');
+      const vel = $('#gdp-verdict');
+      if (vel) {
+        vel.textContent = nodeData.veredicto;
+        vel.className = 'gdp-val'; // reset class
+        const v = nodeData.veredicto;
+        const color = v === 'FAVORABLE' ? 'var(--color-ok)' : v === 'CONDICIONADO' ? 'var(--color-warn)' : 'var(--color-alert)';
+        vel.style.color = color;
+      }
+    } else {
+      verdictRow.classList.add('hidden');
+    }
+  }
+
+  // Render Direct Connections
+  const connList = $('#gdp-connections');
+  if (connList) {
+    connList.innerHTML = '';
+    const neighbors = [];
+    if (linksList && linksList.length) {
+      linksList.forEach(l => {
+        const sId = l.source.id || l.source;
+        const tId = l.target.id || l.target;
+        if (sId === nodeData.id) neighbors.push(tId);
+        else if (tId === nodeData.id) neighbors.push(sId);
+      });
+    }
+
+    if (neighbors.length === 0) {
+      connList.innerHTML = '<span class="text-muted text-xs">[ sin conexiones directas ]</span>';
+    } else {
+      const uniqueNeighbors = [...new Set(neighbors)];
+      uniqueNeighbors.forEach(nId => {
+        const btn = document.createElement('button');
+        btn.className = 'gdp-connection-item btn btn--link';
+        btn.style.cssText = 'width:100%; text-align:left; font-size:10px; padding:4px 6px; display:flex; justify-content:space-between; align-items:center;';
+        btn.innerHTML = `
+          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">${escHtml(nId)}</span>
+          <span class="gdp-connection-item__type" style="font-size:8px; opacity:0.6;">(ir)</span>
+        `;
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          if (onFocusCallback) onFocusCallback(nId);
+        };
+        connList.appendChild(btn);
+      });
+    }
+  }
+
   const gotoBtn = $('#gdp-goto-inference');
-  if (gotoBtn) gotoBtn.dataset.clave = nodeData.id || '';
+  if (gotoBtn) {
+    gotoBtn.dataset.clave = nodeData.id || '';
+    if (nodeData.type === 'proyecto') {
+      gotoBtn.classList.remove('hidden');
+    } else {
+      gotoBtn.classList.add('hidden');
+    }
+  }
 
   panel.classList.add('graph-detail-panel--open');
 }

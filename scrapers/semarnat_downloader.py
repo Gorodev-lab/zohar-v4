@@ -260,6 +260,20 @@ def extract_metadata_from_dom(driver) -> dict:
     return metadata
 
 
+def is_valid_pdf(file_path: Path) -> bool:
+    """Verifica si el archivo es un PDF válido (mide al menos 4 bytes y tiene la cabecera %PDF)."""
+    try:
+        if not file_path.exists():
+            return False
+        if file_path.stat().st_size < 4:
+            return False
+        with open(file_path, "rb") as f:
+            header = f.read(4)
+            return header == b"%PDF"
+    except Exception:
+        return False
+
+
 def renombrar_archivos_por_clave(
     download_dir: Path,
     clave: str,
@@ -283,7 +297,7 @@ def renombrar_archivos_por_clave(
         "resumenes": [], "estudios": [], "resolutivos": []
     }
 
-    new_pdfs = sorted(
+    raw_pdfs = sorted(
         [
             f for f in download_dir.iterdir()
             if f.suffix.lower() == ".pdf"
@@ -292,6 +306,17 @@ def renombrar_archivos_por_clave(
         ],
         key=lambda f: f.stat().st_mtime,
     )
+
+    new_pdfs = []
+    for f in raw_pdfs:
+        if is_valid_pdf(f):
+            new_pdfs.append(f)
+        else:
+            logger.warning("Archivo PDF corrupto o inválido descartado: %s", f.name)
+            try:
+                f.unlink()
+            except Exception:
+                pass
 
     if not new_pdfs:
         return result
@@ -814,16 +839,77 @@ class SemarnatDownloader:
 
         return results
 
+    def batch_desde_lista_concurrent(
+        self,
+        claves: list[str],
+        max_workers: int = 2,
+        log_csv: Optional[Path] = None,
+    ) -> list[dict]:
+        """Descarga una lista de bitácoras en paralelo utilizando un pool de hilos."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        results = []
+
+        def download_worker(clave: str) -> dict:
+            # Añadir pequeña pausa inicial aleatoria para evitar que todos los hilos
+            # arranquen e interactúen exactamente al mismo tiempo
+            time.sleep(random.uniform(0.5, 3.0))
+            
+            thread_downloader = SemarnatDownloader(
+                download_dir=self.download_dir,
+                headless=self.headless,
+                download_timeout=self.download_timeout,
+                carpeta_estudios=self.carpeta_estudios,
+                carpeta_resolutivos=self.carpeta_resolutivos,
+                carpeta_resumenes=self.carpeta_resumenes
+            )
+            try:
+                res = thread_downloader.descargar_clave(clave)
+                res["bitacora_input"] = clave
+                return res
+            finally:
+                thread_downloader._quit_driver()
+
+        logger.info("Iniciando descarga concurrente con %d workers de %d claves", max_workers, len(claves))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_clave = {executor.submit(download_worker, c): c for c in claves}
+            for future in as_completed(future_to_clave):
+                clave = future_to_clave[future]
+                try:
+                    res = future.result()
+                    results.append(res)
+                    logger.info("Clave %s completada", clave)
+                except Exception as exc:
+                    logger.error("Error en worker para clave %s: %s", clave, exc)
+                    results.append({
+                        "status": "error",
+                        "bitacora_input": clave,
+                        "msg": str(exc),
+                        "level": "error"
+                    })
+
+        if log_csv:
+            import pandas as pd
+            df = pd.DataFrame(results)
+            log_csv.parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(log_csv, index=False)
+            logger.info("Log CSV guardado: %s", log_csv)
+
+        return results
+
     def batch_desde_csv(
         self,
         csv_path: str | Path,
         columna: str = "clave",
+        concurrent: bool = False,
+        max_workers: int = 2,
         **kwargs,
     ) -> list[dict]:
         """Descarga bitácoras desde un CSV."""
         import pandas as pd
         df = pd.read_csv(csv_path)
         claves = df[columna].dropna().astype(str).tolist()
+        if concurrent:
+            return self.batch_desde_lista_concurrent(claves, max_workers=max_workers, log_csv=kwargs.get("log_csv"))
         return self.batch_desde_lista(claves, **kwargs)
 
     def __del__(self):
