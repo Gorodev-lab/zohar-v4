@@ -64,3 +64,25 @@ CREATE TABLE IF NOT EXISTS public.document_embeddings (
 CREATE INDEX IF NOT EXISTS idx_embeddings_clave ON public.document_embeddings(clave);
 
 
+
+-- =========================================
+-- FASE 8: KNOWLEDGE GRAPH (Nodos y Aristas)
+-- =========================================
+CREATE TABLE IF NOT EXISTS public.kg_nodes (
+    id VARCHAR(255) PRIMARY KEY,
+    label VARCHAR(255) NOT NULL,
+    type VARCHAR(100) NOT NULL,
+    community INTEGER DEFAULT 0,
+    degree INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.kg_edges (
+    id SERIAL PRIMARY KEY,
+    source VARCHAR(255) REFERENCES public.kg_nodes(id) ON DELETE CASCADE,
+    target VARCHAR(255) REFERENCES public.kg_nodes(id) ON DELETE CASCADE,
+    relationship VARCHAR(255) NOT NULL,
+    weight FLOAT DEFAULT 1.0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source, target, relationship)
+);

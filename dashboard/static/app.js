@@ -3353,3 +3353,34 @@ async function runBatchInference() {
     btn.disabled = false;
   }
 }
+
+// ==========================================
+// FASE 8: FETCH REAL KNOWLEDGE GRAPH DATA
+// ==========================================
+async function fetchAndRenderRealGraph() {
+    try {
+        console.log("[GRAFO] Solicitando red semántica a /api/graph/data...");
+        const response = await fetch('/api/graph/data');
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const graphData = await response.json();
+        
+        console.log(`[GRAFO] Recibidos: ${graphData.nodes.length} Nodos, ${graphData.links.length} Aristas`);
+        
+        // Si tu función D3 existente está preparada para recibir data:
+        if (typeof renderGraph === 'function') {
+            // Buscamos el contenedor del SVG y lo limpiamos para evitar redibujados superpuestos
+            const svgContainer = document.querySelector('svg#grafo') || document.querySelector('#panel-GRAFO_RED svg');
+            if (svgContainer) svgContainer.innerHTML = '';
+            
+            renderGraph(graphData);
+            console.log("[GRAFO] Nodos renderizados con éxito.");
+        } else {
+            console.warn("[GRAFO] Error: La función renderGraph no está definida.");
+        }
+    } catch (e) {
+        console.error("[GRAFO] Fallo fatal al cargar el grafo:", e);
+    }
+}
+
+// Exponemos la función al scope global
+window.fetchAndRenderRealGraph = fetchAndRenderRealGraph;
