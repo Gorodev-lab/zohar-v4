@@ -92,14 +92,16 @@ app = FastAPI(
 )
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
-from api.routers import dw, rsi, rag, extraction
+from api.routers import dw, rsi, rag, extraction, enricher
 from api import rsi_routes
+from core.broadcaster import broadcaster
 
 app.include_router(dw.router)
 app.include_router(rsi.router)
 app.include_router(rsi_routes.router)
 app.include_router(rag.router)
 app.include_router(extraction.router)
+app.include_router(enricher.router)
 
 # Montar static si existe
 if (DASHBOARD_DIR / "static").exists():
@@ -110,34 +112,13 @@ if (DASHBOARD_DIR / "static").exists():
 # Sistema de Notificaciones en Tiempo Real (SSE + Watchdog)
 # ---------------------------------------------------------------------------
 
-class LiveUpdateBroadcaster:
-    def __init__(self):
-        self._listeners: list[asyncio.Queue] = []
-
-    def subscribe(self) -> asyncio.Queue:
-        q = asyncio.Queue()
-        self._listeners.append(q)
-        return q
-
-    def unsubscribe(self, q: asyncio.Queue):
-        if q in self._listeners:
-            self._listeners.remove(q)
-
-    def broadcast(self, event_type: str, filename: str):
-        payload = {"type": event_type, "file": filename, "ts": time.time()}
-        logger.info("Difundiendo evento en tiempo real: %s", payload)
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return  # No hay event loop corriendo
-        for q in list(self._listeners):
-            loop.call_soon_threadsafe(q.put_nowait, payload)
-
-live_broadcaster = LiveUpdateBroadcaster()
+live_broadcaster = broadcaster
 
 
 class DataDirectoryHandler(FileSystemEventHandler):
-    def __init__(self, broadcaster: LiveUpdateBroadcaster):
+    def __init__(self, broadcaster: Any):
+        self.broadcaster = broadcaster
+        super().__init__()
         self.broadcaster = broadcaster
         super().__init__()
 
@@ -332,6 +313,7 @@ async def thursday_gaceta_scheduler_loop():
 @app.on_event("startup")
 async def startup_event():
     global _observer
+    broadcaster.set_loop(asyncio.get_running_loop())
     logger.info("Iniciando watcher de archivos en segundo plano...")
     
     # Crear directorios si no existen
@@ -2807,6 +2789,21 @@ async def list_model_tools():
             {
                 "name": "second_brain_sync",
                 "description": "Sincroniza la bóveda del Second Brain regenerando todas las notas Markdown vinculadas y actualizando la base de datos.",
+                "parameters": {}
+            },
+            {
+                "name": "graph_query",
+                "description": "Consulta el Grafo de Conocimiento (nodos y relaciones de proyectos, promoventes, sectores, estados) en PostgreSQL.",
+                "parameters": {"query": "Término o palabra clave de búsqueda", "entity_type": "Opcional: tipo de entidad (proyecto, promovente, sector, estado)"}
+            },
+            {
+                "name": "rag_hybrid_query",
+                "description": "Ejecuta una búsqueda vectorial híbrida en el motor RAG sobre el corpus de documentos con citas normativas.",
+                "parameters": {"query": "Pregunta o consulta semántica", "top_k": "Número de fragmentos a recuperar (por defecto 5)"}
+            },
+            {
+                "name": "system_services_status",
+                "description": "Reporta el estado operativo en vivo de los servicios de fondo (BackgroundEnricherWatcher, llama-server, CPU/RAM).",
                 "parameters": {}
             }
         ]

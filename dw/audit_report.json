@@ -1,35 +1,35 @@
 {
   "alerts": [
     {
-      "clave": "09PU2026I0002",
+      "clave": "09LP2026X0001",
       "campo": "veredicto",
       "tipo_error": "Veredicto inválido",
       "nivel": "CRITICAL",
-      "mensaje": "El veredicto 'SUPER_VIABLE' no es reconocido. Valores admitidos: ['CONDICIONADO', 'NO_VIABLE', 'VIABLE', 'PENDIENTE']."
+      "mensaje": "El veredicto 'INVALID_VERDICT' no es reconocido. Valores admitidos: ['CONDICIONADO', 'NO_VIABLE', 'VIABLE', 'PENDIENTE']."
     },
     {
-      "clave": "09PU2026I0003",
+      "clave": "09LP2026X0001",
       "campo": "score",
       "tipo_error": "Score fuera de rango",
       "nivel": "CRITICAL",
       "mensaje": "El score 1.5 está fuera del rango admitido [0.0, 1.0]."
     },
     {
-      "clave": "09PU2026I0004",
+      "clave": "09LP2026X0001",
       "campo": "confianza_pct",
       "tipo_error": "Confianza fuera de rango",
       "nivel": "CRITICAL",
-      "mensaje": "La confianza 120% está fuera del rango [0, 100]."
+      "mensaje": "La confianza 150% está fuera del rango [0, 100]."
     }
   ],
   "Project Evaluations": {
     "dataset_name": "Project Evaluations",
-    "total_rows": 4,
+    "total_rows": 2,
     "missing_values": {},
     "type_errors": 1,
     "range_violations": 2,
     "regex_violations": 0,
     "duplicate_rows": 0,
-    "rows_removed": 3
+    "rows_removed": 1
   }
 }

@@ -3,16 +3,22 @@
 - [x] **Componente 1: Configuración de Inferencia y Orquestación (`dw/` y script base)**
   - [x] Modificar `dw/docker-compose.yml` (parámetros de llama-cpp, healthcheck y montaje de docker.sock en api).
   - [x] Modificar `start_llama_server.sh` (variables de hilos, contexto y caché KV).
-- [x] **Componente 2: Scaffolding, Semáforo y Métricas del Cliente LLM (`core/`)**
-  - [x] Implementar el bloqueo de concurrencia (`threading.Lock`) y parámetro `n_predict` en `core/llm_client.py`.
-  - [x] Implementar la medición y promedio de latencia por token en `core/llm_client.py`.
-  - [x] Ajustar límites de longitud de fragmentos y `n_predict` en `core/semantic_search.py`.
-  - [x] Agregar `n_predict` en llamadas a `generate_completion` de `core/rsi_brain.py`.
-- [x] **Componente 3: Endpoints y Tarea de Auto-Recuperación en FastAPI (`api/`)**
+- [x] **Componente 2: Sincronización Bidireccional de Bóveda Obsidian / Second Brain**
+  - [x] Implementar `parse_note_metadata()` para extraer frontmatter y enlaces `[[WikiLink]]` en `core/second_brain.py`
+  - [x] Implementar `sync_note_to_db()` para actualizar PostgreSQL `kg_nodes`, `kg_edges` y `semarnat_projects`
+  - [x] Implementar `sync_vault_to_dbs()` e integrar con `dw/neo4j_loader.py`
+  - [x] Crear script de prueba `scratch/test_vault_sync_direct.py`
+  - [x] Ejecutar y validar sincronización de notas Markdown a PostgreSQL y Neo4j
+- [x] **Componente 3: Tareas de Ejecución: Automatización de Inferencia en Segundo Plano**
+  - [x] Implementar `process_project_auto_enrichment()` en `core/llm_enricher.py`
+  - [x] Desarrollar la clase `BackgroundEnricherWatcher` e hilo de polling asíncrono
+  - [x] Crear script de prueba `scratch/test_llm_enricher_direct.py`
+  - [x] Ejecutar y validar enriquecimiento de metadatos, extracción de grafo y actualización de DBs
+- [x] **Componente 4: Endpoints y Tarea de Auto-Recuperación en FastAPI (`api/`)**
   - [x] Implementar la lógica para obtener estadísticas de contenedor Docker en `api/main.py`.
   - [x] Crear el endpoint `/api/status/model` en `api/main.py`.
   - [x] Crear la tarea periódica `llama_self_healing_loop` y conectarla a `startup_event` en `api/main.py`.
-- [x] **Componente 4: Pruebas, Verificación y Despliegue**
+- [x] **Componente 5: Pruebas, Verificación y Despliegue**
   - [x] Escribir y ejecutar pruebas para el endpoint `/api/status/model` y la concurrencia.
   - [x] Detener y levantar los contenedores mediante docker compose para aplicar los cambios.
   - [x] Validar la auto-recuperación matando manualmente el contenedor.
