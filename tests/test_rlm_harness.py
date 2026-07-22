@@ -142,3 +142,38 @@ def test_orchestrator_subagent_dispatch():
         assert result["variables"]["[RESULT_VERIFY_OCR_STEP_01]"]["status"] == "PASS"
         assert result["variables"]["[RESULT_CHECK_SINAT_KEYS_STEP_02]"]["status"] == "PASS"
         assert result["final_summary"] == "Verificación finalizada con éxito."
+
+
+def test_redis_session_uuid_prefix():
+    """Verifica que el prefijo se construya dinámicamente usando el session_uuid si no se pasa prefix."""
+    harness = RLMHarness(use_redis_if_available=False)
+    assert harness.session_uuid is not None
+    assert harness.storage_prefix == f"zohar:rlm:{harness.session_uuid}:"
+
+
+def test_redis_ttl_enforcement():
+    """Verifica que se le asigne la expiración (TTL) a las claves guardadas en Redis."""
+    # Mockear el cliente de Redis y la comprobación de su disponibilidad
+    with patch("redis.Redis") as mock_redis_class:
+        mock_client = MagicMock()
+        mock_redis_class.from_url.return_value = mock_client
+        
+        # Habilitar redis
+        with patch("core.rlm_harness.REDIS_AVAILABLE", True):
+            # 1. Usando el TTL por defecto
+            harness = RLMHarness(redis_url="redis://localhost:6379/0", default_ttl=600)
+            harness.offload_text("Texto largo de prueba", var_name="[VAR_TEST_01]")
+            
+            expected_key = f"{harness.storage_prefix}[VAR_TEST_01]"
+            mock_client.set.assert_called_with(expected_key, "Texto largo de prueba", ex=600)
+
+            # 2. Especificando un TTL personalizado
+            harness.offload_text("Otro texto largo", var_name="[VAR_TEST_02]", ttl=120)
+            expected_key_2 = f"{harness.storage_prefix}[VAR_TEST_02]"
+            mock_client.set.assert_called_with(expected_key_2, "Otro texto largo", ex=120)
+
+            # 3. Desactivando TTL (ttl=0)
+            harness.offload_text("Texto persistente", var_name="[VAR_TEST_03]", ttl=0)
+            expected_key_3 = f"{harness.storage_prefix}[VAR_TEST_03]"
+            mock_client.set.assert_called_with(expected_key_3, "Texto persistente")
+

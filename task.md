@@ -2,9 +2,14 @@
 
 - [x] **Componente 1: Motor Backend de RSI Atómico (`api/` & `core/`)**
   - [x] Añadir la función `run_atomic_metadata_curation_step()` en `core/rsi_brain.py`.
-  - [x] Implementar `build_targeted_snippet` en `core/text_utils.py` para snippet determinista con regex de estados y promoventes.
-  - [x] Conectar endpoints `GET /api/rsi/toggle-status` y `POST /api/rsi/toggle` en `api/main.py`.
-  - [x] Integrar el background worker loop `_atomic_rsi_worker_loop()` con emisión de eventos SSE.
+  - [x] Implementar UUID de sesión y prefijo dinámico en `RLMHarness`
+- [x] Agregar soporte de TTL (Time-To-Live) en escrituras a Redis desde `RLMHarness`
+- [x] Crear la heurística de estimación de tokens en `auto_improver.py`
+- [x] Desarrollar la lógica de sanitización y recorte inteligente para outputs de `pytest`
+- [x] Integrar el control del presupuesto de tokens dinámico en `build_prompt`
+- [x] Escribir nuevas pruebas unitarias en `tests/test_token_budget.py`
+- [x] Agregar pruebas de sesión/TTL de Redis en `tests/test_rlm_harness.py`
+- `[x]` Ejecutar suite completa de validación (pytest) para confirmar sanidad
 
 - [x] **Componente 2: Matriz de Contratos de Etapa & Auto-Healing (`core/`)**
   - [x] Crear `core/stage_contracts.py` y los clasificadores por etapas.

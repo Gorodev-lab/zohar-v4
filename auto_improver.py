@@ -581,6 +581,73 @@ def rollback(filepath: Path, backup: Path) -> None:
 # LLM — construcción de prompt y llamada
 # ---------------------------------------------------------------------------
 
+def estimate_tokens(text: str) -> int:
+    """Estimación heurística rápida de tokens: 1 token ≈ 4 caracteres."""
+    return len(text) // 4
+
+
+def sanitize_pytest_output(output: str, max_tokens: int = 1000) -> str:
+    """
+    Filtra y recorta el output de pytest para conservar únicamente la información de fallos y errores,
+    respetando un límite máximo estimado de tokens (1 token ≈ 4 caracteres).
+    """
+    # 1. Limpieza inicial: Remover warnings y líneas de warnings redundantes para ahorrar tokens
+    lines = output.splitlines()
+    clean_lines = []
+    skip_warning_block = False
+    for line in lines:
+        if "UserWarning:" in line or "DeprecationWarning:" in line or "warnings summary" in line:
+            continue
+        # Evitar los bloques de advertencias detallados de pytest al final
+        if "=== warnings summary ===" in line:
+            skip_warning_block = True
+            continue
+        if skip_warning_block and line.startswith("="):
+            skip_warning_block = False
+        if not skip_warning_block:
+            clean_lines.append(line)
+            
+    clean_output = "\n".join(clean_lines).strip()
+
+    # 2. Intentar extraer secciones estructuradas de fallas/errores
+    failures_match = re.search(
+        r"(={3,}\s+(?:FAILURES|ERRORS)\s+={3,}.*?)(?=={3,}\s+short test summary info\s+={3,}|={3,}\s+\d+ failed|$)",
+        clean_output,
+        re.DOTALL
+    )
+    summary_match = re.search(
+        r"(={3,}\s+short test summary info\s+={3,}.*?)$",
+        clean_output,
+        re.DOTALL
+    )
+
+    parts = []
+    if failures_match:
+        parts.append(failures_match.group(1).strip())
+    if summary_match:
+        parts.append(summary_match.group(1).strip())
+
+    if parts:
+        sanitized = "\n\n".join(parts)
+    else:
+        sanitized = clean_output
+
+    # 3. Controlar la longitud final con el presupuesto de caracteres
+    max_chars = max_tokens * 4
+    if len(sanitized) <= max_chars:
+        return sanitized
+
+    if parts:
+        # Truncado elegante de mitades para secciones estructuradas
+        trunc_msg = "\n\n...[Trazas intermedias omitidas por límite de tokens]...\n\n"
+        half = max(0, (max_chars - len(trunc_msg)) // 2)
+        return sanitized[:half] + trunc_msg + sanitized[-half:]
+    else:
+        # Fallback simple
+        trunc_prefix = "...[Truncado]...\n"
+        return trunc_prefix + sanitized[-(max_chars - len(trunc_prefix)):]
+
+
 def build_prompt(
     window: str,
     test_output: str,
@@ -599,9 +666,8 @@ def build_prompt(
     Nunca se le pide reconstruir código que no se le mostró.
     Ahora incluye contexto de criticidad graphify, memoria de ciclos anteriores y RAG de Second Brain.
     """
-    test_tail = test_output[-1500:].strip()
-
-    lines = [
+    # Estimar tokens del prompt indispensable para calcular dinámicamente el presupuesto de test_output
+    base_instructions = [
         "Eres un ingeniero senior de automatización web y Python, especializado en Angular v18 y Selenium.",
         "",
         "CONTEXTO CRÍTICO:",
@@ -617,6 +683,26 @@ def build_prompt(
         "- El bloque try/except (si aparece en el fragmento) debe quedar con indentación consistente y válida.",
         "",
         f"Tu tarea es mejorar el fragmento de `{func_name}` en `{target_file}`.",
+        "",
+    ]
+    
+    indispensable_text = "\n".join(base_instructions) + "\n" + ANGULAR_PORTAL_CONTEXT + "\n" + window + "\n" + cycle_history
+    if betweenness is not None:
+        indispensable_text += f"\n=== CONTEXTO DE CRITICIDAD (Graphify) ===\n{betweenness:.4f}"
+    if current_metric >= 1.0:
+        indispensable_text += "\n=== DIRECTIVA DE MICRO-REFACTORIZACIÓN DE ALTO RENDIMIENTO ==="
+
+    indispensable_tokens = estimate_tokens(indispensable_text)
+    
+    # Calcular el presupuesto disponible para el reporte de pruebas
+    max_context_tokens = 4096
+    output_safety_margin = 1000
+    test_budget = max(500, max_context_tokens - indispensable_tokens - output_safety_margin)
+    
+    # Sanitizar y recortar
+    test_tail = sanitize_pytest_output(test_output, max_tokens=test_budget).strip()
+
+    lines = base_instructions + [
         "",
     ]
 
