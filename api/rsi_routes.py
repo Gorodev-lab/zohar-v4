@@ -86,7 +86,7 @@ def _execute_loop_job(job_id: str, doc_id: str, task_description: str):
         raw_text = _find_document_text(doc_id)
         
         # 2. Inicializar RLMHarness y descargar el texto
-        harness = RLMHarness(use_redis_if_available=False)
+        harness = RLMHarness(use_redis_if_available=True)
         symbolic_tag = harness.offload_text(raw_text, var_name="[VAR_DOC_01]")
 
         # 3. Configurar orquestador y registrar sub-agentes

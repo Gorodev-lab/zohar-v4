@@ -82,7 +82,12 @@ services:
       - "8083:8083"
     volumes:
       - ../models:/models
-    command: -m /models/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf -c 12288 --parallel 4 -t 6 -b 4096 -ub 4096 --host 0.0.0.0 --port 8083 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --cont-batching --jinja --chat-template gemma --embeddings
+    command: -m /models/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf -c 4096 --parallel 4 -t 4 -b 512 -ub 512 --host 0.0.0.0 --port 8083 --flash-attn on --cache-type-k q4_0 --cache-type-v q4_0 --cont-batching --jinja --chat-template gemma --embeddings
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -94,6 +99,7 @@ services:
       - "127.0.0.1:8004:8004"
     volumes:
       - ..:/app
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/maritime_dw
       - LOCAL_LLM_URL=http://llama-cpp:8083

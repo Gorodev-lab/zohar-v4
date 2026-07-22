@@ -89,13 +89,63 @@ class RSILoopOrchestrator:
             "message": "Clave SINAT validada correctamente." if is_valid_format else "Formato de clave no válido o inexistente."
         }
 
-    def run_task(self, task_description: str, initial_variables: Dict[str, Any]) -> Dict[str, Any]:
+    def _resolve_and_hydrate_parameters(self, func: Callable[..., Any], parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Inspecciona la firma del sub-agente e inyecta la instancia de harness o hidrata
+        las variables de texto automáticamente según corresponda.
+        """
+        import inspect
+        sig = inspect.signature(func)
+        resolved = {}
+        
+        # Parámetros que esperan la referencia simbólica y no deben ser hidratados
+        ref_params = {"doc_id", "var_name", "tag", "variable", "ref", "symbolic_tag"}
+        
+        has_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+        
+        def hydrate_value(k: str, v: Any) -> Any:
+            if isinstance(v, str):
+                if k in ref_params:
+                    return v
+                # Si es una variable simbólica única del arnés, recuperarla
+                if v.startswith("[VAR_DOC_") and v.endswith("]"):
+                    hydrated = self.harness.get_offloaded_text(v)
+                    return hydrated if hydrated is not None else v
+                # Si es una cadena combinada, rehidratarla
+                return self.harness.rehydrate_text(v)
+            return v
+
+        for name, param in sig.parameters.items():
+            if name == "harness":
+                resolved["harness"] = self.harness
+                continue
+                
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                continue
+                
+            if name in parameters:
+                resolved[name] = hydrate_value(name, parameters[name])
+                
+        if has_kwargs:
+            for k, v in parameters.items():
+                if k not in resolved and k not in sig.parameters:
+                    resolved[k] = hydrate_value(k, v)
+                    
+        return resolved
+
+    def run_task(
+        self,
+        task_description: str,
+        initial_variables: Dict[str, Any],
+        cleanup_unaccessed: bool = True
+    ) -> Dict[str, Any]:
         """
         Ejecuta el bucle REPL iterativo guiado por el LLM.
 
         Args:
             task_description: Tarea principal compleja a resolver.
             initial_variables: Mapa de variables (incluyendo referencias simbólicas y datos base).
+            cleanup_unaccessed: Si es True, limpia de Redis/memoria las variables creadas pero no leídas.
 
         Returns:
             Dict con el resultado final de la ejecución, historial de pasos y estado.
@@ -178,19 +228,10 @@ class RSILoopOrchestrator:
                 break
 
             if action in self._subagents:
-                # Resolver variables simbólicas en los parámetros antes de pasarlos
-                resolved_parameters = {}
-                for pk, pv in parameters.items():
-                    if isinstance(pv, str) and pv.startswith("[VAR_DOC_"):
-                        # Si es una variable simbólica del harnés, la resolvemos o pasamos la referencia según lo requiera
-                        # Algunos sub-agentes esperan el identificador simbólico (ej. para buscar en el harnés)
-                        resolved_parameters[pk] = pv
-                    else:
-                        resolved_parameters[pk] = pv
-
                 try:
-                    # Ejecutar el sub-agente correspondiente
+                    # Ejecutar el sub-agente correspondiente con resolución e hidratación dinámica
                     agent_func = self._subagents[action]
+                    resolved_parameters = self._resolve_and_hydrate_parameters(agent_func, parameters)
                     result = agent_func(**resolved_parameters)
                     step_record["result"] = result
                     
@@ -211,6 +252,10 @@ class RSILoopOrchestrator:
 
             self.execution_history.append(step_record)
 
+        cleaned_vars = []
+        if cleanup_unaccessed:
+            cleaned_vars = self.harness.cleanup_unaccessed_keys()
+
         if status == "IN_PROGRESS":
             status = "MAX_ITERATIONS_REACHED"
             final_summary = f"Se alcanzó el límite máximo de {self.max_iterations} iteraciones sin concluir."
@@ -220,5 +265,6 @@ class RSILoopOrchestrator:
             "final_summary": final_summary,
             "steps_executed": step,
             "history": self.execution_history,
-            "variables": current_variables
+            "variables": current_variables,
+            "cleaned_variables": cleaned_vars
         }

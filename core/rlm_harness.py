@@ -63,6 +63,8 @@ class RLMHarness:
             self.storage_prefix = storage_prefix
             
         self._memory_store: Dict[str, str] = {}
+        self._created_keys: set[str] = set()
+        self._accessed_keys: set[str] = set()
         self._redis_client = None
         self._doc_counter: int = 0
 
@@ -121,6 +123,7 @@ class RLMHarness:
         else:
             self._memory_store[clean_tag] = text
 
+        self._created_keys.add(clean_tag)
         logger.debug(f"Offloaded text ({len(text)} chars) -> {clean_tag} (TTL={effective_ttl})")
         return clean_tag
 
@@ -135,17 +138,56 @@ class RLMHarness:
             El texto crudo original o None si no existe.
         """
         tag = var_name if var_name.startswith("[") and var_name.endswith("]") else f"[{var_name}]"
+        val = None
 
         if self._redis_client:
             try:
                 redis_key = f"{self.storage_prefix}{tag}"
-                val = self._redis_client.get(redis_key)
-                if val is not None:
-                    return str(val)
+                redis_val = self._redis_client.get(redis_key)
+                if redis_val is not None:
+                    val = str(redis_val)
             except Exception as e:
                 logger.error(f"Error leyendo de Redis ({e}). Consultando almacenamiento en memoria.")
 
-        return self._memory_store.get(tag)
+        if val is None:
+            val = self._memory_store.get(tag)
+
+        if val is not None:
+            self._accessed_keys.add(tag)
+
+        return val
+
+    def cleanup_unaccessed_keys(self) -> List[str]:
+        """
+        Identifica variables que fueron creadas pero nunca accedidas durante la sesión.
+        Las elimina de Redis y de la memoria local.
+
+        Returns:
+            Lista de etiquetas simbólicas eliminadas.
+        """
+        dead_keys = self._created_keys - self._accessed_keys
+        deleted = []
+
+        for tag in dead_keys:
+            # Eliminar de la memoria local
+            if tag in self._memory_store:
+                del self._memory_store[tag]
+                deleted.append(tag)
+
+            # Eliminar de Redis
+            if self._redis_client:
+                try:
+                    redis_key = f"{self.storage_prefix}{tag}"
+                    self._redis_client.delete(redis_key)
+                    if tag not in deleted:
+                        deleted.append(tag)
+                except Exception as e:
+                    logger.error(f"RLMHarness: Error al eliminar variable muerta {tag} de Redis: {e}")
+
+        logger.info(f"RLMHarness: Limpieza activa completada. Se eliminaron {len(deleted)} variables muertas: {deleted}")
+        # Remover las claves eliminadas de created_keys
+        self._created_keys.difference_update(deleted)
+        return deleted
 
     def offload_large_blocks(
         self,
@@ -309,6 +351,8 @@ class RLMHarness:
     def clear_store(self) -> None:
         """Limpia el almacenamiento en memoria y en Redis de las claves administradas."""
         self._memory_store.clear()
+        self._created_keys.clear()
+        self._accessed_keys.clear()
         self._doc_counter = 0
 
         if self._redis_client:

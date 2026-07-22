@@ -5,6 +5,8 @@ Knowledge Graph de proyectos SEMARNAT para visualización con D3.js.
 
 from __future__ import annotations
 
+import json
+import os
 import re
 from pathlib import Path
 from typing import Optional
@@ -122,6 +124,142 @@ def scan_corpus(base_path: Path) -> list[dict]:
     return projects
 
 
+def load_db_metadata() -> dict[str, dict]:
+    """Carga metadatos enriquecidos de todos los proyectos de la base de datos."""
+    metadata = {}
+    try:
+        import sqlalchemy as sa
+        from core.config import DATABASE_URL
+        engine = sa.create_engine(DATABASE_URL)
+        with engine.connect() as conn:
+            # 1. Intentar con la tabla proyectos / promoventes primero
+            try:
+                query = sa.text("""
+                    SELECT p.clave, p.nombre, pr.nombre as promovente, p.estado
+                    FROM proyectos p
+                    LEFT JOIN promoventes pr ON p.promovente_id = pr.id
+                """)
+                rows = conn.execute(query).fetchall()
+                for row in rows:
+                    metadata[row[0].upper()] = {
+                        "project_name": row[1],
+                        "promovente": row[2],
+                        "municipio": None,
+                        "veredicto": None
+                    }
+            except Exception:
+                pass
+
+            # 2. Intentar con public.semarnat_projects y public.project_evaluations
+            try:
+                query = sa.text("""
+                    SELECT p.clave, p.project_name, p.promovente, p.state, e.veredicto
+                    FROM public.semarnat_projects p
+                    LEFT JOIN public.project_evaluations e ON p.clave = e.clave
+                """)
+                rows = conn.execute(query).fetchall()
+                for row in rows:
+                    clave_upper = row[0].upper()
+                    entry = metadata.setdefault(clave_upper, {})
+                    if row[1]:
+                        entry["project_name"] = row[1]
+                    if row[2]:
+                        entry["promovente"] = row[2]
+                    if row[3]:
+                        entry["municipio"] = row[3]
+                    if row[4]:
+                        entry["veredicto"] = row[4]
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return metadata
+
+
+def load_inference_cache() -> dict[str, dict]:
+    """Carga veredictos y otros datos de la cache de inferencia local."""
+    from core.config import DATA_DIR
+    cache_dir = DATA_DIR / "inference_cache"
+    cache = {}
+    if cache_dir.exists():
+        for f in cache_dir.glob("*.json"):
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                clave = data.get("clave") or f.stem
+                if clave:
+                    cache[clave.upper()] = {
+                        "veredicto": data.get("veredicto"),
+                        "project_name": data.get("project_name") or data.get("nombre_proyecto"),
+                        "promovente": data.get("promovente"),
+                        "municipio": data.get("municipio")
+                    }
+            except Exception:
+                pass
+    return cache
+
+
+def load_csv_metadata() -> dict[str, dict]:
+    """Carga metadatos desde todos los archivos claves_*.csv en data/."""
+    import csv
+    from core.config import DATA_DIR
+    metadata = {}
+    for csv_file in DATA_DIR.glob("claves_*.csv"):
+        try:
+            with open(csv_file, "r", encoding="utf-8", errors="ignore") as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                for row in reader:
+                    if not row or len(row) < 3:
+                        continue
+                    clave = row[0].strip().upper()
+                    if len(row) >= 7:
+                        proj_name = row[4].strip()
+                        loc = row[5].strip()
+                        prom = row[6].strip()
+                    else:
+                        proj_name = row[3].strip() if len(row) > 3 else f"Proyecto {clave}"
+                        loc = row[4].strip() if len(row) > 4 else ""
+                        prom = row[5].strip() if len(row) > 5 else "Desconocido"
+
+                    metadata[clave] = {
+                        "project_name": proj_name,
+                        "promovente": prom,
+                        "municipio": loc,
+                        "veredicto": None
+                    }
+        except Exception:
+            pass
+    return metadata
+
+
+def enrich_projects_metadata(projects: list[dict]) -> list[dict]:
+    """Enriquece una lista de proyectos escaneados combinando DB, Cache de Inferencia y CSV."""
+    db_meta = load_db_metadata()
+    cache_meta = load_inference_cache()
+    csv_meta = load_csv_metadata()
+
+    for p in projects:
+        clave = p.get("clave", "").upper()
+        if not clave:
+            continue
+
+        m_cache = cache_meta.get(clave, {})
+        m_db = db_meta.get(clave, {})
+        m_csv = csv_meta.get(clave, {})
+
+        proj_name = m_cache.get("project_name") or m_db.get("project_name") or m_csv.get("project_name") or p.get("project_name") or f"Proyecto {clave}"
+        promovente = m_cache.get("promovente") or m_db.get("promovente") or m_csv.get("promovente") or p.get("promovente") or "Desconocido"
+        municipio = m_cache.get("municipio") or m_db.get("municipio") or m_csv.get("municipio") or p.get("municipio") or None
+        veredicto = m_cache.get("veredicto") or m_db.get("veredicto") or None
+
+        p["project_name"] = proj_name
+        p["promovente"] = promovente
+        p["municipio"] = municipio
+        p["veredicto"] = veredicto
+
+    return projects
+
+
 def build_graph(projects: list[dict]) -> dict:
     """
     Construye el grafo de conocimiento a partir de proyectos.
@@ -147,14 +285,46 @@ def build_graph(projects: list[dict]) -> dict:
             continue
 
         clave = p["clave"]
-        proj_id = add_node(clave, clave, "proyecto", year=p.get("year"))
+        proj_id = add_node(
+            clave, 
+            clave, 
+            "proyecto", 
+            year=p.get("year"),
+            project_name=p.get("project_name", f"Proyecto {clave}"),
+            veredicto=p.get("veredicto")
+        )
 
         # Nodo estado
-        estado_id = f"estado_{p['estado']}"
-        add_node(estado_id, p.get("estado_nombre", p["estado"]), "estado")
-        relations.append({"src": proj_id, "tgt": estado_id, "rel": "UBICADO_EN"})
-        nodes[proj_id]["degree"] += 1
-        nodes[estado_id]["degree"] += 1
+        estado_code = p["estado"]
+        estado_id = f"estado_{estado_code}"
+        add_node(estado_id, p.get("estado_nombre", estado_code), "estado")
+        
+        # Enlace territorial
+        municipio_name = p.get("municipio")
+        if municipio_name and municipio_name.strip() and municipio_name.lower() not in ("desconocido", "desconocida", "", "none"):
+            muni_clean = municipio_name.strip()
+            muni_id = f"muni_{estado_code}_{muni_clean.upper()}"
+            add_node(muni_id, muni_clean, "municipio")
+            
+            relations.append({"src": proj_id, "tgt": muni_id, "rel": "UBICADO_EN"})
+            relations.append({"src": muni_id, "tgt": estado_id, "rel": "PERTENECE_A"})
+            nodes[proj_id]["degree"] += 1
+            nodes[muni_id]["degree"] += 2
+            nodes[estado_id]["degree"] += 1
+        else:
+            relations.append({"src": proj_id, "tgt": estado_id, "rel": "UBICADO_EN"})
+            nodes[proj_id]["degree"] += 1
+            nodes[estado_id]["degree"] += 1
+
+        # Nodo promovente
+        prom_name = p.get("promovente")
+        if prom_name and prom_name.strip() and prom_name.lower() not in ("desconocido", "", "none"):
+            prom_clean = prom_name.strip()
+            prom_id = f"prom_{prom_clean.upper()}"
+            add_node(prom_id, prom_clean, "promovente")
+            relations.append({"src": proj_id, "tgt": prom_id, "rel": "PROMOVIDO_POR"})
+            nodes[proj_id]["degree"] += 1
+            nodes[prom_id]["degree"] += 1
 
         # Nodo tipo MIA
         tipo_id = f"tipo_{p['tipo']}"
@@ -187,17 +357,6 @@ def build_graph(projects: list[dict]) -> dict:
 def to_compact_graph(graph: dict) -> dict:
     """
     Convierte el grafo a formato compacto para D3.js.
-
-    Schema de salida fijo:
-    {
-        "schema": {
-            "nodes": ["i","t","l","st","yr","deg","com"],
-            "rel_map": {0: "UBICADO_EN", 1: "ES_TIPO", ...}
-        },
-        "nodes": [[i, t, l, st, yr, deg, com], ...],
-        "links": [[src_idx, tgt_idx, rel_idx], ...],
-        "metrics": {...}
-    }
     """
     nodes = graph["nodes"]
     relations = graph["relations"]
@@ -212,13 +371,15 @@ def to_compact_graph(graph: dict) -> dict:
     for n in nodes:
         com = type_to_com.get(n["type"], 0)
         compact_nodes.append([
-            n["id"],          # i: id
-            n["type"],        # t: type
-            n["label"],       # l: label
-            n["color"],       # st: style/color
-            n.get("year"),    # yr: year
+            n["id"],             # i: id
+            n["type"],           # t: type
+            n["label"],          # l: label
+            n["color"],          # st: style/color
+            n.get("year"),       # yr: year
             n.get("degree", 0),  # deg: degree
-            com,              # com: community
+            com,                 # com: community
+            n.get("project_name"), # name: project_name
+            n.get("veredicto"),  # veredicto: veredicto
         ])
 
     # Mapa inverso de relaciones
@@ -245,7 +406,7 @@ def to_compact_graph(graph: dict) -> dict:
 
     return {
         "schema": {
-            "nodes": ["i", "t", "l", "st", "yr", "deg", "com"],
+            "nodes": ["i", "t", "l", "st", "yr", "deg", "com", "name", "veredicto"],
             "rel_map": rel_map,
         },
         "nodes": compact_nodes,
@@ -255,8 +416,9 @@ def to_compact_graph(graph: dict) -> dict:
 
 
 def build_full_graph(base_path: Path) -> dict:
-    """Pipeline completo: scan → build → compact."""
+    """Pipeline completo: scan → enrich → build → compact."""
     projects = scan_corpus(base_path)
+    projects = enrich_projects_metadata(projects)
     graph = build_graph(projects)
     return to_compact_graph(graph)
 
@@ -264,9 +426,7 @@ def build_full_graph(base_path: Path) -> dict:
 def invalidate_graph_cache() -> bool:
     """
     Invalida el caché de disco (data/graph_cache.json) y el caché de Redis (zohar:graph:compact).
-    Se llama reactivamente desde el Watchdog cuando cambian PDFs o inferencias.
     """
-    import os
     from core.config import DATA_DIR
     cache_path = DATA_DIR / "graph_cache.json"
     if cache_path.exists():
@@ -284,4 +444,5 @@ def invalidate_graph_cache() -> bool:
         pass
 
     return True
+
 

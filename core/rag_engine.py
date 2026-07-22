@@ -26,6 +26,29 @@ logger = logging.getLogger(__name__)
 DB_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5432/maritime_dw")
 
 
+_LLM_EMBEDDING_SUPPORTED = None
+
+def _is_llm_embedding_supported() -> bool:
+    global _LLM_EMBEDDING_SUPPORTED
+    if _LLM_EMBEDDING_SUPPORTED is not None:
+        return _LLM_EMBEDDING_SUPPORTED
+    import sys
+    if "pytest" in sys.modules:
+        _LLM_EMBEDDING_SUPPORTED = False
+        return False
+    import requests
+    local_url = os.environ.get("LOCAL_LLM_URL", "http://127.0.0.1:8083")
+    try:
+        r = requests.post(f"{local_url}/embedding", json={"content": "test"}, timeout=0.5)
+        if r.status_code == 200:
+            _LLM_EMBEDDING_SUPPORTED = True
+            return True
+    except Exception:
+        pass
+    _LLM_EMBEDDING_SUPPORTED = False
+    return False
+
+
 def _compute_sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
 
@@ -41,13 +64,14 @@ def _cosine_similarity(v1: List[float], v2: List[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
-def split_markdown_by_headers(md_text: str, max_chunk_chars: int = 1500) -> List[Dict[str, str]]:
+def split_markdown_by_headers(md_text: str, max_chunk_chars: int = 1500, overlap_chars: int = 200) -> List[Dict[str, str]]:
     """
     Fragmenta un documento Markdown respetando encabezados H1, H2, H3 (#, ##, ###).
-    Devuelve lista de {"section_title": str, "chunk_text": str}.
+    Si un bloque bajo un encabezado supera max_chunk_chars, lo subdivide con solape (overlap)
+    para preservar la semántica del fragmento, inyectando el título de sección al inicio de cada sub-chunk.
     """
     lines = md_text.splitlines()
-    chunks = []
+    raw_sections = []
     current_title = "Introducción / General"
     current_lines = []
 
@@ -56,14 +80,10 @@ def split_markdown_by_headers(md_text: str, max_chunk_chars: int = 1500) -> List
     for line in lines:
         match = header_re.match(line.strip())
         if match:
-
             if current_lines:
                 text_block = "\n".join(current_lines).strip()
                 if len(text_block) > 30:
-                    chunks.append({
-                        "section_title": current_title,
-                        "chunk_text": text_block
-                    })
+                    raw_sections.append((current_title, text_block))
                 current_lines = []
             current_title = match.group(2).strip()
         else:
@@ -72,12 +92,41 @@ def split_markdown_by_headers(md_text: str, max_chunk_chars: int = 1500) -> List
     if current_lines:
         text_block = "\n".join(current_lines).strip()
         if len(text_block) > 30:
+            raw_sections.append((current_title, text_block))
+
+    if not raw_sections:
+        raw_sections = [("Documento Completo", md_text.strip())]
+
+    chunks = []
+    for title, text_block in raw_sections:
+        if len(text_block) <= max_chunk_chars:
             chunks.append({
-                "section_title": current_title,
+                "section_title": title,
                 "chunk_text": text_block
             })
+        else:
+            # Subdividir usando ventana deslizante con solape (overlap_chars)
+            start = 0
+            sub_idx = 1
+            while start < len(text_block):
+                end = start + max_chunk_chars
+                chunk_slice = text_block[start:end]
+                
+                # Prepend el contexto del encabezado al sub-chunk para mantener relevancia semántica
+                prefix = f"[Sección: {title}] "
+                chunks.append({
+                    "section_title": f"{title} (Parte {sub_idx})",
+                    "chunk_text": prefix + chunk_slice
+                })
+                
+                start += (max_chunk_chars - overlap_chars)
+                sub_idx += 1
+                
+                # Si lo que queda es menor o igual al overlap, evitamos duplicar/crear un chunk redundante
+                if start >= len(text_block) - overlap_chars:
+                    break
 
-    return chunks if chunks else [{"section_title": "Documento Completo", "chunk_text": md_text[:max_chunk_chars]}]
+    return chunks
 
 
 class RAGEngine:
@@ -106,12 +155,33 @@ class RAGEngine:
             logger.error("Error guardando caché RAG: %s", exc)
 
     def _generate_embedding(self, text: str) -> List[float]:
-        """Genera vector embedding para un chunk de texto."""
-        # Se genera un vector determinista / semántico basado en frecuencias y palabras clave
-        # compatible con entornos locales y cloud sin requerir modelos pesados adicionales
-        words = re.findall(r"\w+", text.lower())
+        """Genera vector embedding para un chunk de texto usando llama-server o fallback."""
+        truncated_text = text[:1000].strip()
+        if _is_llm_embedding_supported():
+            import requests
+            local_url = os.environ.get("LOCAL_LLM_URL", "http://127.0.0.1:8083")
+            try:
+                r = requests.post(
+                    f"{local_url}/embedding",
+                    json={"content": truncated_text},
+                    timeout=5.0
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        emb = data[0].get("embedding")
+                        if isinstance(emb, list) and len(emb) > 0 and isinstance(emb[0], list):
+                            return emb[0]
+                        return emb
+                    elif isinstance(data, dict):
+                        return data.get("embedding")
+            except Exception:
+                pass
+
+        # Fallback determinista
+        words = re.findall(r"\w+", truncated_text.lower())
         vector = [0.0] * 128
-        for i, w in enumerate(words):
+        for w in words:
             idx = (hash(w) % 128)
             vector[idx] += 1.0
         norm = math.sqrt(sum(x * x for x in vector)) or 1.0
@@ -223,7 +293,7 @@ class RAGEngine:
             context_str += f"\n--- FUENTE {i} {cite_tag} ---\n{c['chunk_text']}\n"
 
         prompt = f"""Instrucciones: Responde a la pregunta del usuario utilizando ÚNICAMENTE el contexto provisto a continuación. 
-Es OBLIGATORIO incluir las citas explícitas en el formato [Clave | Sección] al final de cada afirmación principal. Si el contexto no responde a la pregunta, declara formalmente que no se cuenta con información en la base de conocimiento.
+Es OBLIGATORIO incluir las citas explícitas en el formato estricto [Clave | Sección] al final de cada afirmación principal para justificar la procedencia de la información. Si el contexto no responde a la pregunta de forma fundamentada, responde declarando formalmente que no cuentas con información suficiente en el contexto.
 
 CONTEXTO RECUPERADO:
 {context_str}

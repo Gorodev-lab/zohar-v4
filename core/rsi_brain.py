@@ -210,7 +210,8 @@ def run_atomic_metadata_curation_step() -> dict:
             prompt=f"Texto del proyecto:\n{snippet}",
             system_prompt=sys_prompt,
             response_json=True,
-            max_chars=2500
+            max_chars=2500,
+            n_predict=128
         )
 
         if isinstance(res, dict) and not res.get("is_fallback"):

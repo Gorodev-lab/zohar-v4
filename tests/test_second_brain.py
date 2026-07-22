@@ -116,6 +116,110 @@ def test_second_brain_builder_vault_generation(temp_vault_dir):
     assert "Señal de prueba positiva" in inf_content
 
 
+def test_second_brain_bidirectional_sync(temp_vault_dir):
+    """Verifica que sync_vault_to_database propague cambios de las notas Markdown a la base de datos SQLite."""
+    import sqlalchemy as sa
+    from core.second_brain import SecondBrainBuilder
+
+    db_url = "sqlite:///" + str(temp_vault_dir / "test_dw.db")
+    engine = sa.create_engine(db_url)
+    
+    # Crear las tablas de prueba en SQLite
+    with engine.begin() as conn:
+        conn.execute(sa.text("""
+            CREATE TABLE IF NOT EXISTS semarnat_projects (
+                clave VARCHAR(50) PRIMARY KEY,
+                project_name TEXT,
+                status VARCHAR(255),
+                sector VARCHAR(255),
+                state VARCHAR(255),
+                year INT,
+                promovente TEXT,
+                updated_at TIMESTAMP
+            )
+        """))
+        conn.execute(sa.text("""
+            CREATE TABLE IF NOT EXISTS project_evaluations (
+                clave VARCHAR(50) PRIMARY KEY,
+                veredicto VARCHAR(50),
+                score DOUBLE PRECISION,
+                confianza_pct INT
+            )
+        """))
+        # Insertar un proyecto y evaluación inicial
+        conn.execute(sa.text("""
+            INSERT OR REPLACE INTO semarnat_projects (clave, project_name, status, promovente)
+            VALUES ('21PU2025H0155', 'Proyecto Original', 'INGRESADO', 'Promovente Original')
+        """))
+        conn.execute(sa.text("""
+            INSERT OR REPLACE INTO project_evaluations (clave, veredicto, score, confianza_pct)
+            VALUES ('21PU2025H0155', 'PENDIENTE', 0.1, 50)
+        """))
+
+    # Crear una nota modificada en la bóveda
+    sb_dir = temp_vault_dir / "second_brain"
+    entities_dir = sb_dir / "02_Entities"
+    entities_dir.mkdir(parents=True, exist_ok=True)
+    
+    proj_note = entities_dir / "Proyecto - 21PU2025H0155.md"
+    proj_note.write_text("""---
+type: entity
+category: proyecto
+clave: 21PU2025H0155
+---
+
+# Proyecto SEMARNAT: 21PU2025H0155
+
+## [FICHA] Técnica
+- **Nombre del Proyecto:** Proyecto Modificado Manualmente
+- **Promovente:** Promovente Modificado
+- **Estatus de Trámite:** **AUTORIZADO**
+- **Clave de Proyecto:** `21PU2025H0155`
+- **Estado/Ubicación:** [[Municipio - Puebla]]
+- **Año de Registro:** 2025
+""", encoding="utf-8")
+
+    # Inferencia note
+    inferences_dir = sb_dir / "03_Inferences"
+    inferences_dir.mkdir(parents=True, exist_ok=True)
+    inf_note = inferences_dir / "Inferencia - 21PU2025H0155.md"
+    inf_note.write_text("""---
+type: inference
+category: dictamen
+clave: 21PU2025H0155
+veredicto: FAVORABLE
+score: 0.95
+---
+
+# Dictamen de Inferencia
+Veredicto: **FAVORABLE**
+Viabilidad Socio-Ambiental (Score): `95.0%`
+""", encoding="utf-8")
+
+    # Ejecutar sincronización
+    import os
+    from unittest.mock import patch
+    builder = SecondBrainBuilder(temp_vault_dir)
+    
+    with patch.dict(os.environ, {"DATABASE_URL": db_url}):
+        res = builder.sync_vault_to_database()
+        
+    assert res["status"] == "ok"
+    assert res["projects_updated"] == 1
+    assert res["inferences_updated"] == 1
+
+    # Verificar que los datos en la base de datos se hayan actualizado
+    with engine.connect() as conn:
+        row_proj = conn.execute(sa.text("SELECT project_name, status, promovente FROM semarnat_projects WHERE clave = '21PU2025H0155'")).fetchone()
+        assert row_proj[0] == "Proyecto Modificado Manualmente"
+        assert row_proj[1] == "AUTORIZADO"
+        assert row_proj[2] == "Promovente Modificado"
+        
+        row_eval = conn.execute(sa.text("SELECT veredicto, score FROM project_evaluations WHERE clave = '21PU2025H0155'")).fetchone()
+        assert row_eval[0] == "FAVORABLE"
+        assert row_eval[1] == 0.95
+
+
 # ===========================================================================
 # Pruebas de Integración (API Endpoint)
 # ===========================================================================
