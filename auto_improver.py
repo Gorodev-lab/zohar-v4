@@ -435,26 +435,75 @@ def auto_fix_window_indentation(
     tail: str,
     full_source: str,
     func_name: str,
-    max_passes: int = 10,
+    max_passes: int = 15,
 ) -> str:
     """
     Intenta reparar desalineaciones e 'indent jumps' producidos por el LLM dentro de `new_window`.
     Escanea línea por línea y si detecta un salto de indentación no permitido (ej. línea anterior
     no termina en ':', '(', '{', '[', '\\'), desplaza el bloque en conflicto hasta lograr que
     ast.parse del archivo completo sea válido.
+    También utiliza el número de línea exacto provisto por el error de SyntaxError para realizar
+    correcciones alineadas al bloque anterior.
     """
     new_window = fix_llm_indentation(new_window_raw, base_indent)
     lines = new_window.splitlines()
+    head_lines = head.count("\n")
 
     for pass_num in range(max_passes):
         cur_window = "\n".join(lines) + "\n"
         candidate_block = head + cur_window + tail
         candidate_source = replace_function_block(full_source, func_name, candidate_block)
-        valid, _ = validate_python_syntax(candidate_source)
+        
+        valid, err = validate_python_syntax_detailed(candidate_source)
         if valid:
             logger.info("Auto-reparación de indentación exitosa en pase %d.", pass_num)
             return cur_window
 
+        # Intentar corrección quirúrgica si el compilador nos da el número de línea
+        if err and err.lineno is not None:
+            rel_line = err.lineno - head_lines - 1
+            if 0 <= rel_line < len(lines):
+                line_content = lines[rel_line]
+                stripped = line_content.lstrip()
+                if stripped:
+                    p_line = rel_line - 1
+                    while p_line >= 0 and not lines[p_line].strip():
+                        p_line -= 1
+                    
+                    p_indent = base_indent
+                    if p_line >= 0:
+                        p_line_content = lines[p_line]
+                        p_indent = len(p_line_content) - len(p_line_content.lstrip())
+
+                    # Probar candidatos de indentación según el tipo de error
+                    candidates_indents = []
+                    if "expected an indented block" in str(err):
+                        candidates_indents = [p_indent + 4]
+                    else:
+                        candidates_indents = [p_indent, p_indent - 4, p_indent - 8, p_indent + 4]
+
+                    repaired_this_pass = False
+                    for candidate_indent in candidates_indents:
+                        if candidate_indent < base_indent:
+                            continue
+                        
+                        test_lines = list(lines)
+                        test_lines[rel_line] = " " * candidate_indent + stripped
+                        test_window = "\n".join(test_lines) + "\n"
+                        test_block = head + test_window + tail
+                        test_source = replace_function_block(full_source, func_name, test_block)
+                        
+                        v, _ = validate_python_syntax_detailed(test_source)
+                        if v:
+                            logger.info("Auto-reparación AST quirúrgica exitosa en línea %d con indentación %d.", rel_line + 1, candidate_indent)
+                            lines = test_lines
+                            repaired_this_pass = True
+                            break
+                    
+                    if repaired_this_pass:
+                        continue
+
+        # Fallback a heurística de escaneo lineal existente
         repaired = False
         for idx in range(1, len(lines)):
             curr = lines[idx]
@@ -503,6 +552,15 @@ def validate_python_syntax(code: str) -> tuple[bool, str]:
         return False, str(e)
 
 
+def validate_python_syntax_detailed(code: str) -> tuple[bool, SyntaxError | None]:
+    """Valida y retorna la excepción de sintaxis exacta para análisis estructural."""
+    try:
+        ast.parse(code)
+        return True, None
+    except SyntaxError as e:
+        return False, e
+
+
 # ---------------------------------------------------------------------------
 # Backup / Rollback
 # ---------------------------------------------------------------------------
@@ -549,7 +607,7 @@ def build_prompt(
         "CONTEXTO CRÍTICO:",
         "Abajo ves SOLO UN FRAGMENTO del método, no la función completa.",
         "Ese fragmento empieza exactamente en el primer PASO mostrado y llega hasta el final del método.",
-        "TODO el código antes de este fragmento ya existe en el archivo y tu NO lo puedes ver ni debes repetirlo.",
+        "TODO el código antes de este fragmento ya existe en el archivo y tu NO lo puedes ver ni debes repetir la firma de la función.",
         "",
         "REGLA DE SALIDA (obligatoria):",
         f"- Responde ÚNICAMENTE con el reemplazo de este fragmento (misma indentación base: {base_indent} espacios).",
@@ -611,6 +669,15 @@ def build_prompt(
         window,
         "```",
         "",
+        "=== EJEMPLO DE FORMATO DE RESPUESTA ===",
+        f"Si la indentación base es de {base_indent} espacios, tu respuesta DEBE tener esta indentación base:",
+        "```python",
+        " " * base_indent + "try:",
+        " " * base_indent + "    # Acción o paso mejorado...",
+        " " * base_indent + "except Exception as exc:",
+        " " * base_indent + "    logger.error('Error: %s', exc)",
+        "```",
+        "",
         "=== OUTPUT DE LOS TESTS ===",
         "```",
         test_tail,
@@ -624,7 +691,8 @@ def build_prompt(
         "   - Robustez del fallback CDP (network log)",
         "   - Claridad y corrección del prompt de extracción (si aplica)",
         "2. Responde ÚNICAMENTE con el código Python del fragmento reemplazado, dentro de un bloque ```python ... ```.",
-        "   Sin explicaciones fuera del bloque.",
+        f"   La primera línea de tu respuesta de código Python DEBE empezar con exactamente {base_indent} espacios de indentación.",
+        "   No agregues explicaciones en texto plano fuera del bloque de código."
     ]
     return "\n".join(lines)
 
@@ -871,6 +939,54 @@ def run_rsi_stream(
                 new_window = repaired_window
                 auto_repaired_syntax = True
                 logger.info("[AUTO_REPAIRED_SYNTAX] Auto-reparación AST exitosa para ciclo %d.", cycle)
+
+        # Fallback a Gemini Cloud API si la propuesta local sigue siendo inválida
+        if not valid:
+            gemini_key = os.environ.get("GEMINI_API_KEY")
+            if gemini_key:
+                yield {
+                    "status": "progress",
+                    "msg": f"La propuesta local de Gemma 4 es inválida ({syntax_err}). Iniciando fallback a Gemini Cloud...",
+                    "pct": pct_cycle + 8,
+                    "cycle": cycle,
+                }
+                logger.info("Iniciando fallback a Gemini Cloud API para el ciclo %d...", cycle)
+                try:
+                    from core.llm_client import query_gemini_api
+                    gemini_prompt = prompt + f"\n\nATENCIÓN: Tu anterior propuesta local falló con el error sintáctico:\n{syntax_err}\nPor favor, genera una versión corregida que compile perfectamente sin errores de indentación."
+                    gemini_resp = query_gemini_api(gemini_prompt)
+                    
+                    if gemini_resp and not gemini_resp.startswith("[LLM Error]"):
+                        gemini_window_raw = extract_python_block(gemini_resp)
+                        if gemini_window_raw:
+                            gemini_window = fix_llm_indentation(gemini_window_raw, base_indent)
+                            if not gemini_window.endswith("\n"):
+                                gemini_window += "\n"
+                            gemini_candidate_block = head + gemini_window + tail
+                            gemini_candidate_source = replace_function_block(source, func_name, gemini_candidate_block)
+                            
+                            gemini_valid, gemini_syntax_err = validate_python_syntax(gemini_candidate_source)
+                            if not gemini_valid:
+                                # Intentar auto-reparación también sobre el código de Gemini
+                                gemini_repaired = auto_fix_window_indentation(
+                                    gemini_window_raw, base_indent, head, tail, source, func_name
+                                )
+                                gemini_candidate_block = head + gemini_repaired + tail
+                                gemini_candidate_source = replace_function_block(source, func_name, gemini_candidate_block)
+                                gemini_valid, gemini_syntax_err = validate_python_syntax(gemini_candidate_source)
+                                if gemini_valid:
+                                    gemini_window = gemini_repaired
+                            
+                            if gemini_valid:
+                                new_window = gemini_window
+                                candidate_block = gemini_candidate_block
+                                candidate_source = gemini_candidate_source
+                                valid = True
+                                logger.info("[GEMINI_FALLBACK_SUCCESS] Gemini Cloud API generó código válido para el ciclo %d.", cycle)
+                            else:
+                                syntax_err = gemini_syntax_err
+                except Exception as g_exc:
+                    logger.error("Error durante el fallback a Gemini Cloud: %s", g_exc)
 
         # Compute diff preview (para log y mensaje)
         old_set = set(window.splitlines())

@@ -82,7 +82,7 @@ services:
       - "8083:8083"
     volumes:
       - ../models:/models
-    command: -m /models/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf -c 4096 --parallel 1 -t 4 -b 4096 -ub 4096 --host 0.0.0.0 --port 8083 --jinja --chat-template gemma --embeddings
+    command: -m /models/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf -c 12288 --parallel 4 -t 6 -b 4096 -ub 4096 --host 0.0.0.0 --port 8083 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --cont-batching --jinja --chat-template gemma --embeddings
 
   api:
     build:

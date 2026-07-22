@@ -227,26 +227,48 @@ def generate_completion(
 
 
 def query_gemini_api(prompt: str) -> str:
-    """Envía un prompt directamente a la API de Gemini Generative Language y retorna el texto crudo de respuesta."""
+    """Envía un prompt directamente a la API de Gemini Generative Language con reintentos exponenciales ante 429/503."""
+    import time
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         return "[LLM Error] GEMINI_API_KEY no configurada"
 
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}]
-        }
-        r = httpx.post(url, json=payload, timeout=30.0)
-        if r.status_code == 200:
-            data = r.json()
-            candidates = data.get("candidates", [])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if parts:
-                    return parts[0].get("text", "")
-        return f"[LLM Error] HTTP {r.status_code}: {r.text[:200]}"
-    except Exception as exc:
-        logger.warning("Error consultando Gemini API: %s", exc)
-        return f"[LLM Error] {str(exc)}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
+
+    max_retries = 4
+    backoff = 2.0
+    
+    for attempt in range(max_retries):
+        try:
+            r = httpx.post(url, json=payload, timeout=40.0)
+            if r.status_code == 200:
+                data = r.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        return parts[0].get("text", "")
+            
+            if r.status_code in (429, 500, 503):
+                sleep_time = backoff ** attempt
+                logger.warning(
+                    "Gemini API retornó HTTP %d (intento %d/%d). Reintentando en %.1f segundos...",
+                    r.status_code, attempt + 1, max_retries, sleep_time
+                )
+                time.sleep(sleep_time)
+                continue
+                
+            return f"[LLM Error] HTTP {r.status_code}: {r.text[:200]}"
+        except Exception as exc:
+            if attempt == max_retries - 1:
+                logger.warning("Fallo definitivo consultando Gemini API tras %d intentos: %s", max_retries, exc)
+                return f"[LLM Error] {str(exc)}"
+            sleep_time = backoff ** attempt
+            logger.warning("Excepción de red en Gemini API (intento %d/%d): %s. Reintentando...", attempt + 1, max_retries, exc)
+            time.sleep(sleep_time)
+            
+    return "[LLM Error] Excedido el número máximo de reintentos"
 

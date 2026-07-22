@@ -16,10 +16,10 @@ QWEN_MODEL="/home/gorops/.gemini/antigravity/scratch/zohar-v4/models/qwen2.5-3b-
 
 HOST="127.0.0.1"
 PORT="8083"
-CTX_SIZE="32768"         # Gemma 4 E2B soporta hasta 32K tokens
+CTX_SIZE="12288"         # Reducido para optimizar VRAM/RAM
 N_GPU_LAYERS="99"        # Máximo offload a GPU (ajusta si hay OOM)
-THREADS="8"
-PARALLEL="2"             # Hasta 2 solicitudes concurrentes
+THREADS="6"              # Reservar cores para el host
+PARALLEL="4"             # Aumentado de 2 a 4 slots concurrentes
 PID_FILE="/tmp/zohar_llama_server.pid"
 LOG_FILE="/tmp/zohar_llama_server.log"
 
@@ -59,6 +59,10 @@ CMD="$LLAMA_SERVER \
   --n-gpu-layers $N_GPU_LAYERS \
   --threads $THREADS \
   --parallel $PARALLEL \
+  --flash-attn on \
+  --cache-type-k q8_0 \
+  --cache-type-v q8_0 \
+  --cont-batching \
   --jinja \
   --chat-template gemma"
 

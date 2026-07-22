@@ -315,6 +315,13 @@ def summarize_pdf_file(pdf_path: Path, max_chunks: int = 5) -> dict:
 
     t0 = time.time()
     logger.info("Iniciando extracción Single-Pass para %s...", pdf_path.name)
+
+    # Validar integridad estructural del PDF antes de procesar con fitz
+    from core.download_verifier import PDFDownloadVerifier
+    verifier = PDFDownloadVerifier()
+    verification = verifier.verify_pdf_file(pdf_path)
+    if not verification["valid"]:
+        raise ValueError(f"PDF inválido o corrupto: {verification['reason']}")
     
     text_prefix, total_pages, scanned_pages = extract_pdf_prefix(pdf_path, max_pages=3)
     if not text_prefix.strip() and total_pages == 0:
