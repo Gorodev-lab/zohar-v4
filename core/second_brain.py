@@ -969,10 +969,164 @@ Como paso de cierre:
 
         return {
             "status": "ok",
-            "processed": processed_count,
+            "processed_notes": processed_count,
             "tags_added": tags_added_total,
             "wikilinks_added": wikilinks_added_total,
         }
+
+    def parse_note_metadata(self, md_path: Path) -> dict:
+        """Extrae el frontmatter YAML y los enlaces [[WikiLink]] de una nota Markdown."""
+        content = md_path.read_text(encoding="utf-8", errors="ignore")
+        metadata = {}
+        
+        # 1. Parsear frontmatter YAML (entre --- y ---)
+        if content.startswith("---"):
+            parts = content.split("---", 2)
+            if len(parts) >= 3:
+                yaml_text = parts[1]
+                for line in yaml_text.splitlines():
+                    if ":" in line:
+                        k, v = line.split(":", 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        metadata[k] = v
+
+        # 2. Parsear enlaces [[WikiLink]]
+        links = re.findall(r"\[\[([^\]]+)\]\]", content)
+        metadata["links"] = sorted(set(links))
+        metadata["raw_content"] = content
+        metadata["file_name"] = md_path.name
+        return metadata
+
+    def sync_note_to_db(self, md_path: Path) -> dict:
+        """Sincroniza los metadatos y enlaces de una nota Markdown hacia PostgreSQL (kg_nodes, kg_edges, semarnat_projects)."""
+        meta = self.parse_note_metadata(md_path)
+        clave = meta.get("clave", "")
+        
+        if not clave and md_path.name.startswith("Proyecto - "):
+            clave = md_path.name.replace("Proyecto - ", "").replace(".md", "").strip()
+
+        from sqlalchemy import create_engine, text
+        import os
+        db_url = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5432/maritime_dw")
+        
+        nodes_inserted = 0
+        edges_inserted = 0
+        
+        try:
+            engine = create_engine(db_url, connect_args={"connect_timeout": 3})
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS public.kg_nodes (
+                        id VARCHAR(100) PRIMARY KEY,
+                        label TEXT,
+                        type VARCHAR(50),
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    );
+                """))
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS public.kg_edges (
+                        id SERIAL PRIMARY KEY,
+                        source VARCHAR(100),
+                        target VARCHAR(100),
+                        relationship VARCHAR(50),
+                        weight FLOAT DEFAULT 1.0,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(source, target, relationship)
+                    );
+                """))
+
+                if clave:
+                    node_id = f"PROYECTO_{clave}" if not clave.startswith("PROYECTO_") else clave
+                    label = meta.get("name") or f"Proyecto {clave}"
+                    node_type = meta.get("category", "proyecto")
+                    
+                    conn.execute(text("""
+                        INSERT INTO public.kg_nodes (id, label, type)
+                        VALUES (:id, :label, :type)
+                        ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label, type = EXCLUDED.type
+                    """), {"id": node_id, "label": label, "type": node_type})
+                    nodes_inserted += 1
+
+                    for link in meta.get("links", []):
+                        clean_link = link.split("|")[0].strip()
+                        target_id = clean_link.upper().replace(" ", "_").replace("/", "_").replace("-", "_")
+                        conn.execute(text("""
+                            INSERT INTO public.kg_nodes (id, label, type)
+                            VALUES (:id, :label, 'entidad_vinculada')
+                            ON CONFLICT (id) DO NOTHING
+                        """), {"id": target_id, "label": clean_link})
+                        nodes_inserted += 1
+
+                        conn.execute(text("""
+                            INSERT INTO public.kg_edges (source, target, relationship)
+                            VALUES (:src, :tgt, 'VINCULADO_A')
+                            ON CONFLICT (source, target, relationship) DO UPDATE SET weight = public.kg_edges.weight + 0.1
+                        """), {"src": node_id, "tgt": target_id})
+                        edges_inserted += 1
+
+                if clave:
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS public.semarnat_projects (
+                            clave VARCHAR(50) PRIMARY KEY,
+                            project_name TEXT,
+                            promovente TEXT,
+                            status VARCHAR(50),
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        );
+                    """))
+                    if meta.get("name") or meta.get("promovente"):
+                        conn.execute(text("""
+                            INSERT INTO public.semarnat_projects (clave, project_name, promovente, status)
+                            VALUES (:clave, :name, :promovente, :status)
+                            ON CONFLICT (clave) DO UPDATE SET 
+                                project_name = COALESCE(EXCLUDED.project_name, public.semarnat_projects.project_name),
+                                promovente = COALESCE(EXCLUDED.promovente, public.semarnat_projects.promovente),
+                                status = COALESCE(EXCLUDED.status, public.semarnat_projects.status)
+                        """), {
+                            "clave": clave,
+                            "name": meta.get("name") or f"Proyecto {clave}",
+                            "promovente": meta.get("promovente") or "Desconocido",
+                            "status": meta.get("status") or "INGRESADO"
+                        })
+
+            return {"status": "SUCCESS", "nodes": nodes_inserted, "edges": edges_inserted, "clave": clave}
+        except Exception as exc:
+            logger.error(f"Error sincronizando nota {md_path.name} a DB: {exc}")
+            return {"status": "ERROR", "error": str(exc)}
+
+    def sync_vault_to_dbs(self) -> dict:
+        """Sincroniza masivamente todas las notas de second_brain/ hacia PostgreSQL y Neo4j."""
+        if not self.sb_dir.exists():
+            return {"status": "error", "msg": "Directorio second_brain no existe"}
+
+        all_notes = list(self.sb_dir.rglob("*.md"))
+        total_nodes = 0
+        total_edges = 0
+        synced_notes = 0
+
+        for note in all_notes:
+            res = self.sync_note_to_db(note)
+            if res.get("status") == "SUCCESS":
+                synced_notes += 1
+                total_nodes += res.get("nodes", 0)
+                total_edges += res.get("edges", 0)
+
+        neo4j_res = {}
+        try:
+            from dw.neo4j_loader import run_neo4j_loader
+            neo4j_res = run_neo4j_loader()
+        except Exception as exc:
+            logger.warning(f"No se pudo sincronizar con Neo4j: {exc}")
+
+        return {
+            "status": "SUCCESS",
+            "synced_notes": synced_notes,
+            "total_nodes": total_nodes,
+            "total_edges": total_edges,
+            "neo4j": neo4j_res
+        }
+
 
     def sync_vault_to_database(self) -> dict:
         """

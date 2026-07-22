@@ -41,6 +41,27 @@ class RSILoopOrchestrator:
         # Registrar sub-agentes por defecto
         self.register_subagent("verify_ocr", self._default_verify_ocr)
         self.register_subagent("check_sinat_keys", self._default_check_sinat_keys)
+        self._register_default_graph_extractor()
+
+    def _register_default_graph_extractor(self) -> None:
+        """Registra el sub-agente de extracción de grafo e inserción en BD."""
+        from core.subagents.graph_extractor import GraphExtractor, persist_graph_to_db
+        extractor = GraphExtractor(self.harness)
+        
+        def _extract_graph_action(doc_id: str) -> Dict[str, Any]:
+            logger.info(f"Ejecutando extract_graph para doc_id: {doc_id}")
+            res = extractor.extract_graph(doc_id)
+            import asyncio
+            try:
+                db_res = asyncio.run(persist_graph_to_db(res))
+            except Exception as ex:
+                logger.warning(f"Error persistiendo grafo síncronamente: {ex}")
+                db_res = {"status": "ERROR", "error": str(ex)}
+            res["db_persisted"] = db_res
+            return res
+
+        self.register_subagent("extract_graph", _extract_graph_action)
+
 
     def register_subagent(self, name: str, func: Callable[..., Any]) -> None:
         """
@@ -160,11 +181,12 @@ class RSILoopOrchestrator:
 
         # Definición del esquema de salida esperado para el LLM en formato LID
         expected_schema = {
-            "action": "Nombre del sub-agente a llamar ('verify_ocr', 'check_sinat_keys' o 'finish')",
-            "parameters": "Objeto de parámetros específicos para el sub-agente (ej. {'doc_id': '[VAR_DOC_01]'} o {'clave': '12DF2023X001'})",
+            "action": "Nombre del sub-agente a llamar ('verify_ocr', 'check_sinat_keys', 'extract_graph' o 'finish')",
+            "parameters": "Objeto de parámetros específicos para el sub-agente (ej. {'doc_id': '[VAR_DOC_01]'})",
             "reasoning": "Explicación breve de por qué se toma esta acción",
             "final_summary": "Resumen final del proceso (solo requerido cuando action es 'finish')"
         }
+
 
         # Restricciones específicas para guiar la orquestación del loop
         constraints = (

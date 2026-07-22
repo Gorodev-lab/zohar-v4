@@ -187,29 +187,30 @@ class GraphExtractor:
             "relations": relations
         }
 
-async def persist_graph_to_db(graph_data: dict, db_pool) -> dict:
-    """Persiste los nodos y relaciones extraídos en PostgreSQL."""
+from sqlalchemy import create_engine, text
+from core.dw_pipeline import DB_URL
+
+async def persist_graph_to_db(graph_data: dict, db_pool=None) -> dict:
+    """Persiste los nodos y relaciones extraídos en PostgreSQL usando SQLAlchemy."""
     if graph_data.get("status") not in ["SUCCESS", "HEURISTIC_FALLBACK"]:
         return {"status": "SKIPPED", "reason": "No hay datos de grafo válidos para persistir."}
 
     try:
-        async with db_pool.acquire() as conn:
-            async with conn.transaction():
-                # Upsert Nodos
-                for node in graph_data.get("nodes", []):
-                    await conn.execute("""
-                        INSERT INTO public.kg_nodes (id, label, type)
-                        VALUES ($1, $2, $3)
-                        ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label, type = EXCLUDED.type
-                    """, str(node.get("id")), str(node.get("label")), str(node.get("type")))
-                
-                # Upsert Relaciones
-                for rel in graph_data.get("relations", []):
-                    await conn.execute("""
-                        INSERT INTO public.kg_edges (source, target, relationship)
-                        VALUES ($1, $2, $3)
-                        ON CONFLICT (source, target, relationship) DO UPDATE SET weight = public.kg_edges.weight + 0.1
-                    """, str(rel.get("src")), str(rel.get("tgt")), str(rel.get("rel")))
+        engine = create_engine(DB_URL)
+        with engine.begin() as conn:
+            for node in graph_data.get("nodes", []):
+                conn.execute(text("""
+                    INSERT INTO public.kg_nodes (id, label, type)
+                    VALUES (:id, :label, :type)
+                    ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label, type = EXCLUDED.type
+                """), {"id": str(node.get("id")), "label": str(node.get("label")), "type": str(node.get("type"))})
+            
+            for rel in graph_data.get("relations", []):
+                conn.execute(text("""
+                    INSERT INTO public.kg_edges (source, target, relationship)
+                    VALUES (:src, :tgt, :rel)
+                    ON CONFLICT (source, target, relationship) DO UPDATE SET weight = public.kg_edges.weight + 0.1
+                """), {"src": str(rel.get("src")), "tgt": str(rel.get("tgt")), "rel": str(rel.get("rel"))})
                     
         return {"status": "PERSISTED", "nodes": len(graph_data.get("nodes", [])), "edges": len(graph_data.get("relations", []))}
     except Exception as e:

@@ -41,12 +41,14 @@ async def _atomic_rsi_worker_loop():
     """Background worker que ejecuta 1 iteración atómica de curaduría cada 30 segundos."""
     global ATOMIC_RSI_ACTIVE
     from core.rsi_brain import run_atomic_metadata_curation_step
+    from core.broadcaster import broadcaster
     logger.info("Iniciando background worker de RSI Auto-Curaduría Atómica...")
     while ATOMIC_RSI_ACTIVE:
         try:
             res = await asyncio.to_thread(run_atomic_metadata_curation_step)
             if res.get("curated"):
                 logger.info("RSI Atómico curó ficha %s: %s", res.get("clave"), res.get("metadata"))
+                broadcaster.broadcast("atomic_curation_updated", res)
         except Exception as exc:
             logger.warning("Error en worker RSI atómico: %s", exc)
         await asyncio.sleep(30)

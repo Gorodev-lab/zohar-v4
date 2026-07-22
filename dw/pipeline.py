@@ -423,15 +423,36 @@ class SemarnatDwPipeline:
         except Exception as exc:
             print(f"[Second Brain] Warning: {exc}")
 
+    def _notify(self, stage: str, msg: str, pct: int):
+        """Notifica el progreso del pipeline a través de core.broadcaster."""
+        try:
+            from core.broadcaster import broadcaster
+            broadcaster.broadcast({
+                "type": "dw_pipeline_progress",
+                "stage": stage,
+                "msg": msg,
+                "pct": pct
+            })
+        except Exception:
+            pass
+
     def run(self):
         print("=== LOGR DATA WAREHOUSE PIPELINE RUN ===")
+        self._notify("init", "Iniciando Data Warehouse Pipeline...", 5)
         self.initialize_schema()
+        self._notify("schema", "Esquema de BD inicializado", 15)
         claves = self.load_target_claves()
+        self._notify("claves", f"Cargadas {len(claves)} claves de interés", 30)
         self.process_semarnat_portal(claves)
+        self._notify("semarnat", "Procesamiento de portal SEMARNAT completado", 45)
         self.convert_to_markdown(claves)
+        self._notify("markdown", "Conversión a Markdown completada", 60)
         self.generate_ai_inferences(claves)
+        self._notify("inference", "Evaluación e inferencias IA completadas", 75)
         self.run_auditor_and_ingest(claves)
+        self._notify("ingest", "Auditoría de calidad e ingesta DB completada", 90)
         self.update_second_brain()
+        self._notify("done", "¡Pipeline completado con éxito!", 100)
         print("=== PIPELINE RUN COMPLETED SUCCESSFULLY ===")
 
 def main():

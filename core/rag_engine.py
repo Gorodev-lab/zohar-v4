@@ -66,13 +66,16 @@ def _cosine_similarity(v1: List[float], v2: List[float]) -> float:
 
 def split_markdown_by_headers(md_text: str, max_chunk_chars: int = 1500, overlap_chars: int = 200) -> List[Dict[str, str]]:
     """
-    Fragmenta un documento Markdown respetando encabezados H1, H2, H3 (#, ##, ###).
-    Si un bloque bajo un encabezado supera max_chunk_chars, lo subdivide con solape (overlap)
-    para preservar la semántica del fragmento, inyectando el título de sección al inicio de cada sub-chunk.
+    Fragmenta un documento Markdown respetando la jerarquía completa de encabezados H1, H2, H3 (#, ##, ###).
+    Inyecta la ruta de migas de pan (breadcrumb) completa al inicio de cada sub-chunk y subdivide respetando
+    límites de párrafos para preservar la coherencia semántica.
     """
     lines = md_text.splitlines()
     raw_sections = []
-    current_title = "Introducción / General"
+    
+    current_h1 = ""
+    current_h2 = ""
+    current_h3 = ""
     current_lines = []
 
     header_re = re.compile(r"^(#{1,3})\s+(.*)$")
@@ -80,51 +83,79 @@ def split_markdown_by_headers(md_text: str, max_chunk_chars: int = 1500, overlap
     for line in lines:
         match = header_re.match(line.strip())
         if match:
+            level = len(match.group(1))
+            title_text = match.group(2).strip()
+            
             if current_lines:
                 text_block = "\n".join(current_lines).strip()
                 if len(text_block) > 30:
-                    raw_sections.append((current_title, text_block))
+                    breadcrumb = " > ".join(filter(None, [current_h1, current_h2, current_h3])) or "Introducción / General"
+                    raw_sections.append((breadcrumb, text_block))
                 current_lines = []
-            current_title = match.group(2).strip()
+
+            if level == 1:
+                current_h1 = title_text
+                current_h2 = ""
+                current_h3 = ""
+            elif level == 2:
+                current_h2 = title_text
+                current_h3 = ""
+            elif level == 3:
+                current_h3 = title_text
         else:
             current_lines.append(line)
 
     if current_lines:
         text_block = "\n".join(current_lines).strip()
         if len(text_block) > 30:
-            raw_sections.append((current_title, text_block))
+            breadcrumb = " > ".join(filter(None, [current_h1, current_h2, current_h3])) or "Introducción / General"
+            raw_sections.append((breadcrumb, text_block))
 
     if not raw_sections:
         raw_sections = [("Documento Completo", md_text.strip())]
 
     chunks = []
-    for title, text_block in raw_sections:
+    for breadcrumb, text_block in raw_sections:
         if len(text_block) <= max_chunk_chars:
             chunks.append({
-                "section_title": title,
-                "chunk_text": text_block
+                "section_title": breadcrumb,
+                "chunk_text": f"[Sección: {breadcrumb}]\n{text_block}"
             })
         else:
-            # Subdividir usando ventana deslizante con solape (overlap_chars)
-            start = 0
+            # Subdividir por párrafos para evitar truncar palabras u oraciones
+            paragraphs = text_block.split("\n\n")
+            current_chunk_paragraphs = []
+            current_length = 0
             sub_idx = 1
-            while start < len(text_block):
-                end = start + max_chunk_chars
-                chunk_slice = text_block[start:end]
-                
-                # Prepend el contexto del encabezado al sub-chunk para mantener relevancia semántica
-                prefix = f"[Sección: {title}] "
+
+            for para in paragraphs:
+                p = para.strip()
+                if not p:
+                    continue
+                if current_length + len(p) > max_chunk_chars and current_chunk_paragraphs:
+                    chunk_body = "\n\n".join(current_chunk_paragraphs)
+                    chunks.append({
+                        "section_title": f"{breadcrumb} (Parte {sub_idx})",
+                        "chunk_text": f"[Sección: {breadcrumb}]\n{chunk_body}"
+                    })
+                    sub_idx += 1
+                    # Solape: conservar el último párrafo si su tamaño es moderado
+                    if len(current_chunk_paragraphs[-1]) < overlap_chars * 2:
+                        current_chunk_paragraphs = [current_chunk_paragraphs[-1], p]
+                        current_length = len(current_chunk_paragraphs[0]) + len(p)
+                    else:
+                        current_chunk_paragraphs = [p]
+                        current_length = len(p)
+                else:
+                    current_chunk_paragraphs.append(p)
+                    current_length += len(p) + 2
+
+            if current_chunk_paragraphs:
+                chunk_body = "\n\n".join(current_chunk_paragraphs)
                 chunks.append({
-                    "section_title": f"{title} (Parte {sub_idx})",
-                    "chunk_text": prefix + chunk_slice
+                    "section_title": f"{breadcrumb} (Parte {sub_idx})" if sub_idx > 1 else breadcrumb,
+                    "chunk_text": f"[Sección: {breadcrumb}]\n{chunk_body}"
                 })
-                
-                start += (max_chunk_chars - overlap_chars)
-                sub_idx += 1
-                
-                # Si lo que queda es menor o igual al overlap, evitamos duplicar/crear un chunk redundante
-                if start >= len(text_block) - overlap_chars:
-                    break
 
     return chunks
 
@@ -155,8 +186,34 @@ class RAGEngine:
             logger.error("Error guardando caché RAG: %s", exc)
 
     def _generate_embedding(self, text: str) -> List[float]:
-        """Genera vector embedding para un chunk de texto usando llama-server o fallback."""
-        truncated_text = text[:1000].strip()
+        """Genera vector embedding para un chunk de texto usando Mistral API (mistral-embed 1024-dim), llama-server o fallback."""
+        truncated_text = text[:2000].strip()
+
+        # 1. Intentar con Mistral API (mistral-embed)
+        mistral_key = os.environ.get("MISTRAL_API_KEY")
+        if mistral_key:
+            import httpx
+            try:
+                headers = {
+                    "Authorization": f"Bearer {mistral_key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "mistral-embed",
+                    "input": [truncated_text]
+                }
+                r = httpx.post("https://api.mistral.ai/v1/embeddings", headers=headers, json=payload, timeout=10.0)
+                if r.status_code == 200:
+                    res = r.json()
+                    data_list = res.get("data", [])
+                    if data_list:
+                        emb = data_list[0].get("embedding", [])
+                        if emb and isinstance(emb, list):
+                            return emb
+            except Exception as exc:
+                logger.warning(f"Error al generar embedding en Mistral API: {exc}")
+
+        # 2. Intentar con llama-server si está activo y soporta embeddings
         if _is_llm_embedding_supported():
             import requests
             local_url = os.environ.get("LOCAL_LLM_URL", "http://127.0.0.1:8083")
@@ -178,7 +235,7 @@ class RAGEngine:
             except Exception:
                 pass
 
-        # Fallback determinista
+        # 3. Fallback determinista (128 dimensiones)
         words = re.findall(r"\w+", truncated_text.lower())
         vector = [0.0] * 128
         for w in words:
@@ -270,12 +327,12 @@ class RAGEngine:
 
     def query_rag(self, query: str, filters: Optional[Dict[str, Any]] = None, top_k: int = 5) -> Dict[str, Any]:
         """
-        Ejecuta el flujo RAG completo:
-        1. Recuperación de contexto Top-K
-        2. Ensamblado de Prompt con Citas Estrictas
-        3. Generación / Síntesis con LLM
+        Ejecuta el flujo RAG completo utilizando búsqueda Híbrida (BM25 + Cosine RRF):
+        1. Recuperación Híbrida Top-K
+        2. Ensamblado de Prompt con Citas Estrictas [Clave | Sección]
+        3. Generación / Síntesis Analítica con LLM
         """
-        context_chunks = self.retrieve_context(query, filters=filters, top_k=top_k)
+        context_chunks = self.retrieve_hybrid(query, filters=filters, top_k=top_k)
 
         if not context_chunks:
             return {
@@ -290,7 +347,7 @@ class RAGEngine:
         for i, c in enumerate(context_chunks, 1):
             cite_tag = f"[{c['clave']} | {c['section_title']}]"
             citations.append(cite_tag)
-            context_str += f"\n--- FUENTE {i} {cite_tag} ---\n{c['chunk_text']}\n"
+            context_str += f"\n--- FUENTE {i} {cite_tag} (Score RRF: {c.get('score', 0)}) ---\n{c['chunk_text']}\n"
 
         prompt = f"""Instrucciones: Responde a la pregunta del usuario utilizando ÚNICAMENTE el contexto provisto a continuación. 
 Es OBLIGATORIO incluir las citas explícitas en el formato estricto [Clave | Sección] al final de cada afirmación principal para justificar la procedencia de la información. Si el contexto no responde a la pregunta de forma fundamentada, responde declarando formalmente que no cuentas con información suficiente en el contexto.
@@ -304,7 +361,7 @@ PREGUNTA DEL USUARIO:
 RESPUESTA ANALÍTICA CON CITAS:
 """
 
-        # Síntesis con LLM (Prioridad Local -> Fallback Gemini API)
+        # Síntesis con LLM (Prioridad Local -> Fallback Mistral API)
         try:
             res_dict = generate_completion(prompt, response_json=False)
             answer = res_dict.get("text", str(res_dict))
@@ -318,6 +375,7 @@ RESPUESTA ANALÍTICA CON CITAS:
             "context_used": len(context_chunks),
             "sources": context_chunks
         }
+
 
     def retrieve_hybrid(self, query: str, filters: Optional[Dict[str, Any]] = None, top_k: int = 5) -> List[Dict[str, Any]]:
         """
