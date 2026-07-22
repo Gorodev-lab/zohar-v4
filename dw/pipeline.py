@@ -378,7 +378,10 @@ class SemarnatDwPipeline:
         
         # Filter evaluations to match only successfully ingested/cleaned projects
         valid_claves = set(cleaned_projects["clave"])
-        cleaned_evals = df_evals[df_evals["clave"].isin(valid_claves)].reset_index(drop=True)
+        filtered_evals = df_evals[df_evals["clave"].isin(valid_claves)].reset_index(drop=True)
+
+        # Run evaluations auditor
+        cleaned_evals, eval_metrics = self.auditor.audit_project_evaluations(filtered_evals)
 
         print("[Ingest] Ingesting audited records into database...")
         if self.dry_run:

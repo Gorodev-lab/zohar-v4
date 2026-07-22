@@ -173,6 +173,11 @@ class DataDirectoryHandler(FileSystemEventHandler):
                 self.broadcaster.broadcast("graph_updated", path.name)
             except Exception:
                 pass
+            
+            # Lanzar procesamiento asíncrono en segundo plano
+            import threading
+            t = threading.Thread(target=process_pdf_background, args=(path, self.broadcaster), daemon=True)
+            t.start()
         elif path.suffix.lower() == ".md" and ("extractions" in path_str or "second_brain" in path_str):
             event_type = "extractions_updated"
             invalidate_redis_cache("zohar:analytics:summary")
@@ -195,6 +200,92 @@ class DataDirectoryHandler(FileSystemEventHandler):
 
         if event_type:
             self.broadcaster.broadcast(event_type, path.name)
+
+
+def process_pdf_background(pdf_path: Path, broadcaster: Any = None):
+    """
+    Función de procesamiento en background para un nuevo PDF detectado.
+    1. Extrae el texto a Markdown y lo guarda en extractions/.
+    2. Ejecuta la inferencia de viabilidad ambiental (generación de reporte).
+    3. Indexa el documento en RAG.
+    """
+    logger.info("Background Process: Iniciando procesamiento automático para %s", pdf_path.name)
+    try:
+        from core.pdf_processor import iter_pages_as_markdown
+        from core.inference_engine import generate_report
+        from core.rag_engine import RAGEngine
+        import json
+        
+        pdf_name = pdf_path.name
+        stem = pdf_path.stem
+        
+        # 1. Extracción a Markdown si no existe o es obsoleta
+        md_filename = stem + ".md"
+        md_path = EXTRACTIONS_DIR / md_filename
+        
+        markdown_content = ""
+        if md_path.exists() and md_path.stat().st_mtime >= pdf_path.stat().st_mtime:
+            logger.info("Background Process: Extracción Markdown ya existe en caché para %s", pdf_name)
+            markdown_content = md_path.read_text(encoding="utf-8", errors="replace")
+        else:
+            logger.info("Background Process: Extrayendo texto a Markdown para %s...", pdf_name)
+            pages_md = []
+            for _, _, md_text, _ in iter_pages_as_markdown(pdf_path):
+                pages_md.append(md_text)
+                
+            EXTRACTIONS_DIR.mkdir(parents=True, exist_ok=True)
+            markdown_content = (
+                f"# {stem}\n\n"
+                f"_Extraído de: {pdf_name}_\n\n"
+                + "\n\n---\n\n".join(pages_md)
+            )
+            md_path.write_text(markdown_content, encoding="utf-8")
+            logger.info("Background Process: Extracción guardada en %s", md_path)
+            
+        # Intentar extraer la clave (sección/clave del proyecto)
+        # Formato esperado: CLAVE.tipo.NN.pdf
+        parts = stem.split(".")
+        clave = parts[0] if parts else stem
+        
+        # 2. Si el archivo es un 'estudio' o 'resumen', ejecutar inferencia de viabilidad
+        is_inference_target = any(k in stem.lower() for k in ("estudio", "resumen"))
+        
+        if is_inference_target:
+            logger.info("Background Process: Generando reporte de inferencia para clave %s...", clave)
+            report = generate_report(md_path)
+            
+            # Guardar reporte en el cache de inferencias
+            cache_dir = DATA_DIR / "inference_cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_path = cache_dir / f"{clave}.json"
+            
+            cache_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+            logger.info("Background Process: Reporte de inferencia guardado en %s", cache_path)
+            
+        # 3. Indexar en el motor RAG
+        logger.info("Background Process: Indexando fragmentos en el motor RAG para clave %s...", clave)
+        engine = RAGEngine(base_dir=BASE_DIR)
+        engine.index_document(clave, markdown_content)
+        logger.info("Background Process: Indexación RAG completada para clave %s.", clave)
+        
+        # 4. Invalidar cachés e informar actualizaciones
+        invalidate_redis_cache("zohar:corpus:pdfs")
+        invalidate_redis_cache("zohar:analytics:summary")
+        invalidate_redis_cache("zohar:graph:compact")
+        try:
+            from core.graph_builder import invalidate_graph_cache
+            invalidate_graph_cache()
+        except Exception:
+            pass
+            
+        if broadcaster:
+            broadcaster.broadcast("extractions_updated", md_filename)
+            if is_inference_target:
+                broadcaster.broadcast("inferences_updated", f"{clave}.json")
+            broadcaster.broadcast("graph_updated", pdf_name)
+            
+    except Exception as exc:
+        logger.exception("Background Process: Error inesperado en procesamiento de %s: %s", pdf_path.name, exc)
 
 
 # Global Watchdog Observer reference
@@ -260,8 +351,13 @@ async def startup_event():
     _observer.start()
     logger.info("Watcher de archivos iniciado con éxito.")
 
-    # Registrar planificador de gacetas semanal (jueves 9:00 AM)
-    asyncio.create_task(thursday_gaceta_scheduler_loop())
+    # Registrar planificadores solo si no estamos en entorno de prueba
+    import sys
+    if "pytest" not in sys.modules:
+        # Registrar planificador de gacetas semanal (jueves 9:00 AM)
+        asyncio.create_task(thursday_gaceta_scheduler_loop())
+        # Registrar loop de auto-recuperación de llama-server
+        asyncio.create_task(llama_self_healing_loop())
 
 
 @app.on_event("shutdown")
@@ -494,6 +590,188 @@ async def stop_llama_server():
         return {"status": "stopped", "msg": "Servidor detenido exitosamente."}
     else:
         return {"status": "ignored", "msg": "No había ningún servidor activo para detener."}
+
+
+def get_docker_container_stats(container_name: str) -> dict:
+    """Obtiene estadísticas de CPU y memoria de un contenedor Docker local vía socket unix."""
+    if not os.path.exists("/var/run/docker.sock"):
+        return {}
+    try:
+        cmd = [
+            "curl", "-s", "--unix-socket", "/var/run/docker.sock",
+            f"http://localhost/containers/{container_name}/stats?stream=false"
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=3.0)
+        if res.returncode == 0:
+            data = json.loads(res.stdout)
+            
+            # CPU stats
+            cpu_stats = data.get("cpu_stats", {})
+            precpu_stats = data.get("precpu_stats", {})
+            cpu_usage = cpu_stats.get("cpu_usage", {}).get("total_usage", 0)
+            precpu_usage = precpu_stats.get("cpu_usage", {}).get("total_usage", 0)
+            system_cpu = cpu_stats.get("system_cpu_usage", 0)
+            presystem_cpu = precpu_stats.get("system_cpu_usage", 0)
+            online_cpus = cpu_stats.get("online_cpus", 1)
+            
+            cpu_delta = cpu_usage - precpu_usage
+            system_delta = system_cpu - presystem_cpu
+            
+            cpu_pct = 0.0
+            if system_delta > 0 and cpu_delta > 0:
+                cpu_pct = round((cpu_delta / system_delta) * online_cpus * 100.0, 2)
+                
+            # Memory stats
+            mem_stats = data.get("memory_stats", {})
+            mem_used = mem_stats.get("usage", 0)
+            mem_limit = mem_stats.get("limit", 1)
+            mem_pct = round((mem_used / mem_limit) * 100.0, 2)
+            
+            return {
+                "cpu_pct": cpu_pct,
+                "mem_used_gb": round(mem_used / (1024**3), 2),
+                "mem_limit_gb": round(mem_limit / (1024**3), 2),
+                "mem_pct": mem_pct
+            }
+    except Exception as exc:
+        logger.warning("Error consultando estadísticas de contenedor Docker %s: %s", container_name, exc)
+    return {}
+
+
+# Estado global de auto-recuperación y reinicios de llama-server
+SELF_HEALING_STATUS = {
+    "restarting": False,
+    "last_restart_ts": 0.0,
+    "restart_count": 0
+}
+
+async def restart_llama_container():
+    """Reinicia el contenedor de llama.cpp mediante curl al socket de Docker."""
+    logger.info("Self-healing: Iniciando reinicio de contenedor maritime_llama_cpp...")
+    
+    # Registrar el estado de reinicio activo
+    SELF_HEALING_STATUS["restarting"] = True
+    SELF_HEALING_STATUS["last_restart_ts"] = time.time()
+    SELF_HEALING_STATUS["restart_count"] += 1
+    
+    if not os.path.exists("/var/run/docker.sock"):
+        logger.warning("Self-healing: Socket de Docker no encontrado. Intentando usar script local start_llama_server.sh...")
+        try:
+            await stop_llama_server()
+            await asyncio.sleep(2.0)
+            await start_llama_server()
+            return
+        except Exception as exc:
+            logger.error("Self-healing: Falló fallback de reinicio local: %s", exc)
+            return
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "curl", "-s", "-X", "POST", "--unix-socket", "/var/run/docker.sock",
+            "http://localhost/containers/maritime_llama_cpp/restart",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode == 0:
+            logger.info("Self-healing: Petición de reinicio enviada correctamente a Docker.")
+        else:
+            logger.error("Self-healing: Error de curl a socket Docker. stdout: %s, stderr: %s", stdout.decode(), stderr.decode())
+    except Exception as exc:
+        logger.error("Self-healing: Excepción al intentar reiniciar contenedor via socket: %s", exc)
+
+
+@app.get("/api/status/model", tags=["system"])
+async def get_model_status():
+    """Métricas en tiempo real del contenedor de inferencia y promedio de latencia."""
+    status_data = await get_llama_status()
+    
+    if status_data["status"] == "online":
+        SELF_HEALING_STATUS["restarting"] = False
+        
+    container_stats = {}
+    if status_data["status"] == "online":
+        container_stats = get_docker_container_stats("maritime_llama_cpp")
+        
+    from core.llm_client import get_avg_latency_per_token
+    avg_latency = get_avg_latency_per_token()
+    
+    return {
+        "status": "booting" if SELF_HEALING_STATUS["restarting"] else status_data["status"],
+        "model": status_data["model"],
+        "avg_latency_per_token_ms": round(avg_latency, 2),
+        "container": container_stats,
+        "self_healing": SELF_HEALING_STATUS,
+        "details": status_data.get("details", {})
+    }
+
+
+async def llama_self_healing_loop():
+    """Loop en segundo plano que vigila el estado de salud de llama-server y lo reinicia si es necesario."""
+    logger.info("Self-healing: Iniciando loop de auto-recuperación para llama-server...")
+    local_url = os.environ.get("LOCAL_LLM_URL", "http://127.0.0.1:8083")
+    
+    # Dar 30 segundos de gracia al iniciar antes de comenzar la vigilancia activa
+    await asyncio.sleep(30)
+    
+    while True:
+        try:
+            # 1. Verificar endpoint de salud (/health)
+            async with httpx.AsyncClient() as client:
+                try:
+                    r = await client.get(f"{local_url}/health", timeout=5.0)
+                    if r.status_code != 200:
+                        logger.warning("Self-healing: /health retornó HTTP %d. Reiniciando...", r.status_code)
+                        await restart_llama_container()
+                        await asyncio.sleep(45)
+                        continue
+                    
+                    data = r.json()
+                    if data.get("status") == "error" or data.get("status") == "unhealthy":
+                        logger.warning("Self-healing: llama-server reporta status unhealthy. Reiniciando...")
+                        await restart_llama_container()
+                        await asyncio.sleep(45)
+                        continue
+                except (httpx.RequestError, asyncio.TimeoutError) as exc:
+                    logger.warning("Self-healing: No se pudo conectar a /health: %s. Reiniciando...", exc)
+                    await restart_llama_container()
+                    await asyncio.sleep(45)
+                    continue
+
+            # 2. Medir latencia de una completación pequeña
+            start_time = time.time()
+            try:
+                payload = {
+                    "prompt": "<start_of_turn>user\nping<end_of_turn>\n<start_of_turn>model\n",
+                    "n_predict": 5,
+                    "temperature": 0.1,
+                }
+                async with httpx.AsyncClient() as client:
+                    r = await client.post(f"{local_url.rstrip('/')}/completion", json=payload, timeout=12.0)
+                    duration = time.time() - start_time
+                    if r.status_code != 200:
+                        logger.warning("Self-healing: /completion falló con HTTP %d. Reiniciando...", r.status_code)
+                        await restart_llama_container()
+                        await asyncio.sleep(45)
+                        continue
+                    if duration > 10.0:
+                        logger.warning("Self-healing: Completación demoró %.2fs (umbral: 10s). Reiniciando...", duration)
+                        await restart_llama_container()
+                        await asyncio.sleep(45)
+                        continue
+            except (httpx.RequestError, asyncio.TimeoutError) as exc:
+                logger.warning("Self-healing: Timeout o error de red en /completion: %s. Reiniciando...", exc)
+                await restart_llama_container()
+                await asyncio.sleep(45)
+                continue
+
+            # Si llegamos hasta aquí, tanto /health como /completion respondieron óptimamente
+            SELF_HEALING_STATUS["restarting"] = False
+
+        except Exception as e:
+            logger.error("Self-healing: Excepción inesperada en loop de salud: %s", e)
+            
+        await asyncio.sleep(30)
 
 
 # ---------------------------------------------------------------------------
@@ -2065,13 +2343,19 @@ async def download_clave(clave: str = Query(..., description="Clave SINAT a desc
 
 @app.post("/api/second_brain/build", tags=["second_brain"])
 async def build_second_brain():
-    """Ejecuta la sincronización completa del Second Brain de Obsidian."""
+    """Ejecuta la sincronización completa del Second Brain de Obsidian (bidireccional)."""
     from core.second_brain import SecondBrainBuilder
     from core.semantic_search import SemanticSearchEngine
     builder = SecondBrainBuilder(BASE_DIR)
     engine = SemanticSearchEngine(BASE_DIR)
     try:
+        # Primero sincronizar de Vault a DB (guardar cambios manuales)
+        db_sync_stats = builder.sync_vault_to_database()
+        
+        # Luego regenerar bóveda (DB a Vault) para mantener consistencia
         stats = builder.build_vault()
+        stats["db_sync"] = db_sync_stats
+        
         # Generar o actualizar embeddings para las notas creadas
         try:
             embed_stats = engine.build_index()
@@ -2082,7 +2366,7 @@ async def build_second_brain():
             
         return {
             "status": "ok",
-            "msg": "Second Brain sincronizado e indexado correctamente",
+            "msg": "Second Brain sincronizado bidireccionalmente e indexado correctamente",
             "stats": stats
         }
     except Exception as exc:
@@ -2092,11 +2376,11 @@ async def build_second_brain():
 
 @app.get("/api/second_brain/search", tags=["second_brain"])
 async def search_second_brain(q: str = Query(..., description="Consulta de búsqueda semántica")):
-    """Realiza una búsqueda semántica híbrida (BM25 + Vectorial) de notas del Second Brain."""
-    from core.rag_engine import RAGEngine
-    engine = RAGEngine(base_dir=BASE_DIR)
+    """Realiza una búsqueda semántica híbrida (BM25 + Vectorial) de notas del Second Brain con re-ranking."""
+    from core.semantic_search import SemanticSearchEngine
+    engine = SemanticSearchEngine(base_dir=BASE_DIR)
     try:
-        results = engine.retrieve_hybrid(q, top_k=10)
+        results = engine.search(q, limit=10)
         return {"results": results}
     except Exception as exc:
         logger.error("Error en búsqueda semántica híbrida: %s", exc)
@@ -2789,10 +3073,38 @@ async def telemetry_stream():
             from core.dw_pipeline import get_db_stats
             db_stats = get_db_stats() if pg_online else {}
 
+            # Obtener estadísticas de Docker para llama-server y promedio de latencia de tokens
+            container_stats = {}
+            if llama_online:
+                container_stats = get_docker_container_stats("maritime_llama_cpp")
+                SELF_HEALING_STATUS["restarting"] = False
+                
+            from core.llm_client import get_avg_latency_per_token
+            avg_latency = get_avg_latency_per_token()
+            
+            sh_status = {
+                "restarting": SELF_HEALING_STATUS.get("restarting", False),
+                "last_restart_ts": SELF_HEALING_STATUS.get("last_restart_ts", 0.0),
+                "restart_count": SELF_HEALING_STATUS.get("restart_count", 0)
+            }
+            
+            llama_status = "offline"
+            if sh_status["restarting"]:
+                llama_status = "booting"
+            elif llama_online:
+                llama_status = "online"
+
             data = {
                 "status": "telemetry",
                 "fastapi": {"status": "online", "port": 8004},
-                "llama": {"status": "online" if llama_online else "offline", "port": 8083, "latency_ms": llama_latency},
+                "llama": {
+                    "status": llama_status,
+                    "port": 8083,
+                    "latency_ms": llama_latency,
+                    "avg_latency_per_token_ms": round(avg_latency, 2),
+                    "container": container_stats,
+                    "self_healing": sh_status
+                },
                 "postgres": {"status": "online" if pg_online else "offline", "port": 5432, "total_proyectos": db_stats.get("total_proyectos", 0)},
                 "rsi": {"running": rsi_running, "pid": rsi_pid},
                 "hardware": {"cpu_pct": cpu, "ram_pct": ram, "disk_free_gb": round(disk, 2)},
@@ -2818,9 +3130,8 @@ async def manage_server(payload: dict):
     elif action == "stop_llama":
         return await stop_llama_server()
     elif action == "restart_llama":
-        await stop_llama_server()
-        await asyncio.sleep(1.0)
-        return await start_llama_server()
+        await restart_llama_container()
+        return {"status": "restarting", "msg": "Se ha solicitado el reinicio del contenedor del LLM local."}
     elif action == "start_rsi":
         cycles = payload.get("cycles", 2)
         dry_run = payload.get("dry_run", False)

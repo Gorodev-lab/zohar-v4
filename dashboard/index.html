@@ -48,6 +48,7 @@
       </div>
       <div class="sys-metric" id="metric-llama" title="Estado de llama-server local (puerto 8083)">
         <span class="sys-metric__label">LLAMA:8083</span>
+        <canvas class="sys-metric__spark" id="spark-llama" width="60" height="20" aria-hidden="true"></canvas>
         <span class="sys-metric__value" id="status-llama" style="font-size:10px;">OFFLINE</span>
       </div>
       <div class="sys-metric" id="metric-workload" title="Módulos y tareas activas en el sistema">
@@ -444,14 +445,19 @@
             <div id="graph-metrics" class="graph-metric-pills" aria-label="Métricas del grafo"></div>
           </div>
           <div class="panel-header__actions">
+            <input type="search" class="input input--search" id="graph-node-search" placeholder="buscar nodo..." aria-label="Buscar nodo en el grafo" style="width:180px; height:30px; font-size:11px; margin-right:8px; display:inline-block; vertical-align:middle;">
             <button class="btn" id="btn-refresh-graph" onclick="loadGraph()" aria-label="Refrescar grafo de conocimiento">
               <span aria-hidden="true">↺</span> REFRESH
             </button>
             <select class="input input--inline" id="graph-filter-type" aria-label="Filtrar nodos por tipo" style="width:auto;">
               <option value="all">todos</option>
               <option value="proyecto">proyectos</option>
-              <option value="gaceta">gacetas</option>
+              <option value="estado">estados</option>
               <option value="municipio">municipios</option>
+              <option value="sector">sectores</option>
+              <option value="promovente">promoventes</option>
+              <option value="tipo_mia">tipos MIA</option>
+              <option value="año">años</option>
             </select>
           </div>
         </div>
@@ -467,6 +473,31 @@
             </div>
           </div>
 
+          <!-- Glassmorphic Physics Force Controller -->
+          <div id="graph-force-controls" class="graph-force-controls" aria-label="Configuración de fuerzas de simulación">
+            <div class="graph-force-controls__header">
+              <span>CONFIG_FUERZAS</span>
+              <button class="btn btn--link" id="gfc-reset" style="font-size:10px; padding:0; border:none; background:none; color:var(--accent-color); cursor:pointer;">[reset]</button>
+            </div>
+            <div class="graph-force-controls__body">
+              <div class="gfc-slider-row">
+                <label for="force-charge">Repulsión</label>
+                <input type="range" id="force-charge" min="-300" max="-10" value="-100" step="10">
+                <span id="val-charge">-100</span>
+              </div>
+              <div class="gfc-slider-row">
+                <label for="force-distance">Distancia</label>
+                <input type="range" id="force-distance" min="20" max="200" value="70" step="5">
+                <span id="val-distance">70</span>
+              </div>
+              <div class="gfc-slider-row">
+                <label for="force-collision">Colisión</label>
+                <input type="range" id="force-collision" min="5" max="30" value="12" step="1">
+                <span id="val-collision">12</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Graph Node Detail Slide-in Panel -->
           <div id="graph-detail-panel" class="graph-detail-panel" role="complementary" aria-label="Detalles del nodo seleccionado">
             <div class="graph-detail-panel__header">
@@ -478,7 +509,17 @@
               <div class="gdp-row"><span class="gdp-label">AÑO</span><span class="gdp-val" id="gdp-year">─</span></div>
               <div class="gdp-row"><span class="gdp-label">GRADO</span><span class="gdp-val" id="gdp-degree">─</span></div>
               <div class="gdp-row"><span class="gdp-label">COMUNIDAD</span><span class="gdp-val" id="gdp-com">─</span></div>
+              <div id="gdp-name-row" class="gdp-row gdp-row--vertical hidden">
+                <span class="gdp-label">NOMBRE REAL</span>
+                <span class="gdp-val text-xs text-muted" id="gdp-name" style="word-break:break-word; max-height:80px; overflow-y:auto; margin-top:2px; text-align:left;">─</span>
+              </div>
+              <div id="gdp-verdict-row" class="gdp-row hidden" style="margin-top:6px;">
+                <span class="gdp-label">VEREDICTO IA</span>
+                <span class="gdp-val" id="gdp-verdict">─</span>
+              </div>
               <div class="ascii-divider" style="margin:10px 0;"></div>
+              <div class="gdp-connections-header">CONEXIONES DIRECTAS:</div>
+              <div class="gdp-connections-list" id="gdp-connections" role="list" style="max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; margin-bottom:10px; margin-top:4px;"></div>
               <button class="btn btn--primary" id="gdp-goto-inference" style="width:100%; justify-content:center; font-size:10px;" aria-label="Ir a inferencia del nodo">
                 <span aria-hidden="true">▸</span> VER INFERENCIA
               </button>
@@ -913,6 +954,33 @@
               </div>
             </div>
 
+            <!-- Local LLM Metrics Section -->
+            <div id="local-llm-metrics-container" style="display:none; border-top:1px dashed var(--border-color-dim); padding-top:12px; margin-top:4px;">
+              <h3 style="font-family:var(--font-mono); font-size:11px; color:var(--color-amber); margin:0 0 6px 0; text-transform:uppercase;">Inferencia Local (Gemma-4)</h3>
+              <div style="display:flex; flex-direction:column; gap:4px; padding:8px 12px; border:1px solid var(--border-color); background:rgba(0,0,0,0.2); font-family:var(--font-mono); font-size:10px;">
+                <div style="display:flex; justify-content:space-between;">
+                  <span class="text-muted">Latencia/Token:</span>
+                  <span id="llm-latency-val" style="color:var(--color-amber); font-weight:bold;">─ ms</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                  <span class="text-muted">CPU Contenedor:</span>
+                  <span id="llm-cpu-val">─%</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                  <span class="text-muted">RAM Contenedor:</span>
+                  <span id="llm-ram-val">─ GB (─%)</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <span class="text-muted">Auto-Recuperación:</span>
+                  <span id="llm-healing-badge" class="badge" style="font-size:8px; padding:2px 4px; border:1px solid var(--color-green); color:var(--color-green); background:rgba(39, 174, 96, 0.1);">ACTIVO</span>
+                </div>
+                <div id="llm-healing-restarting-row" style="display:none; justify-content:space-between; color:var(--color-alert); font-weight:bold; margin-top: 4px; border-top: 1px dashed rgba(231,76,60,0.3); padding-top:4px;">
+                  <span>ESTADO:</span>
+                  <span class="text-alert-blink">REINICIANDO...</span>
+                </div>
+              </div>
+            </div>
+
             <div style="border-top:1px dashed var(--border-color-dim); padding-top:12px; font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">
               <span style="font-weight:bold; display:block; margin-bottom:4px; color:var(--color-amber);">💡 CONSEJOS DE USO:</span>
               <ul style="padding-left:12px; margin:0; display:flex; flex-direction:column; gap:4px;">
@@ -1060,7 +1128,12 @@
               </div>
               <div style="font-family:var(--font-mono); font-size:10px; display:flex; flex-direction:column; gap:4px;">
                 <div style="display:flex; justify-content:space-between;"><span class="text-muted">Modelo:</span><span>Gemma 4 E2B</span></div>
-                <div style="display:flex; justify-content:space-between;"><span class="text-muted">Latencia:</span><span id="srv-llama-lat">─ ms</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="text-muted">Latencia HTTP:</span><span id="srv-llama-lat">─ ms</span></div>
+              </div>
+              <div id="srv-llama-container-stats" style="display:flex; flex-direction:column; gap:4px; border-top: 1px dashed var(--border-color-dim); padding-top:6px; margin-top:6px; font-family:var(--font-mono); font-size:10px;">
+                <div style="display:flex; justify-content:space-between;"><span class="text-muted">CPU Contenedor:</span><span id="srv-llama-cpu">─%</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="text-muted">RAM Contenedor:</span><span id="srv-llama-ram">─ GB (─%)</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="text-muted">Auto-Reinicios:</span><span id="srv-llama-restarts" style="color:var(--color-purple); font-weight:bold;">0</span></div>
               </div>
               <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:4px;">
                 <button class="btn btn--secondary" style="font-size:10px; padding:4px;" onclick="manageServerAction('start_llama')">INICIAR</button>

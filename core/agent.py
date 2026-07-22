@@ -136,13 +136,20 @@ def run_ocr_extraction(pdf_name: str) -> str:
 
 def run_second_brain_sync() -> str:
     """
-    Compila y actualiza todas las notas Markdown vinculadas en el Second Brain
-    y actualiza el índice semántico de embeddings locales.
+    Sincroniza bidireccionalmente el Second Brain:
+    1. Sincroniza cambios manuales en Markdown de regreso a la DB.
+    2. Regenera/compila la bóveda en base a la DB actualizada.
+    3. Actualiza el índice semántico de embeddings locales.
     """
     from core.second_brain import SecondBrainBuilder
     from core.semantic_search import SemanticSearchEngine
     try:
         builder = SecondBrainBuilder(BASE_DIR)
+        
+        # Primero sincronizar de Vault a DB (guardar cambios manuales)
+        db_sync_stats = builder.sync_vault_to_database()
+        
+        # Luego regenerar bóveda (DB a Vault) para mantener consistencia
         stats = builder.build_vault()
         
         search_engine = SemanticSearchEngine(BASE_DIR)
@@ -150,6 +157,8 @@ def run_second_brain_sync() -> str:
         
         return (
             f"Sincronización del Second Brain completada con éxito.\n"
+            f"- Proyectos actualizados en DB: {db_sync_stats.get('projects_updated', 0)}\n"
+            f"- Dictámenes actualizados en DB: {db_sync_stats.get('inferences_updated', 0)}\n"
             f"- Proyectos en bóveda: {stats.get('total_proyectos', 0)}\n"
             f"- Notas totales indexadas en caché: {index_stats.get('total_cached', 0)}"
         )

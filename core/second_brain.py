@@ -974,4 +974,177 @@ Como paso de cierre:
             "wikilinks_added": wikilinks_added_total,
         }
 
+    def sync_vault_to_database(self) -> dict:
+        """
+        Escanea la bóveda second_brain/ para detectar modificaciones manuales de notas Markdown
+        y las sincroniza de regreso a la base de datos PostgreSQL.
+        """
+        import os
+        import sqlalchemy as sa
+        
+        db_url = os.getenv("DATABASE_URL")
+        if not db_url:
+            from dotenv import load_dotenv
+            for env_file in [Path(".env.local"), Path(".env"), self.base_dir / ".env"]:
+                if env_file.exists():
+                    load_dotenv(env_file)
+            db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/maritime_dw")
+
+        if not db_url:
+            return {"status": "error", "msg": "DATABASE_URL no configurada"}
+
+        engine = sa.create_engine(db_url)
+        
+        projects_updated = 0
+        inferences_updated = 0
+        
+        # 1. Sincronizar Fichas de Proyectos (02_Entities/Proyecto - {clave}.md)
+        entities_dir = self.sb_dir / "02_Entities"
+        if entities_dir.exists():
+            for md_path in entities_dir.glob("Proyecto - *.md"):
+                try:
+                    content = md_path.read_text(encoding="utf-8", errors="replace")
+                    
+                    # Extraer clave SINAT del nombre del archivo
+                    m_clave = re.match(r"^Proyecto - (.*)$", md_path.stem)
+                    if not m_clave:
+                        continue
+                    clave = m_clave.group(1).upper()
+                    
+                    # Parsear campos
+                    fields = {}
+                    
+                    # Frontmatter YAML
+                    if content.startswith("---"):
+                        parts = content.split("---", 2)
+                        if len(parts) >= 3:
+                            for line in parts[1].splitlines():
+                                if ":" in line:
+                                    k, v = line.split(":", 1)
+                                    k = k.strip().lower()
+                                    v = v.strip().strip('"').strip("'")
+                                    if k in ("project_name", "promovente", "status", "state", "year", "sector"):
+                                        fields[k] = v
+                                        
+                    # Bullet points (cuerpo)
+                    for line in content.splitlines():
+                        line_strip = line.strip()
+                        if not line_strip.startswith("-"):
+                            continue
+                        
+                        m = re.match(r"^-\s*\*\*Nombre del Proyecto:\*\*\s*(.*)$", line_strip)
+                        if m:
+                            fields["project_name"] = m.group(1).strip()
+                            continue
+                        m = re.match(r"^-\s*\*\*Promovente:\*\*\s*(.*)$", line_strip)
+                        if m:
+                            fields["promovente"] = m.group(1).strip()
+                            continue
+                        m = re.match(r"^-\s*\*\*Estatus de Trámite:\*\*\s*\**([^*]+)\**$", line_strip)
+                        if m:
+                            fields["status"] = m.group(1).strip()
+                            continue
+                        m = re.match(r"^-\s*\*\*Estado/Ubicación:\*\*\s*\[\[Municipio -\s*([^\]]+)\]\]$", line_strip)
+                        if m:
+                            fields["state"] = m.group(1).strip()
+                            continue
+                        m = re.match(r"^-\s*\*\*Año de Registro:\*\*\s*(\d+)$", line_strip)
+                        if m:
+                            fields["year"] = int(m.group(1).strip())
+                            continue
+                        m = re.match(r"^-\s*\*\*Sector Productivo:\*\*\s*\[\[Sector -\s*([^\]]+)\]\]$", line_strip)
+                        if m:
+                            fields["sector"] = m.group(1).strip()
+                            continue
+
+                    # Actualizar en la DB
+                    if fields:
+                        with engine.begin() as conn:
+                            # Verificar si existe
+                            res = conn.execute(sa.text("SELECT 1 FROM semarnat_projects WHERE clave = :c"), {"c": clave}).fetchone()
+                            if res:
+                                set_clause = []
+                                params = {"c": clave}
+                                for k, v in fields.items():
+                                    if k == "year":
+                                        try:
+                                            v = int(v)
+                                        except ValueError:
+                                            continue
+                                    set_clause.append(f"{k} = :{k}")
+                                    params[k] = v
+                                
+                                if set_clause:
+                                    conn.execute(sa.text(f"UPDATE semarnat_projects SET {', '.join(set_clause)}, updated_at = CURRENT_TIMESTAMP WHERE clave = :c"), params)
+                                    projects_updated += 1
+                                    
+                except Exception as exc:
+                    logger.error("Error sincronizando nota de proyecto %s a la DB: %s", md_path.name, exc)
+
+        # 2. Sincronizar Reportes de Inferencia (03_Inferences/Inferencia - {clave}.md)
+        inferences_dir = self.sb_dir / "03_Inferences"
+        if inferences_dir.exists():
+            for md_path in inferences_dir.glob("Inferencia - *.md"):
+                try:
+                    content = md_path.read_text(encoding="utf-8", errors="replace")
+                    
+                    # Extraer clave
+                    m_clave = re.match(r"^Inferencia - (.*)$", md_path.stem)
+                    if not m_clave:
+                        continue
+                    clave = m_clave.group(1).upper()
+                    
+                    # Parsear frontmatter para veredicto y score
+                    fields = {}
+                    if content.startswith("---"):
+                        parts = content.split("---", 2)
+                        if len(parts) >= 3:
+                            for line in parts[1].splitlines():
+                                if ":" in line:
+                                    k, v = line.split(":", 1)
+                                    k = k.strip().lower()
+                                    v = v.strip().strip('"').strip("'")
+                                    if k in ("veredicto", "score"):
+                                        fields[k] = v
+                                        
+                    # Parsear veredicto del cuerpo si no está en frontmatter
+                    for line in content.splitlines():
+                        m = re.search(r"Veredicto:\s*\*\*([^*]+)\**", line, re.IGNORECASE)
+                        if m:
+                            fields["veredicto"] = m.group(1).strip().upper()
+                        m = re.search(r"Viabilidad Socio-Ambiental \(Score\):\s*`([^%]+)%`", line, re.IGNORECASE)
+                        if m:
+                            try:
+                                fields["score"] = float(m.group(1).strip()) / 100.0
+                            except ValueError:
+                                pass
+
+                    if fields:
+                        with engine.begin() as conn:
+                            res = conn.execute(sa.text("SELECT 1 FROM project_evaluations WHERE clave = :c"), {"c": clave}).fetchone()
+                            if res:
+                                set_clause = []
+                                params = {"c": clave}
+                                for k, v in fields.items():
+                                    if k == "score":
+                                        try:
+                                            v = float(v)
+                                        except ValueError:
+                                            continue
+                                    set_clause.append(f"{k} = :{k}")
+                                    params[k] = v
+                                    
+                                if set_clause:
+                                    conn.execute(sa.text(f"UPDATE project_evaluations SET {', '.join(set_clause)} WHERE clave = :c"), params)
+                                    inferences_updated += 1
+                                    
+                except Exception as exc:
+                    logger.error("Error sincronizando nota de inferencia %s a la DB: %s", md_path.name, exc)
+                    
+        return {
+            "status": "ok",
+            "projects_updated": projects_updated,
+            "inferences_updated": inferences_updated
+        }
+
 
