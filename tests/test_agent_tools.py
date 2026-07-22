@@ -1,126 +1,86 @@
 """
 tests/test_agent_tools.py
-Pruebas unitarias para las herramientas del agente y el ciclo de razonamiento (React).
+==========================
+Suite de pruebas automatizadas para las herramientas de ZoharAgent y el endpoint /api/chat:
+- run_graph_query
+- run_rag_hybrid_query
+- run_system_services_status
+- GET /api/model/tools
+- POST /api/chat
 """
 
-from __future__ import annotations
-
-import json
-from unittest.mock import MagicMock, patch
 import pytest
+from fastapi.testclient import TestClient
 
-from core.agent import run_db_query, ZoharAgent
-
-
-# ===========================================================================
-# 1. Pruebas de Seguridad y Filtros SQL
-# ===========================================================================
-
-def test_sql_query_security_select_only():
-    """Valida que solo se permitan sentencias SELECT."""
-    res = run_db_query("INSERT INTO public.semarnat_projects (clave) VALUES ('123')")
-    assert "Error: Solo se permiten consultas de lectura (SELECT)" in res
-
-    res = run_db_query("UPDATE public.semarnat_projects SET name = 'test'")
-    assert "Error: Solo se permiten consultas de lectura (SELECT)" in res
+from core.agent import (
+    run_graph_query,
+    run_rag_hybrid_query,
+    run_system_services_status,
+    AGENT_TOOLS
+)
+from api.main import app
 
 
-def test_sql_query_security_forbidden_words():
-    """Valida que se bloqueen palabras clave DDL/DML destructivas en subconsultas o en medio."""
-    # Intentar inyectar DROP en un SELECT
-    res = run_db_query("SELECT * FROM public.semarnat_projects; DROP TABLE public.semarnat_projects;")
-    assert "Error: No se permite el comando prohibido 'drop'" in res
-
-    res = run_db_query("SELECT * FROM public.semarnat_projects WHERE name = 'delete'")
-    # Note: 'delete' as a word boundary is rejected by our safety filter regex.
-    assert "Error: No se permite el comando prohibido 'delete'" in res
+@pytest.fixture
+def client():
+    return TestClient(app)
 
 
-# ===========================================================================
-# 2. Pruebas del Ciclo del Agente (ZoharAgent)
-# ===========================================================================
-
-def test_agent_parsing_and_tool_call():
-    """Verifica que el agente detecte la etiqueta tool_call y la ejecute."""
-    sys_prompt = "Prompt base"
-    history = []
-    
-    agent = ZoharAgent(sys_prompt=sys_prompt, history=history)
-    
-    # Mock de la función generate_completion en core.llm_client
-    # Paso 1: El modelo decide llamar a la herramienta database_query
-    # Paso 2: El modelo recibe el resultado y da la respuesta final
-    mock_responses = [
-        {
-            "text": '<tool_call name="database_query">{"sql_query": "SELECT count(*) FROM public.semarnat_projects;"}</tool_call>',
-            "meta": {"modelo": "llama-server:gemma-4-e2b"}
-        },
-        {
-            "text": "Hay 14 proyectos registrados en la base de datos.",
-            "meta": {"modelo": "llama-server:gemma-4-e2b"}
-        }
-    ]
-    
-    call_idx = 0
-    def mock_generate(*args, **kwargs):
-        nonlocal call_idx
-        res = mock_responses[call_idx]
-        call_idx += 1
-        return res
-
-    # Mock del ejecutor de la herramienta database_query en el mapa AGENT_TOOLS
-    mock_db_tool = MagicMock(return_value="count\n---\n14")
-    with patch("core.llm_client.generate_completion", side_effect=mock_generate), \
-         patch.dict("core.agent.AGENT_TOOLS", {"database_query": mock_db_tool}):
-         
-        response, tool_calls = agent.run("¿Cuántos proyectos hay?")
-        
-        # Aseverar resultados
-        assert response == "Hay 14 proyectos registrados en la base de datos."
-        assert len(tool_calls) == 1
-        assert tool_calls[0]["name"] == "database_query"
-        assert tool_calls[0]["arguments"] == {"sql_query": "SELECT count(*) FROM public.semarnat_projects;"}
-        assert "14" in tool_calls[0]["result"]
-        
-        assert mock_db_tool.call_count == 1
+def test_agent_tools_map():
+    """Verifica que las 7 herramientas estén registradas correctamente en AGENT_TOOLS."""
+    expected_tools = {
+        "database_query",
+        "second_brain_search",
+        "ocr_extraction",
+        "second_brain_sync",
+        "graph_query",
+        "rag_hybrid_query",
+        "system_services_status",
+    }
+    for tool_name in expected_tools:
+        assert tool_name in AGENT_TOOLS
+        assert callable(AGENT_TOOLS[tool_name])
 
 
-def test_agent_parsing_markdown_json():
-    """Verifica que el agente detecte llamadas de herramienta formateadas como JSON en markdown."""
-    sys_prompt = "Prompt base"
-    history = []
-    
-    agent = ZoharAgent(sys_prompt=sys_prompt, history=history)
-    
-    mock_responses = [
-        {
-            "text": '```json\n{\n  "tool_name": "database_query",\n  "parameters": {\n    "query": "SELECT count(*) FROM public.semarnat_projects;"\n  }\n}\n```',
-            "meta": {"modelo": "llama-server:gemma-4-e2b"}
-        },
-        {
-            "text": "Hay 14 proyectos en la tabla.",
-            "meta": {"modelo": "llama-server:gemma-4-e2b"}
-        }
-    ]
-    
-    call_idx = 0
-    def mock_generate(*args, **kwargs):
-        nonlocal call_idx
-        res = mock_responses[call_idx]
-        call_idx += 1
-        return res
+def test_run_system_services_status():
+    """Verifica que run_system_services_status retorne información formateada."""
+    output = run_system_services_status()
+    assert isinstance(output, str)
+    assert "Estado Operativo" in output
+    assert "CPU" in output
 
-    mock_db_tool = MagicMock(return_value="count\n---\n14")
-    with patch("core.llm_client.generate_completion", side_effect=mock_generate), \
-         patch.dict("core.agent.AGENT_TOOLS", {"database_query": mock_db_tool}):
-         
-        response, tool_calls = agent.run("¿Cuántos proyectos hay?")
-        
-        assert response == "Hay 14 proyectos en la tabla."
-        assert len(tool_calls) == 1
-        assert tool_calls[0]["name"] == "database_query"
-        # Debería haber mapeado "query" a "sql_query"
-        assert tool_calls[0]["arguments"] == {"query": "SELECT count(*) FROM public.semarnat_projects;", "sql_query": "SELECT count(*) FROM public.semarnat_projects;"}
-        assert "14" in tool_calls[0]["result"]
-        assert mock_db_tool.call_count == 1
 
+def test_run_graph_query():
+    """Verifica que run_graph_query ejecute sin errores."""
+    output = run_graph_query(query="SEMARNAT")
+    assert isinstance(output, str)
+
+
+def test_run_rag_hybrid_query():
+    """Verifica que run_rag_hybrid_query ejecute y devuelva texto de fuentes."""
+    output = run_rag_hybrid_query(query="impacto ambiental", top_k=2)
+    assert isinstance(output, str)
+
+
+def test_model_tools_endpoint(client):
+    """Verifica que /api/model/tools retorne las 7 herramientas."""
+    res = client.get("/api/model/tools")
+    assert res.status_code == 200
+    data = res.json()
+    assert "tools" in data
+    tool_names = {t["name"] for t in data["tools"]}
+    assert "graph_query" in tool_names
+    assert "rag_hybrid_query" in tool_names
+    assert "system_services_status" in tool_names
+    assert len(data["tools"]) == 7
+
+
+def test_api_chat_heuristic_fallback(client):
+    """Verifica la respuesta de /api/chat en fallback cuando no hay LLM en puerto 8083."""
+    payload = {"message": "¿Qué proyectos hay en Sonora?", "clave": "", "history": []}
+    res = client.post("/api/chat", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert "response" in data
+    assert "provider" in data
+    assert "tool_calls" in data

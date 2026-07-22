@@ -63,6 +63,14 @@ KEYWORD_MAP = {
 # Helpers de Chrome / Selenium
 # ---------------------------------------------------------------------------
 
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+]
+
+
 def make_chrome_driver(download_dir: Path, headless: bool = True):
     """Chrome configurado: descarga sin diálogo, sin visor PDF, CDP logging."""
     from selenium import webdriver
@@ -84,7 +92,8 @@ def make_chrome_driver(download_dir: Path, headless: bool = True):
     opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
     opts.page_load_strategy = "none"
-    opts.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    ua = random.choice(USER_AGENTS)
+    opts.add_argument(f"user-agent={ua}")
 
     if chrome_binary and Path(chrome_binary).exists():
         opts.binary_location = chrome_binary
@@ -111,6 +120,7 @@ def make_chrome_driver(download_dir: Path, headless: bool = True):
         logger.warning("No se pudo configurar setDownloadBehavior via CDP: %s", exc)
 
     return driver
+
 
 
 def safe_click(driver, locator, timeout: int = 15):
@@ -588,34 +598,54 @@ class SemarnatDownloader:
         - No reintenta si el último evento fue 'complete' o 'not_found' (definitivos).
         - Entre reintentos: emite evento SSE 'retry', destruye el driver y espera 5s.
         """
+        try:
+            from core.broadcaster import broadcaster
+            broadcaster.broadcast("scraper_download_started", {"clave": clave})
+        except Exception:
+            broadcaster = None
+
         for attempt in range(1 + max_retries):
             last_event: dict = {}
             for event in self._descargar_clave_gen(clave):
                 last_event = event
+                if broadcaster:
+                    broadcaster.broadcast("scraper_progress", {**event, "clave": clave})
                 yield event
 
             terminal_status = last_event.get("status", "")
 
             # Exito o 404 definitivo: no reintentar
             if terminal_status in ("complete", "not_found"):
+                if broadcaster:
+                    broadcaster.broadcast("scraper_download_finished", {"clave": clave, "status": terminal_status})
                 return
 
-            # Si quedan intentos, emitir aviso y reintentar
+            # Si quedan intentos, emitir aviso y reintentar con Exponential Backoff + Jitter
             if attempt < max_retries:
                 retry_n = attempt + 1
+                base_backoff = 2 ** (retry_n + 1)
+                jitter = random.uniform(1.0, 3.5)
+                sleep_sec = base_backoff + jitter
                 logger.warning(
-                    "Descarga fallida para %s (intento %d/%d). Reintentando en 5s...",
-                    clave, retry_n, max_retries
+                    "Descarga fallida para %s (intento %d/%d). Reintentando en %.1fs con Exponential Backoff...",
+                    clave, retry_n, max_retries, sleep_sec
                 )
-                yield {
+                retry_evt = {
                     "status": "retry",
                     "attempt": retry_n,
                     "max_retries": max_retries,
-                    "msg": f"Reintentando ({retry_n}/{max_retries})...",
+                    "msg": f"Reintentando en {sleep_sec:.1f}s ({retry_n}/{max_retries})...",
                     "level": "warning",
                 }
+                if broadcaster:
+                    broadcaster.broadcast("scraper_progress", {**retry_evt, "clave": clave})
+                yield retry_evt
                 self._quit_driver()
-                time.sleep(5)
+                time.sleep(sleep_sec)
+
+        if broadcaster:
+            broadcaster.broadcast("scraper_download_finished", {"clave": clave, "status": "failed"})
+
 
     def _descargar_clave_gen(
         self, bitacora_value: str
@@ -1014,6 +1044,78 @@ class SemarnatDownloader:
             logger.info("Log CSV guardado: %s", log_csv)
 
         return results
+
+    def batch_parallel(
+        self,
+        claves: list[str],
+        max_workers: int = 3,
+        pausa_entre: tuple[float, float] = (1.0, 3.0),
+        log_csv: Optional[Path] = None,
+    ) -> list[dict]:
+        """
+        Descarga una lista de bitácoras en paralelo usando ThreadPoolExecutor.
+        Cada worker instancia un SemarnatDownloader aislado para evitar colisiones.
+        """
+        import concurrent.futures
+        import threading
+
+        ledger = ScraperLedger()
+        results = []
+        lock = threading.Lock()
+
+        # Filtrar claves ya procesadas en Ledger
+        pending_claves = []
+        for clave in claves:
+            if ledger.is_done(clave):
+                logger.info("Saltando %s (Ya procesada en Ledger)", clave)
+            else:
+                pending_claves.append(clave)
+
+        if not pending_claves:
+            logger.info("Todas las claves en el lote ya se encuentran completadas.")
+            return []
+
+        def worker_download(clave: str) -> dict:
+            worker_dir = self.download_dir / f"worker_{threading.get_ident()}"
+            with SemarnatDownloader(
+                download_dir=worker_dir,
+                headless=self.headless,
+                download_timeout=self.download_timeout,
+                carpeta_estudios=self.carpeta_estudios,
+                carpeta_resolutivos=self.carpeta_resolutivos,
+                carpeta_resumenes=self.carpeta_resumenes,
+            ) as worker_downloader:
+                logger.info("[Worker %s] Iniciando descarga de clave: %s", threading.get_ident(), clave)
+                res = worker_downloader.descargar_clave(clave)
+                
+                final_status = "done" if res.get("status") == "complete" else res.get("status", "error")
+                with lock:
+                    ledger.mark_attempt(clave, final_status, str(res.get("files", [])))
+                    res["bitacora_input"] = clave
+                    results.append(res)
+                
+                time.sleep(random.uniform(*pausa_entre))
+                return res
+
+        logger.info("Iniciando descargas en paralelo con %d workers para %d claves...", max_workers, len(pending_claves))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(worker_download, c): c for c in pending_claves}
+            for future in concurrent.futures.as_completed(futures):
+                c = futures[future]
+                try:
+                    future.result()
+                except Exception as exc:
+                    logger.error("Error en worker descargando %s: %s", c, exc)
+
+        if log_csv:
+            import pandas as pd
+            df = pd.DataFrame(results)
+            log_csv.parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(log_csv, index=False)
+            logger.info("Log CSV guardado: %s", log_csv)
+
+        return results
+
 
     def batch_desde_csv(
         self,

@@ -176,3 +176,193 @@ def find_best_pdf_for_enrichment(classified: dict) -> Optional[Path]:
         if files:
             return Path(files[0])
     return None
+
+
+def process_project_auto_enrichment(
+    clave: str,
+    pdf_path: Optional[Path] = None,
+    base_dir: Optional[Path] = None,
+) -> dict:
+    """
+    Procesa un proyecto de forma automática:
+    1. Enriquece sus metadatos usando el LLM desde el PDF.
+    2. Extrae su grafo de conocimiento con GraphExtractor.
+    3. Persiste en PostgreSQL y actualiza la nota de Second Brain.
+    """
+    base_dir = Path(base_dir) if base_dir else Path(__file__).parent.parent
+    logger.info("🤖 Procesando enriquecimiento automático para clave: %s", clave)
+
+    from core.broadcaster import broadcaster
+    broadcaster.broadcast("enrichment_started", {"clave": clave})
+
+    # 1. Buscar PDF si no se especificó
+    if not pdf_path or not pdf_path.exists():
+        downloads_dir = base_dir / "downloads"
+        if downloads_dir.exists():
+            for p in downloads_dir.rglob("*.pdf"):
+                if clave.lower() in p.name.lower():
+                    pdf_path = p
+                    break
+
+    enriched_meta = {}
+    if pdf_path and pdf_path.exists():
+        enriched_meta = enrich_metadata_from_pdf(pdf_path, {"clave": clave})
+
+    # 2. Extracción de Grafo
+    graph_data = {"nodes": [], "edges": []}
+    try:
+        from core.rlm_harness import RLMHarness
+        from core.subagents.graph_extractor import GraphExtractor, persist_graph_to_db
+
+        ext_dir = base_dir / "extractions"
+        cand_md = list(ext_dir.glob(f"{clave}*.md")) if ext_dir.exists() else []
+        if cand_md:
+            text_content = cand_md[0].read_text(encoding="utf-8", errors="ignore")
+            harness = RLMHarness({"doc": text_content[:6000]})
+            extractor = GraphExtractor(harness)
+            res_graph = extractor.extract_graph(doc_id="doc")
+            graph_data = res_graph.get("graph", {"nodes": [], "edges": []})
+            if graph_data.get("nodes"):
+                persist_graph_to_db(clave, graph_data)
+    except Exception as exc:
+        logger.warning("No se pudo extraer grafo automático para %s: %s", clave, exc)
+
+    # 3. Actualizar Second Brain
+    try:
+        from core.second_brain import SecondBrainBuilder
+        builder = SecondBrainBuilder(base_dir=base_dir)
+        sb_note = base_dir / "second_brain" / "02_Entities" / f"Proyecto - {clave}.md"
+        if sb_note.exists():
+            builder.sync_note_to_db(sb_note)
+    except Exception as exc:
+        logger.warning("No se pudo sincronizar nota de Second Brain para %s: %s", clave, exc)
+
+    res_payload = {
+        "status": "SUCCESS",
+        "clave": clave,
+        "enriched_metadata": enriched_meta,
+        "graph_nodes": len(graph_data.get("nodes", [])),
+        "graph_edges": len(graph_data.get("edges", []))
+    }
+
+    broadcaster.broadcast("enrichment_completed", res_payload)
+    return res_payload
+
+
+class BackgroundEnricherWatcher:
+    """
+    Watcher que ejecuta en segundo plano (hilo asíncrono) monitoreando proyectos pendientes.
+    """
+    def __init__(self, base_dir: Path, poll_interval: int = 30):
+        self.base_dir = Path(base_dir)
+        self.poll_interval = poll_interval
+        self._running = False
+        self._thread = None
+        self.total_processed = 0
+        self.success_count = 0
+        self.error_count = 0
+        self.last_run_ts = 0.0
+        self.current_clave: Optional[str] = None
+
+    def trigger_cycle(self, limit: int = 5) -> dict:
+        """Ejecuta un ciclo único de enriquecimiento y retorna las métricas."""
+        import time
+        import sqlalchemy as sa
+        import os
+
+        db_url = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5432/maritime_dw")
+        processed_list = []
+        self.last_run_ts = time.time()
+
+        try:
+            engine = sa.create_engine(db_url, connect_args={"connect_timeout": 3})
+            pending_claves = []
+            with engine.connect() as conn:
+                res = conn.execute(sa.text("""
+                    SELECT clave FROM public.semarnat_projects 
+                    WHERE promovente IS NULL OR promovente = 'Desconocido'
+                    LIMIT :lim;
+                """), {"lim": limit})
+                for row in res:
+                    pending_claves.append(row[0])
+
+            for clave in pending_claves:
+                self.current_clave = clave
+                try:
+                    res = process_project_auto_enrichment(clave, base_dir=self.base_dir)
+                    processed_list.append(res)
+                    self.total_processed += 1
+                    self.success_count += 1
+                except Exception as exc:
+                    self.total_processed += 1
+                    self.error_count += 1
+                    logger.error("Error enriqueciendo %s: %s", clave, exc)
+                finally:
+                    self.current_clave = None
+
+        except Exception as exc:
+            logger.warning("Error ejecutando ciclo de BackgroundEnricherWatcher: %s", exc)
+
+        return {
+            "processed_count": len(processed_list),
+            "processed": processed_list,
+            "ts": self.last_run_ts
+        }
+
+    def _poll_loop(self):
+        import time
+        logger.info("👀 Servicio BackgroundEnricherWatcher iniciado (intervalo: %ds)", self.poll_interval)
+
+        while self._running:
+            try:
+                self.trigger_cycle(limit=5)
+            except Exception as exc:
+                logger.warning("Error en ciclo continuo de BackgroundEnricherWatcher: %s", exc)
+
+            time.sleep(self.poll_interval)
+
+    def get_status(self) -> dict:
+        """Devuelve el estado operativo y métricas acumuladas."""
+        import os
+        import sqlalchemy as sa
+
+        db_url = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5432/maritime_dw")
+        pending_count = 0
+        try:
+            engine = sa.create_engine(db_url, connect_args={"connect_timeout": 3})
+            with engine.connect() as conn:
+                res = conn.execute(sa.text("SELECT COUNT(*) FROM public.semarnat_projects WHERE promovente IS NULL OR promovente = 'Desconocido'"))
+                pending_count = res.scalar() or 0
+        except Exception:
+            pass
+
+        return {
+            "running": self._running,
+            "poll_interval_sec": self.poll_interval,
+            "total_processed": self.total_processed,
+            "success_count": self.success_count,
+            "error_count": self.error_count,
+            "last_run_ts": self.last_run_ts,
+            "current_clave": self.current_clave,
+            "pending_projects_count": pending_count,
+        }
+
+    def start(self):
+        import threading
+        if not self._running:
+            self._running = True
+            self._thread = threading.Thread(target=self._poll_loop, daemon=True)
+            self._thread.start()
+            logger.info("BackgroundEnricherWatcher arrancado en segundo plano.")
+
+    def stop(self):
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=3)
+            logger.info("BackgroundEnricherWatcher detenido.")
+
+
+# Instancia global singleton del watcher
+enricher_watcher = BackgroundEnricherWatcher(base_dir=Path(__file__).parent.parent)
+
+

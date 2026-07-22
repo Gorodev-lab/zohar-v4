@@ -6,6 +6,7 @@ Soporta detección automática y orden de prioridad.
 
 import os
 import json
+import re
 import logging
 import httpx
 import threading
@@ -57,21 +58,6 @@ def get_avg_latency_per_token() -> float:
         return _total_time_ms / _total_tokens
 
 def detect_active_backend() -> tuple[str, str]:
-    """
-    Detecta automáticamente qué proveedor de LLM está activo y disponible.
-    Prioridad:
-    1. llama-server (puerto 8083 por defecto)
-    2. Ollama (puerto 11434 por defecto)
-    3. Gemini API (si hay GEMINI_API_KEY)
-    4. Heurística (sin LLM)
-
-    Returns:
-        tuple[provider, model_name]
-    """
-    import sys
-    if "pytest" in sys.modules:
-        return "heuristic", "fallback_heuristic"
-
     # 1. Verificar llama-server
     local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8083")
     try:
@@ -102,7 +88,11 @@ def detect_active_backend() -> tuple[str, str]:
     except Exception:
         pass
 
-    # 3. Verificar Gemini API
+    # 3. Verificar Mistral API
+    if os.environ.get("MISTRAL_API_KEY"):
+        return "mistral", os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
+
+    # 4. Verificar Gemini API
     if os.environ.get("GEMINI_API_KEY"):
         return "gemini", "gemini-2.0-flash"
 
@@ -171,6 +161,9 @@ def generate_completion(
                                 lines.pop()
                             content = "\n".join(lines).strip()
                         try:
+                            match = re.search(r"\{.*\}", content, re.DOTALL)
+                            if match:
+                                content = match.group(0)
                             parsed = json.loads(content)
                             parsed.setdefault("meta", {})
                             parsed["meta"]["modelo"] = f"{provider}:{model_name}"
@@ -183,8 +176,15 @@ def generate_completion(
                     logger.error(f"Error de llama-server: {r.status_code} - {r.text}")
                     raise RuntimeError(f"Server status {r.status_code}")
             except Exception as exc:
-                logger.warning(f"Fallo en llama-server: {exc}. Intentando fallback a Ollama...")
-                provider = "ollama"
+                logger.warning(f"Fallo en llama-server: {exc}. Intentando fallback...")
+                if os.environ.get("MISTRAL_API_KEY"):
+                    provider = "mistral"
+                    model_name = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
+                elif os.environ.get("GEMINI_API_KEY"):
+                    provider = "gemini"
+                    model_name = "gemini-2.0-flash"
+                else:
+                    provider = "heuristic"
 
     # 1b. Lógica para Ollama (API OpenAI-compatible)
     if provider == "ollama":
@@ -221,6 +221,9 @@ def generate_completion(
                             lines.pop()
                         content = "\n".join(lines).strip()
                     try:
+                        match = re.search(r"\{.*\}", content, re.DOTALL)
+                        if match:
+                            content = match.group(0)
                         parsed = json.loads(content)
                         parsed.setdefault("meta", {})
                         parsed["meta"]["modelo"] = f"{provider}:{model_name}"
@@ -234,11 +237,77 @@ def generate_completion(
                 raise RuntimeError(f"Server status {r.status_code}")
         except Exception as exc:
             logger.warning(f"Fallo en Ollama: {exc}. Intentando fallback...")
-            if os.environ.get("GEMINI_API_KEY"):
+            if os.environ.get("MISTRAL_API_KEY"):
+                provider = "mistral"
+                model_name = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
+            elif os.environ.get("GEMINI_API_KEY"):
                 provider = "gemini"
                 model_name = "gemini-2.0-flash"
             else:
                 provider = "heuristic"
+
+    # 1c. Lógica para Mistral API (api.mistral.ai)
+    if provider == "mistral":
+        api_key = os.environ.get("MISTRAL_API_KEY", "")
+        m_model = model_name if (model_name and not model_name.endswith(".gguf")) else os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
+        if not api_key:
+            logger.error("MISTRAL_API_KEY no configurada.")
+            provider = "heuristic"
+        else:
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+
+            payload = {
+                "model": m_model,
+                "messages": messages,
+                "temperature": 0.1,
+            }
+            if response_json:
+                payload["response_format"] = {"type": "json_object"}
+
+            try:
+                r = httpx.post("https://api.mistral.ai/v1/chat/completions", headers=headers, json=payload, timeout=60.0)
+                if r.status_code == 200:
+                    res_data = r.json()
+                    content = res_data["choices"][0]["message"]["content"].strip()
+                    
+                    if response_json:
+                        if content.startswith("```"):
+                            lines = content.split("\n")
+                            if lines[0].startswith("```"):
+                                lines.pop(0)
+                            if lines and lines[-1].startswith("```"):
+                                lines.pop()
+                            content = "\n".join(lines).strip()
+                        try:
+                            match = re.search(r"\{.*\}", content, re.DOTALL)
+                            if match:
+                                content = match.group(0)
+                            parsed = json.loads(content)
+                            parsed.setdefault("meta", {})
+                            parsed["meta"]["modelo"] = f"mistral:{m_model}"
+                            return parsed
+                        except json.JSONDecodeError as je:
+                            logger.error(f"Error decodificando JSON de Mistral API: {je}. Contenido: {content}")
+                            raise je
+                    return {"text": content, "meta": {"modelo": f"mistral:{m_model}"}}
+                else:
+                    logger.error(f"Error de Mistral API: {r.status_code} - {r.text}")
+                    raise RuntimeError(f"Mistral API HTTP status {r.status_code}: {r.text[:200]}")
+            except Exception as exc:
+                logger.warning(f"Fallo en Mistral API: {exc}. Intentando fallback a Gemini...")
+                if os.environ.get("GEMINI_API_KEY"):
+                    provider = "gemini"
+                    model_name = "gemini-2.0-flash"
+                else:
+                    provider = "heuristic"
+
 
     # 2. Lógica para Gemini API
     if provider == "gemini":
@@ -266,6 +335,9 @@ def generate_completion(
                 raw = raw.strip()
 
             if response_json:
+                match = re.search(r"\{.*\}", raw, re.DOTALL)
+                if match:
+                    raw = match.group(0)
                 parsed = json.loads(raw)
                 parsed.setdefault("meta", {})
                 parsed["meta"]["modelo"] = "gemini-2.0-flash"

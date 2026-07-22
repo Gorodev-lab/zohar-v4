@@ -2384,16 +2384,19 @@ async function sendChatMessage() {
     if (data.tool_calls && data.tool_calls.length > 0) {
       data.tool_calls.forEach(call => {
         const toolDiv = document.createElement('div');
-        toolDiv.className = 'log-line';
-        toolDiv.style.cssText = 'border-left: 2px solid var(--color-amber); padding-left: var(--space-2); margin-bottom: 12px; background: rgba(243, 156, 18, 0.05);';
-        const argsStr = typeof call.arguments === 'object' ? JSON.stringify(call.arguments) : String(call.arguments);
+        toolDiv.style.cssText = 'border: 1px solid var(--color-border); border-left: 3px solid var(--color-amber); padding: 6px 10px; margin-bottom: 10px; background: rgba(255, 176, 0, 0.05); font-family: var(--font-mono); font-size: 11px;';
+        const argsStr = typeof call.arguments === 'object' ? JSON.stringify(call.arguments, null, 2) : String(call.arguments);
         toolDiv.innerHTML = `
-          <span class="log-line__ts" style="color:var(--color-amber);">[TOOL_CALL]</span>
-          <span class="log-line__msg" style="font-family:var(--font-mono); font-size:10px; color:var(--color-amber); font-weight:bold;">✦ ${call.name}(${escHtml(argsStr)})</span>
-          <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-muted); margin-top:4px; max-height:120px; overflow-y:auto; white-space:pre-wrap; border:1px solid var(--border-color-dim); padding:6px; background:rgba(0,0,0,0.3);">
-[RESULTADO]:
-${escHtml(call.result)}
-          </div>
+          <details open>
+            <summary style="cursor:pointer; font-weight:bold; color:var(--color-amber); display:flex; justify-content:space-between; align-items:center;">
+              <span>✦ TOOL CALL: ${escHtml(call.name)}()</span>
+              <span style="font-size:9px; background:rgba(39, 174, 96, 0.2); color:var(--color-ok); border:1px solid var(--color-ok); padding:1px 5px;">EJECUTADO</span>
+            </summary>
+            <div style="margin-top:6px; font-size:10px; color:var(--color-text-muted);">
+              <div><strong>Parámetros:</strong> <code>${escHtml(argsStr)}</code></div>
+              <div style="margin-top:4px; max-height:160px; overflow-y:auto; border:1px solid var(--border-color-dim); background:rgba(0,0,0,0.4); padding:6px; white-space:pre-wrap; color:var(--color-text-secondary);">${escHtml(call.result)}</div>
+            </div>
+          </details>
         `;
         messagesLog.appendChild(toolDiv);
       });
@@ -2434,6 +2437,99 @@ ${escHtml(call.result)}
 
 
 /* =========================================================================
+   RAG ANALYTICS ACTIONS
+   ========================================================================= */
+async function executeRAGQuery() {
+  const queryInput = $('#rag-search-input');
+  const claveInput = $('#rag-clave-filter');
+  const btnQuery   = $('#btn-rag-query');
+  const answerBody = $('#rag-answer-body');
+  const sourcesList= $('#rag-sources-list');
+  const sourcesPill= $('#rag-context-used-pill');
+
+  if (!queryInput || !answerBody || !sourcesList) return;
+
+  const query = queryInput.value.trim();
+  if (!query) {
+    showToast('Ingresa una consulta para la búsqueda RAG', 'warning');
+    return;
+  }
+
+  const clave = claveInput ? claveInput.value.trim() : '';
+
+  if (btnQuery) btnQuery.disabled = true;
+  answerBody.innerHTML = '<span class="text-muted cursor-blink">Buscando fragmentos e infiriendo respuesta con RAG Híbrido...</span>';
+  sourcesList.innerHTML = '<div class="text-xs text-muted">[ Recuperando contexto... ]</div>';
+
+  try {
+    const payload = {
+      query: query,
+      filters: clave ? { clave: clave } : {},
+      top_k: 5
+    };
+
+    const res = await fetch('/api/rag/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    // Render answer synthesis
+    if (window.marked && data.response) {
+      answerBody.innerHTML = marked.parse(data.response);
+    } else {
+      answerBody.textContent = data.response || data.answer || 'Sin respuesta generada.';
+    }
+
+    // Render sources & citations
+    const sources = data.sources || data.citations || [];
+    if (sourcesPill) sourcesPill.textContent = `${sources.length} FUENTES`;
+
+    sourcesList.innerHTML = '';
+    if (sources.length === 0) {
+      sourcesList.innerHTML = '<div class="text-xs text-muted">No se recuperaron fuentes relevantes.</div>';
+    } else {
+      sources.forEach((src, idx) => {
+        const card = document.createElement('div');
+        card.className = 'rag-citation-card';
+        const score = src.score ? (src.score * 100).toFixed(0) : 'RRF';
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span style="font-weight:bold; color:var(--color-amber);">[${src.clave || 'CITA ' + (idx+1)}]</span>
+            <span class="rag-similarity-chip">Similitud: ${score}%</span>
+          </div>
+          <div style="color:var(--text-muted); font-size:11px; max-height:80px; overflow-y:auto; font-family:var(--font-mono); white-space:pre-wrap;">${escHtml(src.content || src.text || '')}</div>
+        `;
+        sourcesList.appendChild(card);
+      });
+    }
+  } catch (err) {
+    answerBody.innerHTML = `<span class="text-alert">Error en consulta RAG: ${escHtml(err.message)}</span>`;
+    sourcesList.innerHTML = '<div class="text-xs text-alert">Fallo al recuperar fuentes.</div>';
+  } finally {
+    if (btnQuery) btnQuery.disabled = false;
+  }
+}
+
+async function reindexRAGCorpus() {
+  showToast('Iniciando re-indexación RAG...', 'info');
+  try {
+    const res = await fetch('/api/rag/reindex', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({limit: 100}) });
+    const data = await res.json();
+    showToast(`✓ Corpus re-indexado: ${data.total || 0} documentos`, 'ok');
+  } catch (err) {
+    showToast(`Error al re-indexar: ${err.message}`, 'error');
+  }
+}
+
+window.executeRAGQuery = executeRAGQuery;
+window.reindexRAGCorpus = reindexRAGCorpus;
+
+
+/* =========================================================================
    LIVE UPDATES SSE WATCHER
    ========================================================================= */
 function initLiveUpdates() {
@@ -2448,26 +2544,61 @@ function initLiveUpdates() {
       if (evt.type === 'ping') return; // Keep-alive
 
       console.log('Evento en tiempo real recibido:', evt);
-      showToast(`Actualización detectada: ${evt.type}`, 'info');
 
       if (evt.type === 'pdfs_updated') {
-        // Recargar PDFs
         if (typeof loadCorpusPdfs === 'function') loadCorpusPdfs();
         if (typeof loadWorkflowGacetas === 'function') loadWorkflowGacetas();
         if (typeof loadStatus === 'function') loadStatus();
       } else if (evt.type === 'extractions_updated') {
-        // Recargar Markdown extractions y Second Brain
         if (typeof loadExtractions === 'function') loadExtractions();
         if (typeof loadWikiNotesList === 'function') loadWikiNotesList();
         if (typeof loadStatus === 'function') loadStatus();
       } else if (evt.type === 'inferences_updated') {
-        // Recargar inferencias analíticas
         if (typeof loadInferences === 'function') loadInferences();
         if (typeof loadDataWarehouseStatus === 'function') loadDataWarehouseStatus();
         if (typeof loadStatus === 'function') loadStatus();
       } else if (evt.type === 'graph_updated') {
-        // Recargar Grafo Vivo si el tab activo es GRAFO_RED
         if (typeof loadGraph === 'function') loadGraph();
+      } else if (evt.type === 'scraper_progress') {
+        const progEl = $('#scraper-progress');
+        const pctEl  = $('#scraper-pct');
+        const logEl  = $('#scraper-log');
+        if (evt.pct !== undefined && progEl) {
+          setProgress(progEl, evt.pct);
+          if (pctEl) pctEl.textContent = `${evt.pct}%`;
+        }
+        if (evt.msg && logEl) {
+          appendLog(logEl, evt.msg, evt.level || 'info');
+        }
+      } else if (evt.type === 'scraper_download_started') {
+        appendLog($('#scraper-log'), `Iniciando descarga para ${evt.clave || ''}...`, 'info');
+        showToast(`⇩ Descarga iniciada: ${evt.clave || ''}`, 'info');
+      } else if (evt.type === 'scraper_download_finished') {
+        appendLog($('#scraper-log'), `Descarga finalizada (${evt.status}): ${evt.clave || ''}`, evt.status === 'failed' ? 'error' : 'ok');
+        showToast(`✓ Descarga completada: ${evt.clave || ''}`, evt.status === 'failed' ? 'error' : 'ok');
+      } else if (evt.type === 'enrichment_started') {
+        const aiPill = $('#status-ai-processing');
+        if (aiPill) {
+          aiPill.textContent = 'PROCESANDO...';
+          aiPill.className = 'sys-metric__value workload-pill workload-pill--ai-active';
+        }
+        appendLog($('#scraper-log'), `[ENRICHER] Analizando metadatos para ${evt.clave || ''}`, 'info');
+        showToast(`🤖 Enriquecimiento en curso: ${evt.clave || ''}`, 'info');
+      } else if (evt.type === 'enrichment_completed') {
+        const aiPill = $('#status-ai-processing');
+        if (aiPill) {
+          aiPill.textContent = 'IDLE';
+          aiPill.className = 'sys-metric__value workload-pill workload-pill--idle';
+        }
+        appendLog($('#scraper-log'), `[ENRICHER] Completado para ${evt.clave || ''} (${evt.graph_nodes || 0} nodos)`, 'ok');
+        showToast(`✓ Enriquecido con éxito: ${evt.clave || ''}`, 'ok');
+        if (typeof loadWikiNotesList === 'function') loadWikiNotesList();
+        if (typeof loadStatus === 'function') loadStatus();
+        if (typeof loadGraph === 'function') loadGraph();
+      } else if (evt.type === 'atomic_curation_updated') {
+        appendLog($('#scraper-log'), `[RSI ATÓMICO] Ficha curada: ${evt.clave || ''}`, 'ok');
+        showToast(`✦ Ficha curada por RSI: ${evt.clave || ''}`, 'ok');
+        if (typeof loadWikiNotesList === 'function') loadWikiNotesList();
       }
     } catch (err) {
       console.error('Error parseando evento SSE:', err);

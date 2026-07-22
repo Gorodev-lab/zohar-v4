@@ -166,12 +166,97 @@ def run_second_brain_sync() -> str:
         return f"Error sincronizando Second Brain: {exc}"
 
 
+def run_graph_query(query: str, entity_type: Optional[str] = None) -> str:
+    """
+    Consulta nodos y aristas del Grafo de Conocimiento (PostgreSQL kg_nodes y kg_edges).
+    Permite filtrar por palabra clave (query) y/o tipo de entidad (proyecto, promovente, sector, estado, municipio).
+    """
+    from sqlalchemy import create_engine, text
+    db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/maritime_dw")
+    try:
+        engine = create_engine(db_url, connect_args={"connect_timeout": 3})
+        with engine.connect() as conn:
+            sql = "SELECT id, label, type, name, year, degree FROM public.kg_nodes WHERE 1=1"
+            params = {}
+            if query:
+                sql += " AND (label ILIKE :q OR name ILIKE :q OR id ILIKE :q)"
+                params["q"] = f"%{query}%"
+            if entity_type:
+                sql += " AND type ILIKE :t"
+                params["t"] = f"%{entity_type}%"
+            sql += " ORDER BY degree DESC LIMIT 15;"
+
+            res = conn.execute(text(sql), params)
+            rows = res.fetchall()
+            if not rows:
+                return "No se encontraron nodos en el grafo para la consulta especificada."
+
+            output = ["### Nodos Encontrados en el Grafo:"]
+            for r in rows:
+                output.append(f"- **[{r.type.upper()}]** `{r.id}` ({r.label}) - Conexiones: {r.degree}")
+            return "\n".join(output)
+    except Exception as exc:
+        return f"Error consultando Grafo de Conocimiento: {exc}"
+
+
+def run_rag_hybrid_query(query: str, top_k: int = 5) -> str:
+    """
+    Ejecuta una búsqueda vectorial híbrida en el motor RAG sobre la base documental,
+    retornando fragmentos relevantes con citas explícitas.
+    """
+    try:
+        from core.rag_engine import RAGEngine
+        engine = RAGEngine(base_dir=BASE_DIR)
+        result = engine.query_rag(query, top_k=top_k)
+        response_text = result.get("response", "Sin respuesta sintética.")
+        sources = result.get("sources", [])
+
+        output = [f"### Respuesta RAG:\n{response_text}\n", "### Fuentes Citadas:"]
+        for s in sources:
+            clave = s.get("clave", "N/A")
+            score = s.get("score", 0)
+            snippet = str(s.get("content", "")).strip()[:200]
+            output.append(f"- **Clave [{clave}]** (Similitud: {score:.2f}): _{snippet}_...")
+        return "\n".join(output)
+    except Exception as exc:
+        return f"Error en búsqueda RAG Híbrida: {exc}"
+
+
+def run_system_services_status() -> str:
+    """
+    Reporta el estado operativo en vivo de los servicios de fondo:
+    BackgroundEnricherWatcher, llama-server, CPU/RAM y scrapers.
+    """
+    import time
+    try:
+        import psutil
+        from core.llm_enricher import enricher_watcher
+        status = enricher_watcher.get_status()
+        cpu = psutil.cpu_percent(interval=0.1)
+        ram = psutil.virtual_memory().percent
+
+        output = [
+            "### Estado Operativo del Sistema Zohar v4:",
+            f"- **CPU**: {cpu}% | **RAM**: {ram}%",
+            f"- **BackgroundEnricherWatcher**: {'EN EJECUCIÓN' if status.get('running') else 'DETENIDO'}",
+            f"  - Proyectos procesados: {status.get('total_processed', 0)} (Éxitos: {status.get('success_count', 0)}, Errores: {status.get('error_count', 0)})",
+            f"  - Proyectos pendientes en cola: {status.get('pending_projects_count', 0)}",
+            f"  - Última ejecución: {time.strftime('%H:%M:%S', time.localtime(status['last_run_ts'])) if status.get('last_run_ts') else 'N/A'}"
+        ]
+        return "\n".join(output)
+    except Exception as exc:
+        return f"Error consultando estado de servicios: {exc}"
+
+
 # Mapa de Herramientas
 AGENT_TOOLS: dict[str, Callable[..., str]] = {
     "database_query": run_db_query,
     "second_brain_search": run_second_brain_search,
     "ocr_extraction": run_ocr_extraction,
-    "second_brain_sync": run_second_brain_sync
+    "second_brain_sync": run_second_brain_sync,
+    "graph_query": run_graph_query,
+    "rag_hybrid_query": run_rag_hybrid_query,
+    "system_services_status": run_system_services_status,
 }
 
 
