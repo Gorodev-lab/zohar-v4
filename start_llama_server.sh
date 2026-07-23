@@ -16,10 +16,10 @@ QWEN_MODEL="/home/gorops/.gemini/antigravity/scratch/zohar-v4/models/qwen2.5-3b-
 
 HOST="127.0.0.1"
 PORT="8083"
-CTX_SIZE="4096"          # Reducido para optimizar VRAM/RAM
+CTX_SIZE="8192"          # 8192 total (4096 tokens por slot con parallel=2)
 N_GPU_LAYERS="99"        # Máximo offload a GPU (ajusta si hay OOM)
 THREADS="4"              # Reservar cores para el host (limitado a cores físicos)
-PARALLEL="4"             # Aumentado de 2 a 4 slots concurrentes
+PARALLEL="2"             # 2 slots concurrentes para garantizar 4096 tokens por slot
 PID_FILE="/tmp/zohar_llama_server.pid"
 LOG_FILE="/tmp/zohar_llama_server.log"
 
