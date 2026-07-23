@@ -111,8 +111,22 @@ class SecondBrainBuilder:
         extractions = self._scan_extractions()
         inferences = self._scan_inferences()
 
-        # 3. Indexar proyectos
+        # 3. Indexar y auditar proyectos
         projects = self._index_projects(pdfs, extractions, inferences)
+
+        # Limpiar notas de proyectos e inferencias anteriores que ya no son válidas/verificadas
+        valid_project_filenames = {f"Proyecto - {c}.md" for c in projects.keys()}
+        valid_inference_filenames = {f"Inferencia - {c}.md" for c in projects.keys()}
+
+        for f in entities_dir.glob("Proyecto - *.md"):
+            if f.name not in valid_project_filenames:
+                logger.info("Purgando nota esqueleto/no verificada: %s", f.name)
+                f.unlink(missing_ok=True)
+
+        for f in inferences_dir.glob("Inferencia - *.md"):
+            if f.name not in valid_inference_filenames:
+                logger.info("Purgando dictamen huérfano/no verificado: %s", f.name)
+                f.unlink(missing_ok=True)
 
         # 4. Escanear gacetas y asociar proyectos
         gacetas = self._process_gacetas(pdfs, extractions, projects)
@@ -344,7 +358,7 @@ class SecondBrainBuilder:
         except Exception as exc:
             logger.warning("No se pudo cargar metadatos de semarnat_projects: %s", exc)
 
-        # 4. Enriquecer proyectos existentes y añadir proyectos de la base de datos sin archivos locales
+        # 4. Enriquecer proyectos existentes desde la base de datos
         for clave, meta in db_metadata.items():
             if clave in projects:
                 if meta.get("project_name"):
@@ -359,27 +373,6 @@ class SecondBrainBuilder:
                     projects[clave]["estado_nombre"] = meta["state"]
                 if meta.get("year"):
                     projects[clave]["year"] = meta["year"]
-            else:
-                # Crear ficha esqueleto enriquecida
-                parsed = parse_semarnat_key(clave + ".pdf")
-                projects[clave] = {
-                    "clave": clave,
-                    "valid": parsed.get("valid", False),
-                    "sector": meta.get("sector") or parsed.get("sector"),
-                    "estado": parsed.get("estado"),
-                    "estado_nombre": meta.get("state") or parsed.get("estado_nombre"),
-                    "year": meta.get("year") or parsed.get("year"),
-                    "tipo": parsed.get("tipo"),
-                    "tipo_nombre": parsed.get("tipo_nombre"),
-                    "project_name": meta.get("project_name") or f"Proyecto {clave}",
-                    "promovente": meta.get("promovente") or "Desconocido",
-                    "status": meta.get("status") or "PENDIENTE",
-                    "estudio_pdf": None,
-                    "resumen_pdf": None,
-                    "resolutivo_pdf": None,
-                    "extraction": None,
-                    "inference": None,
-                }
 
         # 5. Asociar inferencias
         for name, report in inferences.items():
@@ -389,7 +382,25 @@ class SecondBrainBuilder:
                 if clave in projects:
                     projects[clave]["inference"] = report
 
-        return projects
+        # 6. FILTRO DE AUDITORÍA ESTRICTA SECOND BRAIN:
+        # Excluir proyectos mock (ej. *9999) y proyectos sin ningún archivo PDF o extracción real
+        verified_projects = {}
+        for clave, p in projects.items():
+            # Descartar claves mock o inválidas
+            if clave.endswith("9999") or "TEST" in clave or "MOCK" in clave:
+                logger.info("Excluyendo proyecto mock del Second Brain: %s", clave)
+                continue
+
+            has_pdf = bool(p.get("estudio_pdf") or p.get("resumen_pdf") or p.get("resolutivo_pdf"))
+            has_extraction = bool(p.get("extraction"))
+            
+            # Solo incluir si cuenta con extracción útil o PDF local descargado
+            if has_pdf or has_extraction:
+                verified_projects[clave] = p
+            else:
+                logger.info("Excluyendo proyecto sin datos/extracción del Second Brain: %s", clave)
+
+        return verified_projects
 
     def _process_gacetas(self, pdfs: dict, extractions: dict, projects: dict) -> dict:
         """Encuentra gacetas y busca qué proyectos están asociados a ellas."""
@@ -421,36 +432,17 @@ class SecondBrainBuilder:
                     "proyectos": [],
                 }
 
-        # 3. Escanear textos extraídos de las gacetas para vincular proyectos (relación bidireccional)
+        # 3. Escanear textos extraídos de las gacetas para vincular únicamente proyectos auditados/existentes
         for name, info in gacetas.items():
             if info["extraction"]:
                 try:
                     content = info["extraction"]["path"].read_text(encoding="utf-8", errors="ignore")
-                    # Extraer claves SINAT usando regex
                     found_claves = set(self.clave_re.findall(content.upper()))
                     for c in found_claves:
-                        # Crear entrada stub si el proyecto aún no tiene archivos indexados
-                        if c not in projects:
-                            from core.graph_builder import parse_semarnat_key
-                            parsed = parse_semarnat_key(c + ".pdf")
-                            projects[c] = {
-                                "clave": c,
-                                "valid": parsed.get("valid", False),
-                                "sector": parsed.get("sector"),
-                                "estado": parsed.get("estado"),
-                                "estado_nombre": parsed.get("estado_nombre"),
-                                "year": parsed.get("year"),
-                                "tipo": parsed.get("tipo"),
-                                "tipo_nombre": parsed.get("tipo_nombre"),
-                                "estudio_pdf": None,
-                                "resumen_pdf": None,
-                                "resolutivo_pdf": None,
-                                "extraction": None,
-                                "inference": None,
-                            }
-                        info["proyectos"].append(c)
-                        # También asociamos la gaceta al proyecto
-                        projects[c]["gaceta_origen"] = name
+                        # Asociar solo si el proyecto existe en la lista auditada de proyectos
+                        if c in projects:
+                            info["proyectos"].append(c)
+                            projects[c]["gaceta_origen"] = name
                 except Exception as exc:
                     logger.error("Error analizando contenido de gaceta %s: %s", name, exc)
 

@@ -284,8 +284,22 @@ def wait_for_downloads(
     ]
 
 
+import hashlib
+
+def compute_sha256(file_path: Path) -> str:
+    """Calcula el hash SHA-256 de un archivo en bloques."""
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
 def safe_move(src_path: Path, dst_dir: Path) -> Path:
-    """Mueve evitando colisiones: agrega _v2, _v3... si ya existe."""
+    """
+    Mueve un archivo al directorio destino sin crear duplicados _v2, _v3.
+    Si ya existe un archivo con el mismo nombre y hash SHA-256, elimina el origen.
+    De lo contrario, sobrescribe el destino limpiamente.
+    """
     dst_dir.mkdir(parents=True, exist_ok=True)
     dst_path = dst_dir / src_path.name
 
@@ -293,15 +307,19 @@ def safe_move(src_path: Path, dst_dir: Path) -> Path:
         shutil.move(str(src_path), str(dst_path))
         return dst_path
 
-    stem = src_path.stem
-    suffix = src_path.suffix
-    for v in range(2, 100):
-        candidate = dst_dir / f"{stem}_v{v}{suffix}"
-        if not candidate.exists():
-            shutil.move(str(src_path), str(candidate))
-            return candidate
+    # Si ya existe el destino, comparar SHA-256
+    try:
+        if compute_sha256(src_path) == compute_sha256(dst_path):
+            logger.info("Archivo idéntico ya existe en %s. Eliminando copia temporal.", dst_path)
+            src_path.unlink()
+            return dst_path
+    except Exception as exc:
+        logger.warning("Error comparando hashes SHA-256: %s", exc)
 
-    raise RuntimeError(f"No se pudo mover {src_path} — demasiadas colisiones")
+    # Si es diferente o falló la comparación, reemplazar limpiamente
+    logger.info("Sobrescribiendo %s con nueva versión.", dst_path)
+    shutil.move(str(src_path), str(dst_path))
+    return dst_path
 
 
 def mover_estudios_y_resolutivos(
