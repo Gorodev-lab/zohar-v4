@@ -474,7 +474,20 @@ class SemarnatDownloader:
 
         yield {"status": "log", "msg": f"Iniciando descarga: {bitacora_value}", "level": "info"}
 
-        driver = self._get_driver()
+        # Purga preventiva de archivos temporales incompletos previos
+        for tmp_file in self.download_dir.glob("*"):
+            if tmp_file.suffix.lower() in TEMP_SUFFIXES:
+                try:
+                    tmp_file.unlink()
+                except Exception:
+                    pass
+
+        try:
+            driver = self._get_driver()
+        except Exception as drv_err:
+            logger.warning("Fallo al instanciar driver Selenium: %s. Re-inicializando...", drv_err)
+            self._quit_driver()
+            driver = self._get_driver()
 
         try:
             # ----------------------------------------------------------------
@@ -485,6 +498,16 @@ class SemarnatDownloader:
             driver.get(SEMARNAT_URL)
             yield {"status": "log", "msg": f"Navegando al portal base: {SEMARNAT_URL}", "level": "info"}
             yield {"status": "progress", "msg": "Cargando portal Angular...", "level": "info", "pct": 5}
+
+            # Detección de servidor no disponible o mantenimiento en DOM
+            try:
+                page_txt = driver.find_element(By.TAG_NAME, "body").text.lower()
+                if any(err_term in page_txt for err_term in ("502 bad gateway", "503 service unavailable", "mantenimiento", "servidor no disponible")):
+                    yield {"status": "error", "msg": "Portal SEMARNAT temporalmente en mantenimiento (HTTP 502/503)", "level": "warning"}
+                    self._quit_driver()
+                    return
+            except Exception:
+                pass
 
             # Esperar a que Angular monte el formulario de búsqueda (hasta 30s)
             try:
