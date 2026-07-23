@@ -104,12 +104,20 @@ def scan_all_2026_gacetas(dry_run: bool = False):
                     else:
                         proj_name, loc = res[0], res[1]
                         prom = "Desconocido"
+
+                    from core.graph_builder import parse_semarnat_key
+                    parsed = parse_semarnat_key(c)
+                    real_year = parsed.get("year", 2026) if parsed.get("valid") else 2026
+                    real_loc = loc
+                    if parsed.get("valid") and parsed.get("estado_nombre") and (not loc or loc.strip().lower() in ("méxico", "desconocido", "desconocida", "", "none")):
+                        real_loc = parsed.get("estado_nombre")
+
                     all_extracted_records[c] = {
                         "CLAVE": c,
-                        "YEAR": 2026,
+                        "YEAR": real_year,
                         "FILE": str(pdf_path.name),
                         "PROJECT_NAME": proj_name,
-                        "LOCATION": loc,
+                        "LOCATION": real_loc,
                         "PROMOVENTE": prom
                     }
 

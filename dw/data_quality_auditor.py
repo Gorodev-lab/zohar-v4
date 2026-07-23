@@ -184,12 +184,21 @@ class DataQualityAuditor:
         sla_violations_mask = pd.Series(False, index=df.index)
         for idx, row in df.iterrows():
             status = str(row.get("status", "")).lower()
-            files = row.get("files_downloaded", [])
-            # Convert files to list if string representation
-            if isinstance(files, str):
+            files = row.get("files_downloaded")
+            if files is None:
+                files = []
+            elif isinstance(files, (list, tuple)):
+                files = [str(f).lower() for f in files if f is not None]
+            elif isinstance(files, str):
                 files = [f.strip().lower() for f in files.split(",") if f.strip()]
             else:
-                files = [str(f).lower() for f in files]
+                try:
+                    if pd.isna(files):
+                        files = []
+                    else:
+                        files = [str(files).lower()]
+                except Exception:
+                    files = []
                 
             # If in evaluation phase but "estudio" PDF is missing
             if ("evaluac" in status or "proceso" in status) and "estudio" not in files:

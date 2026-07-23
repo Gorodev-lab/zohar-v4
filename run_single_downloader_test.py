@@ -136,13 +136,62 @@ def run_test(clave: str, bitacora: str):
     logger.info("   Páginas totales extraídas: %d", len(extracted_pages))
     logger.info("=" * 70)
 
+def run_live_batch(n_claves: int = 10):
+    logger.info("=" * 70)
+    logger.info("🚀 INICIANDO PRUEBA EN VIVO BATCH DE RESILIENCIA DE SCRAPERS (%d CLAVES)", n_claves)
+    logger.info("=" * 70)
+
+    import csv
+    csv_path = BASE_DIR / "data" / "claves_2026.csv"
+    if not csv_path.exists():
+        logger.error("No se encontró %s", csv_path)
+        sys.exit(1)
+
+    claves = []
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            c = row.get("CLAVE", "").strip()
+            if c:
+                claves.append(c)
+                if len(claves) >= n_claves:
+                    break
+
+    logger.info("Claves seleccionadas para la prueba en vivo: %s", claves)
+
+    harness_dir = BASE_DIR / "downloads"
+    downloader = SemarnatDownloader(
+        download_dir=harness_dir / "temp_dl",
+        headless=True,
+        download_timeout=300,
+        carpeta_estudios=harness_dir / "estudios",
+        carpeta_resumenes=harness_dir / "resumenes",
+        carpeta_resolutivos=harness_dir / "resolutivos"
+    )
+
+    t0 = time.time()
+    results = downloader.batch_desde_lista_concurrent(claves, max_workers=2)
+    t1 = time.time()
+
+    successes = [r for r in results if r.get("status") == "complete"]
+    failures = [r for r in results if r.get("status") != "complete"]
+
+    logger.info("=" * 70)
+    logger.info("📊 RESUMEN DE PRUEBA EN VIVO DE SCRAPER (%d CLAVES):", len(claves))
+    logger.info("   - Éxitos: %d / %d (%.1f%%)", len(successes), len(claves), (len(successes)/len(claves))*100)
+    logger.info("   - Fallos/Sin archivos: %d", len(failures))
+    logger.info("   - Tiempo Total: %.2f segundos", t1 - t0)
+    logger.info("=" * 70)
+
 if __name__ == "__main__":
-    # Permite especificar clave y bitácora opcionalmente
-    default_clave = "05CO2026I0001"
-    default_bitacora = "09/MG-0006/01/26"
-    
-    if len(sys.argv) >= 3:
-        default_clave = sys.argv[1]
-        default_bitacora = sys.argv[2]
-        
-    run_test(default_clave, default_bitacora)
+    import argparse
+    parser = argparse.ArgumentParser(description="Downloader Test Harness")
+    parser.add_argument("--batch", type=int, help="Número de claves reales a procesar en vivo desde claves_2026.csv")
+    parser.add_argument("clave", nargs="?", default="05CO2026I0001", help="Clave de prueba")
+    parser.add_argument("bitacora", nargs="?", default="09/MG-0006/01/26", help="Bitácora de prueba")
+    args = parser.parse_args()
+
+    if args.batch:
+        run_live_batch(args.batch)
+    else:
+        run_test(args.clave, args.bitacora)

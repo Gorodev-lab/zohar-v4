@@ -1,35 +1,149 @@
 {
   "alerts": [
     {
-      "clave": "09LP2026X0001",
-      "campo": "veredicto",
-      "tipo_error": "Veredicto inválido",
+      "clave": "01AG2024E0014",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
       "nivel": "CRITICAL",
-      "mensaje": "El veredicto 'INVALID_VERDICT' no es reconocido. Valores admitidos: ['NO_VIABLE', 'PENDIENTE', 'VIABLE', 'CONDICIONADO']."
+      "mensaje": "El estado 'Jalisco, Aguascalientes' no coincide con ningún estado de la República Mexicana."
     },
     {
-      "clave": "09LP2026X0001",
-      "campo": "score",
-      "tipo_error": "Score fuera de rango",
+      "clave": "04CA2024V0001",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
       "nivel": "CRITICAL",
-      "mensaje": "El score 1.5 está fuera del rango admitido [0.0, 1.0]."
+      "mensaje": "El estado 'CA' no coincide con ningún estado de la República Mexicana."
     },
     {
-      "clave": "09LP2026X0001",
-      "campo": "confianza_pct",
-      "tipo_error": "Confianza fuera de rango",
+      "clave": "07CH2025H0048",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
       "nivel": "CRITICAL",
-      "mensaje": "La confianza 150% está fuera del rango [0, 100]."
+      "mensaje": "El estado 'Suchiate, Chiapas' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "10DU2024V0026",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'DU' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "12GE2026I0021",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'GE' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "23QR2022T0015",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'Benito Juárez, Quintana Roo' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "08CI2025X0032",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'CI' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "12GE2025X0026",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'GE' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "14JA2026G0032",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'JA' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "08CI2025X0052",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'CI' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "29TX2025X0001",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'TX' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "14JA2024G0030",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'JA' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "13HI2025X0031",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'HI' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "11GU2025G0024",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'GU' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "08CI2024X0004",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'CI' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "15EM2025X0080",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'EM' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "13HI2025X0050",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'HI' no coincide con ningún estado de la República Mexicana."
+    },
+    {
+      "clave": "22QE2025G0015",
+      "campo": "state",
+      "tipo_error": "Estado inválido o no oficial",
+      "nivel": "CRITICAL",
+      "mensaje": "El estado 'QE' no coincide con ningún estado de la República Mexicana."
     }
   ],
-  "Project Evaluations": {
-    "dataset_name": "Project Evaluations",
-    "total_rows": 2,
-    "missing_values": {},
-    "type_errors": 1,
-    "range_violations": 2,
-    "regex_violations": 0,
+  "SEMARNAT Projects": {
+    "dataset_name": "SEMARNAT Projects",
+    "total_rows": 217,
+    "missing_values": {
+      "sector": {
+        "count": 37,
+        "percentage": 17.05
+      },
+      "files_downloaded": {
+        "count": 217,
+        "percentage": 100.0
+      }
+    },
+    "type_errors": {},
+    "range_violations": 0,
+    "regex_violations": 18,
     "duplicate_rows": 0,
-    "rows_removed": 1
+    "rows_removed": 18
   }
 }

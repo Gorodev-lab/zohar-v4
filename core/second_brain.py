@@ -823,7 +823,7 @@ El motor de inferencia (`inference_engine.py`):
 ## Fase 6: Consolidación del Grafo y Second Brain
 Como paso de cierre:
 - **Grafo D3:** Genera un grafo de relaciones de red para explorar geográficamente los proyectos por estado, sector y año.
-- **Second Brain:** Se estructuran de forma automática todos los archivos en el directorio `second_brain/`, generando un repositorio de notas interconectadas vinculadas bidireccionalmente mediante enlaces `[[Wiki-Link]]` para la base de datos de Zohar.
+- **Second Brain:** Se estructuran de forma automática todos los archivos en el directorio `second_brain/`, generando un repositorio de notas interconectadas vinculadas bidireccionalmente mediante enlaces estilo wiki para la base de datos de Zohar.
 """
         note_path.write_text(content, encoding="utf-8")
 
