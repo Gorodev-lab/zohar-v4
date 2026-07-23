@@ -16,10 +16,10 @@ QWEN_MODEL="/home/gorops/.gemini/antigravity/scratch/zohar-v4/models/qwen2.5-3b-
 
 HOST="127.0.0.1"
 PORT="8083"
-CTX_SIZE="8192"          # 8192 total (4096 tokens por slot con parallel=2)
-N_GPU_LAYERS="99"        # Máximo offload a GPU (ajusta si hay OOM)
-THREADS="4"              # Reservar cores para el host (limitado a cores físicos)
-PARALLEL="2"             # 2 slots concurrentes para garantizar 4096 tokens por slot
+CTX_SIZE="4096"          # 4096 tokens dedicados a 1 slot (máximo ancho de banda CPU)
+N_GPU_LAYERS="99"        # Offload GPU (si aplica, en CPU se ignora limpiamente)
+THREADS="4"              # 4 cores físicos (AMD Ryzen 5 3450U)
+PARALLEL="1"             # Slot único para acelerar inferencia secuencial por expediente
 PID_FILE="/tmp/zohar_llama_server.pid"
 LOG_FILE="/tmp/zohar_llama_server.log"
 
