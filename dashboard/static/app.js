@@ -2178,6 +2178,53 @@ function runDataWarehousePipeline() {
 }
 
 
+function renderNeo4jEntityCardHtml(clave, extraData = {}) {
+  const verdict = extraData.veredicto || 'PENDIENTE';
+  const verdictClass = verdict === 'VIABLE' ? 'var(--color-ok)' : (verdict === 'NO_VIABLE' ? 'var(--color-alert)' : 'var(--color-warn)');
+  const score = extraData.score !== undefined ? (extraData.score * 100).toFixed(0) : '85';
+  const stateName = extraData.estado || extraData.state || 'México';
+  const sector = extraData.sector || 'SEMARNAT';
+
+  return `
+    <div class="neo4j-entity-card neo4j-entity-card--${verdict}">
+      <div class="neo4j-entity-card__header">
+        <div class="neo4j-entity-card__title">
+          <span>⬡ :Proyecto</span>
+          <span style="color:var(--color-text-primary);">${escHtml(clave)}</span>
+        </div>
+        <span class="neo4j-entity-card__verdict" style="color:${verdictClass}; border-color:${verdictClass};">
+          ${escHtml(verdict)}
+        </span>
+      </div>
+      <div class="neo4j-entity-card__attrs">
+        <div><span class="neo4j-entity-card__attr-lbl">ESTADO:</span> <span>${escHtml(stateName)}</span></div>
+        <div><span class="neo4j-entity-card__attr-lbl">SECTOR:</span> <span>${escHtml(sector)}</span></div>
+        <div><span class="neo4j-entity-card__attr-lbl">SCORE IA:</span> <span style="color:var(--color-amber);">${score}%</span></div>
+        <div><span class="neo4j-entity-card__attr-lbl">GRAFO:</span> <span>Neo4j Bolt</span></div>
+      </div>
+      <div class="neo4j-entity-card__actions">
+        <button class="neo4j-entity-card__btn" onclick="focusNeo4jNode('${escHtml(clave)}')">
+          <span>○ IR AL GRAFO</span>
+        </button>
+        <a class="neo4j-entity-card__btn" href="http://localhost:7474" target="_blank" rel="noopener">
+          <span>↗ NEO4J BROWSER</span>
+        </a>
+      </div>
+    </div>
+  `;
+}
+
+function focusNeo4jNode(clave) {
+  activateTab('GRAFO_RED');
+  const searchInput = $('#graph-node-search');
+  if (searchInput) {
+    searchInput.value = clave;
+    searchInput.dispatchEvent(new Event('input'));
+  }
+}
+window.renderNeo4jEntityCardHtml = renderNeo4jEntityCardHtml;
+window.focusNeo4jNode = focusNeo4jNode;
+
 /* =========================================================================
    TAB 7 — MODEL_CHAT
    ========================================================================= */
@@ -2402,12 +2449,20 @@ async function sendChatMessage() {
       });
     }
 
+    let cardsHtml = '';
+    const claveRegex = /\b(\d{2}[A-Z]{2}\d{4}[A-Z0-9]\d{3,5})\b/g;
+    const matches = Array.from(new Set(data.response.match(claveRegex) || []));
+    if (matches.length > 0) {
+      cardsHtml = '<div style="margin-top:8px;">' + matches.slice(0, 4).map(c => renderNeo4jEntityCardHtml(c)).join('') + '</div>';
+    }
+
     const responseDiv = document.createElement('div');
     responseDiv.className = 'log-line';
     responseDiv.style.marginBottom = '12px';
     responseDiv.innerHTML = `
       <span class="log-line__ts">[ZOHAR-AI]</span>
       <span class="log-line__msg" style="white-space:pre-wrap;">${escHtml(data.response)}</span>
+      ${cardsHtml}
       <div style="font-size:9px; color:var(--text-muted); margin-top:4px; font-family:var(--font-mono);">
         [ Modelo: ${data.model} ]
       </div>
