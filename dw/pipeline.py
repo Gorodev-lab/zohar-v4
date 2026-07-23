@@ -300,17 +300,28 @@ class SemarnatDwPipeline:
         evaluations_data = []
 
         for clave in claves:
+            # Ignorar claves mock o de prueba
+            if clave.endswith("9999") or "MOCK" in clave or "TEST" in clave:
+                print(f"[Auditor] Omitiendo clave mock/de prueba: {clave}")
+                continue
+
             # 1. Parse clave parameters
             parsed = parse_semarnat_key(clave + ".pdf")
             
-            # 2. Check downloaded files
+            # 2. Check downloaded files (tanto formato simple {clave}.pdf como posicional {clave}.type.*.pdf)
             downloaded = []
-            if (self.resumenes_dir / f"{clave}.pdf").exists():
+            if list(self.resumenes_dir.glob(f"{clave}*.pdf")):
                 downloaded.append("resumen")
-            if (self.estudios_dir / f"{clave}.pdf").exists():
+            if list(self.estudios_dir.glob(f"{clave}*.pdf")):
                 downloaded.append("estudio")
-            if (self.resolutivos_dir / f"{clave}.pdf").exists():
+            if list(self.resolutivos_dir.glob(f"{clave}*.pdf")):
                 downloaded.append("resolutivo")
+
+            # Si no hay descargas ni extracciones para esta clave, omitir para no crear registros vacíos
+            has_extraction = list(self.extractions_dir.glob(f"{clave}*.md"))
+            if not downloaded and not has_extraction:
+                print(f"[Auditor] Omitiendo clave sin descargas ni extracción: {clave}")
+                continue
 
             # 3. Read status and details from inference cache if exists
             project_name = f"Proyecto {clave}"

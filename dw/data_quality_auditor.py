@@ -115,15 +115,15 @@ class DataQualityAuditor:
                         "mensaje": f"El campo obligatorio '{col}' está vacío o es nulo."
                     })
             
-            if not clave_pattern.match(clave):
+            if not clave_pattern.match(clave) or clave.endswith("9999") or "MOCK" in clave or "TEST" in clave:
                 regex_violations_mask.at[idx] = True
                 metrics["regex_violations"] += 1
                 self.alerts.append({
                     "clave": clave,
                     "campo": "clave",
-                    "tipo_error": "Formato de clave inválido",
+                    "tipo_error": "Clave mock o formato inválido",
                     "nivel": "CRITICAL",
-                    "mensaje": f"La clave '{clave}' no cumple con el formato regex de SEMARNAT."
+                    "mensaje": f"La clave '{clave}' no cumple el formato válido o es un registro de prueba/mock."
                 })
             else:
                 # 5. Year consistency check
