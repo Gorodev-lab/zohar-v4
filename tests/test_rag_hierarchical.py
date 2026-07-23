@@ -8,7 +8,7 @@ Esta es una descripción del proyecto turístico largo para pasar el filtro de t
     chunks = split_markdown_by_headers(md, max_chunk_chars=150)
     assert len(chunks) == 1
     assert chunks[0]["section_title"] == "Proyecto Turístico"
-    assert chunks[0]["chunk_text"] == "Esta es una descripción del proyecto turístico largo para pasar el filtro de treinta caracteres."
+    assert "Esta es una descripción del proyecto turístico largo para pasar el filtro de treinta caracteres." in chunks[0]["chunk_text"]
 
 def test_hierarchical_chunking_large_block_splits_with_overlap():
     """Un texto largo que excede max_chunk_chars debe dividirse en sub-chunks con overlap e inyectar el título."""

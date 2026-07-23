@@ -22,5 +22,375 @@
     "Municipio": "No especificado",
     "Estado": "Aguascalientes",
     "Tipo_MIA": "E"
+  },
+  {
+    "Clave": "09DF2025X0058",
+    "Estado": "Ciudad de México",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Ciudad de México",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "08CI2025X0032",
+    "Estado": "No especificado",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "CI",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "28TM2026X0008",
+    "Estado": "Tamaulipas",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Tamaulipas",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "12GE2025X0026",
+    "Estado": "No especificado",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "GE",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "16MI2026X0042",
+    "Estado": "Michoacán",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Michoacán",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "20OA2024X0027",
+    "Estado": "Oaxaca",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Oaxaca",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "02BC2024X0030",
+    "Estado": "Baja California",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Desconocido",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "23QR2024G0075",
+    "Estado": "Quintana Roo",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "MIA Regional",
+    "Municipio": "Quintana Roo",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "16MI2026X0029",
+    "Estado": "Michoacán",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Michoacán",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "31YU2025X0023",
+    "Estado": "Yucatán",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Yucatán",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "05CO2025X0044",
+    "Estado": "Coahuila",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Coahuila",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "16MI2025X0007",
+    "Estado": "Michoacán",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Michoacán",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "02BC2025G0054",
+    "Estado": "Baja California",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "MIA Regional",
+    "Municipio": "Desconocido",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "21PU2026X0030",
+    "Estado": "Puebla",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Puebla",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "14JA2026G0032",
+    "Estado": "Jalisco",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "MIA Regional",
+    "Municipio": "JA",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "26SO2026X0049",
+    "Estado": "Sonora",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Sonora",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "26SO2024G0007",
+    "Estado": "Sonora",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "MIA Regional",
+    "Municipio": "Sonora",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "03BS2026X0010",
+    "Estado": "Baja California Sur",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Baja California Sur",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "32ZA2026X0004",
+    "Estado": "Zacatecas",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Zacatecas",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "08CI2025X0052",
+    "Estado": "No especificado",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "CI",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "29TX2025X0001",
+    "Estado": "No especificado",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "TX",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "14JA2024G0030",
+    "Estado": "Jalisco",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "MIA Regional",
+    "Municipio": "JA",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "30VE2026X0045",
+    "Estado": "Veracruz",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Veracruz",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "02BC2025X0090",
+    "Estado": "Baja California",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Baja California",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "13HI2025X0031",
+    "Estado": "Hidalgo",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "HI",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "11GU2025G0024",
+    "Estado": "No especificado",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "MIA Regional",
+    "Municipio": "GU",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "21PU2026G0074",
+    "Estado": "Puebla",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "MIA Regional",
+    "Municipio": "Puebla",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "07CH2025X0027",
+    "Estado": "Chihuahua",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Chihuahua",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "08CI2024X0004",
+    "Estado": "No especificado",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "CI",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "20OA2026X0033",
+    "Estado": "Oaxaca",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Oaxaca",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "16MI2025X0028",
+    "Estado": "Michoacán",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Michoacán",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "20OA2025V0081",
+    "Estado": "Oaxaca",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - V]]",
+    "Municipio": "Oaxaca",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "07CH2024X0021",
+    "Estado": "Chihuahua",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Chihuahua",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "15EM2025X0080",
+    "Estado": "Estado de México",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "EM",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "13HI2025X0050",
+    "Estado": "Hidalgo",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "HI",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "21PU2026X0077",
+    "Estado": "Puebla",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "[[Tipo - Trámite Sector Hidrocarburos (X)]]",
+    "Municipio": "Puebla",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
+  },
+  {
+    "Clave": "22QE2025G0015",
+    "Estado": "No especificado",
+    "Promovente": "Desconocido",
+    "Tipo_MIA": "MIA Regional",
+    "Municipio": "QE",
+    "Localidad": "Desconocido",
+    "Veredicto": "VIABLE",
+    "Nivel_Riesgo": "MEDIO"
   }
 ]
