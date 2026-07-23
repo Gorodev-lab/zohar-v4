@@ -5,7 +5,7 @@
       "campo": "veredicto",
       "tipo_error": "Veredicto inválido",
       "nivel": "CRITICAL",
-      "mensaje": "El veredicto 'INVALID_VERDICT' no es reconocido. Valores admitidos: ['VIABLE', 'PENDIENTE', 'NO_VIABLE', 'CONDICIONADO']."
+      "mensaje": "El veredicto 'INVALID_VERDICT' no es reconocido. Valores admitidos: ['VIABLE', 'NO_VIABLE', 'PENDIENTE', 'CONDICIONADO']."
     },
     {
       "clave": "09LP2026X0001",
