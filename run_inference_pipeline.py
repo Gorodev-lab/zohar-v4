@@ -54,14 +54,19 @@ def run_inferences():
             continue
 
         parsed = parse_semarnat_key(md_path.name)
-        clave = parsed.get("clave") or md_path.stem.split(".")[0]
+        if not parsed.get("valid"):
+            continue
+        clave = parsed["clave"]
 
         logger.info("[%d/%d] Evaluando %s (Clave: %s)...", idx, len(md_files), md_path.name, clave)
         report = generate_report(md_path)
         
         # Guardar en cache
         cache_file = cache_dir / f"{clave}.json"
-        cache_file.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        try:
+            cache_file.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as exc:
+            logger.warning("No se pudo escribir en cache para %s: %s", clave, exc)
 
         eval_records.append({
             "clave": clave,

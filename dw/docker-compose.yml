@@ -82,7 +82,7 @@ services:
       - "8083:8083"
     volumes:
       - ../models:/models
-    command: -m /models/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf -c 8192 --parallel 2 -t 4 -b 512 -ub 512 --host 0.0.0.0 --port 8083 --flash-attn on --cache-type-k q4_0 --cache-type-v q4_0 --cont-batching --jinja --chat-template gemma --embeddings
+    command: -m /models/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf -c 4096 --parallel 1 -t 4 -b 512 -ub 512 --host 0.0.0.0 --port 8083 --flash-attn on --cache-type-k q4_0 --cache-type-v q4_0 --cont-batching --jinja --chat-template gemma --embeddings
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8083/health || exit 1"]
       interval: 10s
