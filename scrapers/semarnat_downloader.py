@@ -31,7 +31,7 @@ SEMARNAT_PORTAL_BASE = "https://app.semarnat.gob.mx/consulta-tramite/#/portal-co
 
 TEMP_SUFFIXES = (".part", ".tmp", ".crdownload", ".download", ".~download")
 
-BUTTON_CSS_SELECTOR = ".descargas button, .descargas .btn"
+BUTTON_CSS_SELECTOR = "button.btn-default, .descargas button, .descargas .btn"
 
 BUTTON_XPATH_TEMPLATE = (
     "(//div[contains(@class,'descargas')]//button | "
@@ -613,7 +613,7 @@ class SemarnatDownloader:
             # ----------------------------------------------------------------
             locator = (By.CSS_SELECTOR, BUTTON_CSS_SELECTOR)
             # También buscar por selectores más amplios en caso de que el portal cambie
-            broad_locator = (By.CSS_SELECTOR, ".descargas button, .descargas .btn, [class*='descargas'] button, [class*='descarga'] button")
+            broad_locator = (By.XPATH, "//button[contains(@class,'btn-default') or contains(text(),'Resumen') or contains(text(),'Estudios') or contains(text(),'Resolutivo')]")
             buttons_found = False
 
             for attempt in range(1, 61):

@@ -261,13 +261,34 @@ def wait_for_downloads(
     ]
 
 
+def file_sha256(path: Path) -> str:
+    """Calcula la huella SHA-256 de un archivo local."""
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(8192):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def safe_move(src_path: Path, dst_dir: Path) -> Path:
-    """Mueve archivos evitando colisiones añadiendo sufijos _v2, _v3 si ya existen."""
+    """Mueve archivos evitando duplicados comparando SHA-256; añade sufijos _v2, _v3 solo en contenido distinto."""
     dst_dir.mkdir(parents=True, exist_ok=True)
     dst_path = dst_dir / src_path.name
 
     if not dst_path.exists():
         shutil.move(str(src_path), str(dst_path))
+        return dst_path
+
+    # Si dst_path ya existe, verificar si es idéntico por SHA-256
+    src_hash = file_sha256(src_path)
+    dst_hash = file_sha256(dst_path)
+    if src_hash == dst_hash:
+        logger.info("Archivo idéntico detectado por SHA-256: %s. Descartando duplicado.", src_path.name)
+        try:
+            src_path.unlink()
+        except Exception:
+            pass
         return dst_path
 
     stem = src_path.stem
@@ -276,6 +297,13 @@ def safe_move(src_path: Path, dst_dir: Path) -> Path:
         candidate = dst_dir / f"{stem}_v{v}{suffix}"
         if not candidate.exists():
             shutil.move(str(src_path), str(candidate))
+            return candidate
+        elif file_sha256(candidate) == src_hash:
+            logger.info("Archivo idéntico a %s por SHA-256. Descartando duplicado.", candidate.name)
+            try:
+                src_path.unlink()
+            except Exception:
+                pass
             return candidate
 
     raise RuntimeError(f"No se pudo mover {src_path} — demasiadas colisiones")
