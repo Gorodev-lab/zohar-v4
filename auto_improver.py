@@ -54,7 +54,7 @@ _DEFAULT_FUNC_NAME     = "_descargar_clave_gen"
 _DEFAULT_EVAL_CMD      = "./venv/bin/pytest tests/test_scraper_pipeline.py -v --tb=short"
 _DEFAULT_EVAL_METRIC   = "pytest_pass_rate"
 _DEFAULT_PATCH_ANCHORS = ["PASO 5", "PASO 6", "PASO 4"]
-_DEFAULT_MAX_WINDOW    = 50
+_DEFAULT_MAX_WINDOW    = 25
 _DEFAULT_MAX_CYCLES    = 3
 
 BACKUP_SUFFIX = ".rsi_bak"
@@ -806,9 +806,19 @@ def call_llama_server(prompt: str) -> str:
             content = r.json().get("content", "").strip()
             logger.info("Respuesta recibida (%d chars).", len(content))
             return content
-        logger.error("Error HTTP %d desde llama-server: %s", r.status_code, r.text[:200])
+        logger.error("Error HTTP %d desde llama-server: %s. Ejecutando fallback...", r.status_code, r.text[:200])
     except Exception as exc:
-        logger.error("Error crítico llamando al llama-server: %s", exc)
+        logger.error("Error crítico llamando al llama-server: %s. Ejecutando fallback...", exc)
+
+    # Fallback automático a la capa unificada llm_client (Gemini API / Mistral API)
+    try:
+        from core.llm_client import generate_completion
+        logger.info("Intentando completación RSI mediante fallback (llm_client)...")
+        res = generate_completion(prompt=prompt, response_json=False)
+        if isinstance(res, dict) and res.get("text"):
+            return res["text"].strip()
+    except Exception as fb_exc:
+        logger.error("Fallback en auto_improver también falló: %s", fb_exc)
 
     return ""
 
@@ -1082,8 +1092,11 @@ def run_rsi_stream(
         diff_preview = "\n".join(f"+ {l}" for l in added[:5])
 
         if not valid:
-            with open(f"debug_failed_c{cycle}.py", "w", encoding="utf-8") as dbg_f:
-                dbg_f.write(candidate_block)
+            try:
+                with open(f"debug_failed_c{cycle}.py", "w", encoding="utf-8") as dbg_f:
+                    dbg_f.write(candidate_block)
+            except Exception as _e_dbg:
+                logger.warning("No se pudo escribir archivo de depuración debug_failed_c%d.py: %s", cycle, _e_dbg)
             yield {
                 "status": "warning",
                 "msg": f"Sintaxis inválida en propuesta: {syntax_err}",

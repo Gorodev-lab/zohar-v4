@@ -1,0 +1,111 @@
+{
+  "timestamp": "2026-07-22T13:59:08.148710",
+  "total_samples": 40,
+  "global_metrics": {
+    "accuracy_score": 0.7903,
+    "macro_precision": 0.9747,
+    "macro_recall": 0.8187,
+    "macro_f1": 0.8362,
+    "micro_precision": 0.9696,
+    "micro_recall": 0.8147,
+    "micro_f1": 0.8854
+  },
+  "field_metrics": {
+    "Clave": {
+      "tp": 40,
+      "fp": 0,
+      "fn": 0,
+      "exact_matches": 40,
+      "total_evals": 40,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "exact_match_pct": 100.0
+    },
+    "Promovente": {
+      "tp": 39,
+      "fp": 1,
+      "fn": 0,
+      "exact_matches": 39,
+      "total_evals": 40,
+      "precision": 0.975,
+      "recall": 1.0,
+      "f1_score": 0.9873,
+      "exact_match_pct": 97.5
+    },
+    "Localidad": {
+      "tp": 40,
+      "fp": 0,
+      "fn": 0,
+      "exact_matches": 40,
+      "total_evals": 40,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "exact_match_pct": 100.0
+    },
+    "Municipio": {
+      "tp": 36,
+      "fp": 1,
+      "fn": 4,
+      "exact_matches": 36,
+      "total_evals": 40,
+      "precision": 0.973,
+      "recall": 0.9,
+      "f1_score": 0.9351,
+      "exact_match_pct": 90.0
+    },
+    "Estado": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 38,
+      "exact_matches": 1,
+      "total_evals": 40,
+      "precision": 1.0,
+      "recall": 0.05,
+      "f1_score": 0.0952,
+      "exact_match_pct": 2.5
+    },
+    "Tipo_MIA": {
+      "tp": 24,
+      "fp": 0,
+      "fn": 16,
+      "exact_matches": 11,
+      "total_evals": 40,
+      "precision": 1.0,
+      "recall": 0.6,
+      "f1_score": 0.75,
+      "exact_match_pct": 27.5
+    },
+    "Veredicto": {
+      "tp": 37,
+      "fp": 3,
+      "fn": 0,
+      "exact_matches": 37,
+      "total_evals": 40,
+      "precision": 0.925,
+      "recall": 1.0,
+      "f1_score": 0.961,
+      "exact_match_pct": 92.5
+    },
+    "Nivel_Riesgo": {
+      "tp": 37,
+      "fp": 3,
+      "fn": 0,
+      "exact_matches": 37,
+      "total_evals": 40,
+      "precision": 0.925,
+      "recall": 1.0,
+      "f1_score": 0.961,
+      "exact_match_pct": 92.5
+    }
+  },
+  "veredicto_confusion_matrix": {
+    "DESCONOCIDO": {
+      "VIABLE": 3
+    },
+    "VIABLE": {
+      "VIABLE": 37
+    }
+  }
+}
