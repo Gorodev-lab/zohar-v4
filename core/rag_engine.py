@@ -123,7 +123,20 @@ def split_markdown_by_headers(md_text: str, max_chunk_chars: int = 1500, overlap
             })
         else:
             # Subdividir por párrafos para evitar truncar palabras u oraciones
-            paragraphs = text_block.split("\n\n")
+            paragraphs = []
+            for raw_p in text_block.split("\n\n"):
+                p_str = raw_p.strip()
+                if not p_str:
+                    continue
+                if len(p_str) > max_chunk_chars:
+                    step = max(1, max_chunk_chars - overlap_chars)
+                    for start_idx in range(0, len(p_str), step):
+                        sub_p = p_str[start_idx:start_idx + max_chunk_chars]
+                        if sub_p:
+                            paragraphs.append(sub_p)
+                else:
+                    paragraphs.append(p_str)
+
             current_chunk_paragraphs = []
             current_length = 0
             sub_idx = 1

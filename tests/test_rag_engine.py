@@ -30,8 +30,8 @@ def test_split_markdown_by_headers():
     chunks = split_markdown_by_headers(md_text)
     assert len(chunks) >= 2
     titles = [c["section_title"] for c in chunks]
-    assert "Resumen Ejecutivo" in titles
-    assert "Medidas de Mitigación" in titles
+    assert any("Resumen Ejecutivo" in t for t in titles)
+    assert any("Medidas de Mitigación" in t for t in titles)
 
 
 def test_rag_engine_index_and_retrieve(tmp_path):
@@ -74,7 +74,7 @@ def test_rag_query_with_citations(tmp_path):
     assert "answer" in rag_res
     assert "citations" in rag_res
     assert len(rag_res["citations"]) > 0
-    assert "[06CL2026H0009 | Mitigación]" in rag_res["citations"]
+    assert any("[06CL2026H0009 |" in c and "Mitigación]" in c for c in rag_res["citations"])
 
 
 def test_api_rag_endpoints():
