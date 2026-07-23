@@ -175,9 +175,11 @@ def download_file_with_retry(
     cookies: dict | None = None,
     headers: dict | None = None,
     timeout: int = 120,
-    max_retries: int = 3
+    max_retries: int = 3,
+    base_delay: float = 2.0
 ) -> bool:
-    """Descarga un archivo vía HTTP utilizando httpx/requests con reintentos."""
+    """Descarga un archivo vía HTTP utilizando httpx con reintentos y backoff exponencial con jitter."""
+    import random
     h = {"User-Agent": "Mozilla/5.0", **(headers or {})}
     dest_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -188,9 +190,15 @@ def download_file_with_retry(
                 if res.status_code == 200 and len(res.content) > 100:
                     dest_path.write_bytes(res.content)
                     return True
+                elif res.status_code in (500, 502, 503, 504):
+                    logger.warning("Servidor SEMARNAT retornó HTTP %d para %s (intento %d/%d)", res.status_code, url, attempt + 1, max_retries)
         except Exception as exc:
             logger.warning("Intento %d/%d falló para descargar %s: %s", attempt + 1, max_retries, url, exc)
-            time.sleep(2)
+        
+        # Exponential backoff + random jitter
+        delay = (base_delay * (2 ** attempt)) + random.uniform(0.5, 2.0)
+        time.sleep(delay)
+
     return False
 
 
