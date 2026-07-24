@@ -54,3 +54,4 @@ Thumbs.db
 scratch/*.png
 scratch/portal_screenshot.png
 scratch/search_result.png
+logs/*.log
