@@ -95,6 +95,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)
 from api.routers import dw, rsi, rag, extraction, enricher
 from api import rsi_routes
 from core.broadcaster import broadcaster
+from core.llm_client import LLM_INFERENCE_IN_PROGRESS, LLM_INFERENCE_STARTED_AT
 
 app.include_router(dw.router)
 app.include_router(rsi.router)
@@ -715,70 +716,124 @@ async def pipeline_ensure_llm():
 
 
 async def llama_self_healing_loop():
-    """Loop en segundo plano que vigila el estado de salud de llama-server y lo reinicia si es necesario."""
+    """Loop en segundo plano que vigila el estado de salud de llama-server y lo reinicia si es necesario.
+
+    Partes A + B (decisión de diseño 2026-07-24):
+      A) No reinicia mientras haya una inferencia REAL en curso
+         (LLM_INFERENCE_IN_PROGRESS). El probe de salud quedaría en cola
+         detrás de esa inferencia y tardaría >10s, lo que se interpretaría
+         erróneamente como "server colgado" y mataría la inferencia legítima.
+      B) Requiere N ciclos consecutivos de fallo (no uno solo) antes de
+         reiniciar, para no matar inferencias largas por un único probe
+         lento transitorio.
+    """
     logger.info("Self-healing: Iniciando loop de auto-recuperación para llama-server...")
     local_url = os.environ.get("LOCAL_LLM_URL", "http://127.0.0.1:8083")
-    
+
+    # Parte B: nº de ciclos consecutivos de fallo requeridos antes de reiniciar
+    REQUIRED_CONSECUTIVE_FAILURES = 3
+    # Watchdog: umbral (s) tras el cual una bandera de inferencia activa se
+    # considera "atascada" (crash sin finally) y se ignora la pausa. 90s es
+    # holgado frente a los ~40s de colapso observado y el timeout de 300s del
+    # cliente HTTP, pero evita bloquear el self-healing indefinidamente.
+    LLM_INFERENCE_MAX_AGE = 90.0
+
     # Dar 30 segundos de gracia al iniciar antes de comenzar la vigilancia activa
     await asyncio.sleep(30)
-    
+
+    consecutive_failures = 0
+
     while True:
         try:
+            cycle_unhealthy = False
+            failure_reason = ""
+
             # 1. Verificar endpoint de salud (/health)
             async with httpx.AsyncClient() as client:
                 try:
                     r = await client.get(f"{local_url}/health", timeout=5.0)
                     if r.status_code != 200:
-                        logger.warning("Self-healing: /health retornó HTTP %d. Reiniciando...", r.status_code)
-                        await restart_llama_container()
-                        await asyncio.sleep(45)
-                        continue
-                    
-                    data = r.json()
-                    if data.get("status") == "error" or data.get("status") == "unhealthy":
-                        logger.warning("Self-healing: llama-server reporta status unhealthy. Reiniciando...")
-                        await restart_llama_container()
-                        await asyncio.sleep(45)
-                        continue
+                        cycle_unhealthy = True
+                        failure_reason = f"/health HTTP {r.status_code}"
+                    else:
+                        data = r.json()
+                        if data.get("status") == "error" or data.get("status") == "unhealthy":
+                            cycle_unhealthy = True
+                            failure_reason = "status unhealthy"
                 except (httpx.RequestError, asyncio.TimeoutError) as exc:
-                    logger.warning("Self-healing: No se pudo conectar a /health: %s. Reiniciando...", exc)
+                    cycle_unhealthy = True
+                    failure_reason = f"no conecta /health: {exc}"
+
+            # 2. Medir latencia de una completación pequeña (solo si /health OK)
+            if not cycle_unhealthy:
+                start_time = time.time()
+                try:
+                    payload = {
+                        "prompt": "<start_of_turn>user\nping<end_of_turn>\n<start_of_turn>model\n",
+                        "n_predict": 5,
+                        "temperature": 0.1,
+                    }
+                    async with httpx.AsyncClient() as client:
+                        r = await client.post(f"{local_url.rstrip('/')}/completion", json=payload, timeout=12.0)
+                        duration = time.time() - start_time
+                        if r.status_code != 200:
+                            cycle_unhealthy = True
+                            failure_reason = f"/completion HTTP {r.status_code}"
+                        elif duration > 10.0:
+                            cycle_unhealthy = True
+                            failure_reason = f"completion demoró {duration:.2f}s"
+                except (httpx.RequestError, asyncio.TimeoutError) as exc:
+                    cycle_unhealthy = True
+                    failure_reason = f"timeout/red /completion: {exc}"
+
+            if cycle_unhealthy:
+                consecutive_failures += 1
+                logger.warning(
+                    "Self-healing: ciclo %d/%d poco saludable (%s).",
+                    consecutive_failures, REQUIRED_CONSECUTIVE_FAILURES, failure_reason,
+                )
+            else:
+                consecutive_failures = 0
+                SELF_HEALING_STATUS["restarting"] = False
+
+            # Parte A + B: solo reinicia si hay fallos consecutivos suficientes
+            # Y no hay una inferencia real en curso (para no matarla).
+            if consecutive_failures >= REQUIRED_CONSECUTIVE_FAILURES:
+                # Watchdog: si la bandera lleva >90s activa, probablemente está
+                # atascada (crash abrupto del proceso que no disparó el finally).
+                # En ese caso se IGNORA la pausa y se procede a reiniciar.
+                inference_blocking = LLM_INFERENCE_IN_PROGRESS.is_set()
+                if inference_blocking and LLM_INFERENCE_STARTED_AT is not None:
+                    stuck_seconds = time.monotonic() - LLM_INFERENCE_STARTED_AT
+                    if stuck_seconds > LLM_INFERENCE_MAX_AGE:
+                        logger.warning(
+                            "Self-healing: bandera de inferencia activa por %.1fs (>%.0fs, posible bandera "
+                            "atascada por crash). Ignorando pausa y procediendo a reiniciar.",
+                            stuck_seconds, LLM_INFERENCE_MAX_AGE,
+                        )
+                        inference_blocking = False
+                if inference_blocking:
+                    logger.warning(
+                        "Self-healing: %d fallos consecutivos pero HAY inferencia real en curso "
+                        "(LLM_INFERENCE_IN_PROGRESS). Se PAUSA el reinicio para no matar la inferencia.",
+                        consecutive_failures,
+                    )
+                    # No reinicia; espera al próximo ciclo. Reinicia el contador
+                    # para no acumular indefinidamente si la inferencia es larga.
+                    consecutive_failures = 0
+                else:
+                    logger.warning(
+                        "Self-healing: %d fallos consecutivos confirmados. Reiniciando contenedor...",
+                        consecutive_failures,
+                    )
                     await restart_llama_container()
+                    consecutive_failures = 0
                     await asyncio.sleep(45)
                     continue
 
-            # 2. Medir latencia de una completación pequeña
-            start_time = time.time()
-            try:
-                payload = {
-                    "prompt": "<start_of_turn>user\nping<end_of_turn>\n<start_of_turn>model\n",
-                    "n_predict": 5,
-                    "temperature": 0.1,
-                }
-                async with httpx.AsyncClient() as client:
-                    r = await client.post(f"{local_url.rstrip('/')}/completion", json=payload, timeout=12.0)
-                    duration = time.time() - start_time
-                    if r.status_code != 200:
-                        logger.warning("Self-healing: /completion falló con HTTP %d. Reiniciando...", r.status_code)
-                        await restart_llama_container()
-                        await asyncio.sleep(45)
-                        continue
-                    if duration > 10.0:
-                        logger.warning("Self-healing: Completación demoró %.2fs (umbral: 10s). Reiniciando...", duration)
-                        await restart_llama_container()
-                        await asyncio.sleep(45)
-                        continue
-            except (httpx.RequestError, asyncio.TimeoutError) as exc:
-                logger.warning("Self-healing: Timeout o error de red en /completion: %s. Reiniciando...", exc)
-                await restart_llama_container()
-                await asyncio.sleep(45)
-                continue
-
-            # Si llegamos hasta aquí, tanto /health como /completion respondieron óptimamente
-            SELF_HEALING_STATUS["restarting"] = False
-
         except Exception as e:
             logger.error("Self-healing: Excepción inesperada en loop de salud: %s", e)
-            
+
         await asyncio.sleep(30)
 
 
