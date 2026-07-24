@@ -327,6 +327,13 @@ def summarize_pdf_file(pdf_path: Path, max_chunks: int = 5) -> dict:
     if not text_prefix.strip() and total_pages == 0:
         return {"status": "empty_pdf", "filename": pdf_path.name, "total_pages": total_pages}
 
+    # HEALTH CHECK EXPLÍCITO: priorizar LLM local antes de resumir/enriquecer
+    try:
+        from core.pipeline_health import ensure_pipeline_llm_ready
+        ensure_pipeline_llm_ready()
+    except Exception as hc_exc:
+        logger.warning("Health check LLM no pudo ejecutarse (no fatal): %s", hc_exc)
+
     logger.info("Llamando al LLM local para generación de Resumen y Metadatos...")
     result_data = extract_structured_summary_and_metadata_with_llm(text_prefix, pdf_path.name)
     

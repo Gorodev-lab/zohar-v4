@@ -7,6 +7,7 @@ Soporta detección automática y orden de prioridad.
 import os
 import json
 import re
+import time
 import logging
 import httpx
 import threading
@@ -58,10 +59,21 @@ def get_avg_latency_per_token() -> float:
         return _total_time_ms / _total_tokens
 
 def detect_active_backend() -> tuple[str, str]:
-    # 1. Verificar llama-server
+    # Orden de prioridad (decisión 2026-07-24): Mistral (cloud) primario,
+    # luego Gemini, luego llama-server local, luego Ollama, luego heurístico.
+    # El llama-server local es fallback de Mistral ante cuota/indisponibilidad.
+
+    # 1. Verificar Mistral API (primario)
+    if os.environ.get("MISTRAL_API_KEY"):
+        return "mistral", os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
+
+    # 2. Verificar Gemini API
+    if os.environ.get("GEMINI_API_KEY"):
+        return "gemini", "gemini-2.0-flash"
+
+    # 3. Verificar llama-server (fallback local)
     local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8083")
     try:
-        # llama-server tiene un endpoint /health
         r = httpx.get(f"{local_url}/health", timeout=1.0)
         if r.status_code == 200:
             model_name = os.environ.get("LOCAL_LLM_MODEL", "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf")
@@ -69,7 +81,7 @@ def detect_active_backend() -> tuple[str, str]:
     except Exception:
         pass
 
-    # 2. Verificar Ollama
+    # 4. Verificar Ollama
     ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
     try:
         r = httpx.get(f"{ollama_url}/api/tags", timeout=1.0)
@@ -80,7 +92,6 @@ def detect_active_backend() -> tuple[str, str]:
                 env_model = os.environ.get("LOCAL_LLM_MODEL")
                 if env_model and env_model in models_list:
                     return "ollama", env_model
-                # Buscar gemma4
                 for target in ["gemma4:e4b", "gemma:2b", "gemma:latest"]:
                     if target in models_list:
                         return "ollama", target
@@ -88,14 +99,7 @@ def detect_active_backend() -> tuple[str, str]:
     except Exception:
         pass
 
-    # 3. Verificar Mistral API
-    if os.environ.get("MISTRAL_API_KEY"):
-        return "mistral", os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
-
-    # 4. Verificar Gemini API
-    if os.environ.get("GEMINI_API_KEY"):
-        return "gemini", "gemini-2.0-flash"
-
+    # 5. Heurístico
     return "heuristic", "fallback_heuristic"
 
 
@@ -104,54 +108,223 @@ def generate_completion(
     system_prompt: Optional[str] = None,
     response_json: bool = True,
     max_chars: Optional[int] = None,
-    n_predict: Optional[int] = None
+    n_predict: Optional[int] = None,
+    prefer_local: bool = False,
 ) -> dict:
     """
     Genera una completación de chat con el backend de mayor prioridad activo.
-    Retorna un diccionario estructurado similar a la respuesta de inferencia esperada.
-    """
-    provider, model_name = detect_active_backend()
-    logger.info(f"Usando LLM provider: {provider} (modelo: {model_name})")
 
-    # Si se pide truncado específico
+    Cadena de providers (decisión de arquitectura 2026-07-24):
+      MISTRAL (cloud, primario) -> llama-server LOCAL (fallback de cuota/indisp.)
+      -> GEMINI -> OLLAMA -> heuristic.
+
+    Mistral es el provider primario. El LLM local (llama-server) sólo se usa
+    cuando Mistral falla por cuota/rate-limit (429, "quota", "rate limit") o por
+    indisponibilidad (timeout/conexión). Si ambos (Mistral y local) fallan, se
+    lanza RuntimeError explícito para no dejar el pipeline colgado.
+
+    prefer_local=True fuerza al llama-server local como primero (modo offline
+    explícito); en ese caso la cadena es local -> mistral -> gemini -> heuristic.
+    """
+    # Truncado opcional de prompt
     if max_chars and len(prompt) > max_chars:
         mid = max_chars // 2
-        prompt = prompt[:mid] + "\n\n[...TEXTO TRUNCADO POR LIMITACIONES DEL CONTEXTO LOCAL...]\n\n" + prompt[-mid:]
+        prompt = prompt[:mid] + "\n\n[...TEXTO TRUNCADO POR LIMITACIONES DEL CONTEXTO...]\n\n" + prompt[-mid:]
 
-    # 1. Lógica para llama-server (usando /completion crudo para evitar bugs de chat templates en llama.cpp)
-    if provider == "llama-server":
-        # Bloquear acceso para evitar concurrencia en el servidor local de hilos reducidos
-        with _llama_server_lock:
-            local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8083")
-            
-            # Formatear prompt con tags oficiales de Gemma
-            formatted_prompt = ""
-            if system_prompt:
-                formatted_prompt += f"<start_of_turn>user\n{system_prompt.strip()}\n\n{prompt.strip()}<end_of_turn>\n<start_of_turn>model\n"
+    # Determinar el primer provider:
+    #  - prefer_local=True -> forzar llama-server (modo offline explícito)
+    #  - prefer_local=False -> detect_active_backend() (Mistral primero en prod;
+    #    respetado por tests que parchean detect_active_backend)
+    if prefer_local:
+        first_provider = "llama-server"
+    else:
+        first_provider, _ = detect_active_backend()
+
+    # Cadena de providers en orden de preferencia (Mistral primario, local como
+    # fallback de cuota/indisponibilidad, luego Gemini/Ollama/heurístico).
+    full_chain = ["mistral", "llama-server", "gemini", "ollama", "heuristic"]
+    # Reorganizar: primer provider primero, luego el resto en orden
+    provider_chain = [first_provider] + [p for p in full_chain if p != first_provider]
+
+    errors: list[str] = []
+
+    for provider in provider_chain:
+        try:
+            if provider == "mistral":
+                result = _complete_mistral(prompt, system_prompt, response_json)
+            elif provider == "llama-server":
+                result = _complete_local(prompt, system_prompt, response_json, n_predict, prefer_local)
+            elif provider == "gemini":
+                result = _complete_gemini(prompt, system_prompt, response_json)
+            elif provider == "ollama":
+                result = _complete_ollama(prompt, system_prompt, response_json)
+            elif provider == "heuristic":
+                # Si llegamos aquí por fallo de todos los anteriores, no devolvemos
+                # un dict silencioso: lanzamos error explícito.
+                if errors:
+                    raise RuntimeError(
+                        "Ambos providers fallaron: Mistral (cloud) y llama-server (local). "
+                        + "Errores: " + " | ".join(errors)
+                    )
+                return {"is_fallback": True, "provider": "heuristic"}
             else:
-                formatted_prompt += f"<start_of_turn>user\n{prompt.strip()}<end_of_turn>\n<start_of_turn>model\n"
+                continue
 
-            payload = {
-                "prompt": formatted_prompt,
-                "temperature": 0.1,
-                "n_predict": n_predict or 512,
-                "stop": ["<end_of_turn>", "<eos>"],
-            }
-            
+            logger.info("Usando LLM provider: %s (modelo: %s)", provider, result.get("meta", {}).get("modelo"))
+            return result
+
+        except MistralRequestError:
+            # Error NO recuperable (400/401/403/prompt inválido): no se
+            # reintenta en otro provider. Relanzar directo con contexto claro.
+            raise
+        except Exception as exc:  # noqa: BLE001 - capturar fallos recuperables del provider
+            err_msg = f"{provider}: {exc}"
+            errors.append(err_msg)
+            # Detectar cuota/indisponibilidad de Mistral para log claro
+            if provider == "mistral" and _is_quota_or_unavailable(exc):
+                logger.warning("Mistral no disponible (cuota/rate-limit/conn): %s. Usando fallback local.", exc)
+            else:
+                logger.warning("Fallo en provider %s: %s. Probando siguiente en la cadena...", provider, exc)
+            continue
+
+    # Si salimos del bucle sin retornar, todos fallaron
+    raise RuntimeError(
+        "Ambos providers fallaron: Mistral (cloud) y llama-server (local). "
+        + "Errores: " + " | ".join(errors)
+    )
+
+
+class MistralQuotaOrAvailabilityError(RuntimeError):
+    """Error RECUPERABLE de Mistral: cuota/rate-limit (429), servicio no
+    disponible (503), timeout de conexión o error de red/DNS.
+    Permite el fallback a otro provider (llama-server local)."""
+
+
+class MistralRequestError(RuntimeError):
+    """Error NO RECUPERABLE de Mistral: request inválido (400), auth inválida
+    (401/403), etc. No se reintenta en otro provider; se propaga directo."""
+
+
+def _is_quota_or_unavailable(exc: Exception) -> bool:
+    """Detecta errores de cuota/rate-limit/indisponibilidad de Mistral (recuperables)."""
+    msg = str(exc).lower()
+    return any(k in msg for k in (
+        "429", "quota", "rate limit", "rate_limit", "exceeded",
+        "too many requests", "timeout", "timed out", "connection",
+        "name or service not known", "failed to resolve", "connecterror",
+        "httpstatuserror", "503", "502", "500",
+    ))
+
+
+# Códigos HTTP de Mistral que NO son recuperables (fallan directo)
+_NON_RECOVERABLE_STATUS = {400, 401, 403, 404, 405, 409, 422}
+
+
+def _complete_mistral(prompt: str, system_prompt, response_json: bool) -> dict:
+    api_key = os.environ.get("MISTRAL_API_KEY", "")
+    if not api_key:
+        # Sin key es un problema de configuración → no recuperable
+        raise MistralRequestError("MISTRAL_API_KEY no configurada")
+    m_model = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+
+    payload = {
+        "model": m_model,
+        "messages": messages,
+        "temperature": 0.1,
+    }
+    if response_json:
+        payload["response_format"] = {"type": "json_object"}
+
+    try:
+        r = httpx.post("https://api.mistral.ai/v1/chat/completions", headers=headers, json=payload, timeout=60.0)
+    except (httpx.TimeoutException, httpx.ConnectError, httpx.ConnectTimeout,
+            httpx.ReadTimeout, httpx.NetworkError) as exc:
+        # Timeout/conexión → RECUPERABLE (fallback a local)
+        raise MistralQuotaOrAvailabilityError(f"Timeout/conexión Mistral: {exc}") from exc
+    except Exception as exc:
+        # Otro error de red → RECUPERABLE
+        raise MistralQuotaOrAvailabilityError(f"Error de red Mistral: {exc}") from exc
+
+    if r.status_code == 200:
+        res_data = r.json()
+        content = res_data["choices"][0]["message"]["content"].strip()
+        if response_json:
+            if content.startswith("```"):
+                lines = content.split("\n")
+                if lines[0].startswith("```"):
+                    lines.pop(0)
+                if lines and lines[-1].startswith("```"):
+                    lines.pop()
+                content = "\n".join(lines).strip()
+            try:
+                match = re.search(r"\{.*\}", content, re.DOTALL)
+                if match:
+                    content = match.group(0)
+                parsed = json.loads(content)
+                parsed.setdefault("meta", {})
+                parsed["meta"]["modelo"] = f"mistral:{m_model}"
+                return parsed
+            except json.JSONDecodeError as je:
+                logger.error(f"Error decodificando JSON de Mistral API: {je}. Contenido: {content}")
+                raise je
+        return {"text": content, "meta": {"modelo": f"mistral:{m_model}"}}
+    else:
+        # Clasificar el error HTTP
+        if r.status_code in _NON_RECOVERABLE_STATUS:
+            # 400/401/403/etc → NO RECUPERABLE: falla directo
+            raise MistralRequestError(
+                f"Mistral rechazó el request (HTTP {r.status_code}): {r.text[:200]}"
+            )
+        # 429/503/500/otros → RECUPERABLE: permite fallback a local
+        raise MistralQuotaOrAvailabilityError(
+            f"Mistral API HTTP status {r.status_code}: {r.text[:200]}"
+        )
+
+
+def _complete_local(prompt: str, system_prompt, response_json: bool, n_predict, prefer_local: bool) -> dict:
+    """Llama al llama-server local vía /completion. Fallback de Mistral."""
+    # Bloquear acceso para evitar concurrencia en el servidor local de hilos reducidos
+    with _llama_server_lock:
+        local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8083")
+
+        # Formatear prompt con tags oficiales de Gemma
+        formatted_prompt = ""
+        if system_prompt:
+            formatted_prompt += f"<start_of_turn>user\n{system_prompt.strip()}\n\n{prompt.strip()}<end_of_turn>\n<start_of_turn>model\n"
+        else:
+            formatted_prompt += f"<start_of_turn>user\n{prompt.strip()}<end_of_turn>\n<start_of_turn>model\n"
+
+        payload = {
+            "prompt": formatted_prompt,
+            "temperature": 0.1,
+            "n_predict": n_predict or 512,
+            "stop": ["<end_of_turn>", "<eos>"],
+        }
+
+        max_local_retries = 3 if prefer_local else 1
+        last_exc: Exception | None = None
+        for attempt in range(1, max_local_retries + 1):
             try:
                 r = httpx.post(f"{local_url.rstrip('/')}/completion", json=payload, timeout=300.0)
                 if r.status_code == 200:
                     res_data = r.json()
                     content = res_data["content"].strip()
-                    
+
                     # Track de métricas de latencia de tokens generados
                     timings = res_data.get("timings", {})
                     pred_n = timings.get("predicted_n", 0)
                     pred_ms = timings.get("predicted_ms", 0.0)
                     if pred_n > 0:
                         update_latency_stats(pred_n, pred_ms)
-                    
-                    # Intentar parsear si se espera JSON
+
                     if response_json:
                         if content.startswith("```"):
                             lines = content.split("\n")
@@ -166,194 +339,110 @@ def generate_completion(
                                 content = match.group(0)
                             parsed = json.loads(content)
                             parsed.setdefault("meta", {})
-                            parsed["meta"]["modelo"] = f"{provider}:{model_name}"
+                            parsed["meta"]["modelo"] = "llama-server:gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
                             return parsed
                         except json.JSONDecodeError as je:
                             logger.error(f"Error decodificando JSON del modelo local: {je}. Contenido: {content}")
                             raise je
-                    return {"text": content, "meta": {"modelo": f"{provider}:{model_name}"}}
+                    return {"text": content, "meta": {"modelo": "llama-server:gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"}}
                 else:
                     logger.error(f"Error de llama-server: {r.status_code} - {r.text}")
                     raise RuntimeError(f"Server status {r.status_code}")
             except Exception as exc:
-                logger.warning(f"Fallo en llama-server: {exc}. Intentando fallback...")
-                if os.environ.get("MISTRAL_API_KEY"):
-                    provider = "mistral"
-                    model_name = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
-                elif os.environ.get("GEMINI_API_KEY"):
-                    provider = "gemini"
-                    model_name = "gemini-2.0-flash"
-                else:
-                    provider = "heuristic"
+                last_exc = exc
+                if attempt < max_local_retries:
+                    logger.warning(
+                        "Fallo en llama-server (fallback local, intento %d/%d): %s. Re-verificando salud...",
+                        attempt, max_local_retries, exc,
+                    )
+                    time.sleep(2.0 * attempt)
+                    if not is_local_llm_healthy(probe_timeout=5.0).get("healthy"):
+                        logger.warning("llama-server sigue no saludable tras reintento; se usará siguiente fallback.")
+                        break
+                    continue
+                logger.warning(f"Fallo definitivo en llama-server local: {exc}.")
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("llama-server local no retornó resultado")
 
-    # 1b. Lógica para Ollama (API OpenAI-compatible)
-    if provider == "ollama":
-        base_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-        if not base_url.endswith("/v1"):
-            base_url = f"{base_url.rstrip('/')}/v1"
 
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
+def _complete_ollama(prompt: str, system_prompt, response_json: bool) -> dict:
+    base_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+    if not base_url.endswith("/v1"):
+        base_url = f"{base_url.rstrip('/')}/v1"
 
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "temperature": 0.1,
-        }
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+
+    payload = {
+        "model": os.environ.get("OLLAMA_MODEL", "gemma:latest"),
+        "messages": messages,
+        "temperature": 0.1,
+    }
+    if response_json:
+        payload["response_format"] = {"type": "json_object"}
+
+    r = httpx.post(f"{base_url}/chat/completions", json=payload, timeout=90.0)
+    if r.status_code == 200:
+        res_data = r.json()
+        content = res_data["choices"][0]["message"]["content"].strip()
         if response_json:
-            payload["response_format"] = {"type": "json_object"}
-
-        try:
-            r = httpx.post(f"{base_url}/chat/completions", json=payload, timeout=90.0)
-            if r.status_code == 200:
-                res_data = r.json()
-                content = res_data["choices"][0]["message"]["content"].strip()
-                
-                # Intentar parsear si se espera JSON
-                if response_json:
-                    if content.startswith("```"):
-                        lines = content.split("\n")
-                        if lines[0].startswith("```"):
-                            lines.pop(0)
-                        if lines and lines[-1].startswith("```"):
-                            lines.pop()
-                        content = "\n".join(lines).strip()
-                    try:
-                        match = re.search(r"\{.*\}", content, re.DOTALL)
-                        if match:
-                            content = match.group(0)
-                        parsed = json.loads(content)
-                        parsed.setdefault("meta", {})
-                        parsed["meta"]["modelo"] = f"{provider}:{model_name}"
-                        return parsed
-                    except json.JSONDecodeError as je:
-                        logger.error(f"Error decodificando JSON de Ollama: {je}. Contenido: {content}")
-                        raise je
-                return {"text": content, "meta": {"modelo": f"{provider}:{model_name}"}}
-            else:
-                logger.error(f"Error de Ollama: {r.status_code} - {r.text}")
-                raise RuntimeError(f"Server status {r.status_code}")
-        except Exception as exc:
-            logger.warning(f"Fallo en Ollama: {exc}. Intentando fallback...")
-            if os.environ.get("MISTRAL_API_KEY"):
-                provider = "mistral"
-                model_name = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
-            elif os.environ.get("GEMINI_API_KEY"):
-                provider = "gemini"
-                model_name = "gemini-2.0-flash"
-            else:
-                provider = "heuristic"
-
-    # 1c. Lógica para Mistral API (api.mistral.ai)
-    if provider == "mistral":
-        api_key = os.environ.get("MISTRAL_API_KEY", "")
-        m_model = model_name if (model_name and not model_name.endswith(".gguf")) else os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
-        if not api_key:
-            logger.error("MISTRAL_API_KEY no configurada.")
-            provider = "heuristic"
-        else:
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": prompt})
-
-            payload = {
-                "model": m_model,
-                "messages": messages,
-                "temperature": 0.1,
-            }
-            if response_json:
-                payload["response_format"] = {"type": "json_object"}
-
+            if content.startswith("```"):
+                lines = content.split("\n")
+                if lines[0].startswith("```"):
+                    lines.pop(0)
+                if lines and lines[-1].startswith("```"):
+                    lines.pop()
+                content = "\n".join(lines).strip()
             try:
-                r = httpx.post("https://api.mistral.ai/v1/chat/completions", headers=headers, json=payload, timeout=60.0)
-                if r.status_code == 200:
-                    res_data = r.json()
-                    content = res_data["choices"][0]["message"]["content"].strip()
-                    
-                    if response_json:
-                        if content.startswith("```"):
-                            lines = content.split("\n")
-                            if lines[0].startswith("```"):
-                                lines.pop(0)
-                            if lines and lines[-1].startswith("```"):
-                                lines.pop()
-                            content = "\n".join(lines).strip()
-                        try:
-                            match = re.search(r"\{.*\}", content, re.DOTALL)
-                            if match:
-                                content = match.group(0)
-                            parsed = json.loads(content)
-                            parsed.setdefault("meta", {})
-                            parsed["meta"]["modelo"] = f"mistral:{m_model}"
-                            return parsed
-                        except json.JSONDecodeError as je:
-                            logger.error(f"Error decodificando JSON de Mistral API: {je}. Contenido: {content}")
-                            raise je
-                    return {"text": content, "meta": {"modelo": f"mistral:{m_model}"}}
-                else:
-                    logger.error(f"Error de Mistral API: {r.status_code} - {r.text}")
-                    raise RuntimeError(f"Mistral API HTTP status {r.status_code}: {r.text[:200]}")
-            except Exception as exc:
-                logger.warning(f"Fallo en Mistral API: {exc}. Intentando fallback a Gemini...")
-                if os.environ.get("GEMINI_API_KEY"):
-                    provider = "gemini"
-                    model_name = "gemini-2.0-flash"
-                else:
-                    provider = "heuristic"
-
-
-    # 2. Lógica para Gemini API
-    if provider == "gemini":
-        try:
-            from google import genai
-            api_key = os.environ.get("GEMINI_API_KEY", "")
-            client = genai.Client(api_key=api_key)
-            
-            # Re-ensamblar prompts
-            full_prompt = prompt
-            if system_prompt:
-                full_prompt = f"{system_prompt}\n\nTEXTO A PROCESAR:\n{prompt}"
-
-            response = client.models.generate_content(
-                model=model_name,
-                contents=[{"role": "user", "parts": [{"text": full_prompt}]}]
-            )
-            raw = response.text.strip()
-            
-            # Limpiar posible markdown json
-            if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:]
-                raw = raw.strip()
-
-            if response_json:
-                match = re.search(r"\{.*\}", raw, re.DOTALL)
+                match = re.search(r"\{.*\}", content, re.DOTALL)
                 if match:
-                    raw = match.group(0)
-                parsed = json.loads(raw)
+                    content = match.group(0)
+                parsed = json.loads(content)
                 parsed.setdefault("meta", {})
-                parsed["meta"]["modelo"] = "gemini-2.0-flash"
+                parsed["meta"]["modelo"] = f"ollama:{payload['model']}"
                 return parsed
-            return {"text": raw, "meta": {"modelo": "gemini-2.0-flash"}}
-        except Exception as exc:
-            logger.error(f"Fallo en Gemini API: {exc}")
-            provider = "heuristic"
+            except json.JSONDecodeError as je:
+                logger.error(f"Error decodificando JSON de Ollama: {je}. Contenido: {content}")
+                raise je
+        return {"text": content, "meta": {"modelo": f"ollama:{payload['model']}"}}
+    else:
+        logger.error(f"Error de Ollama: {r.status_code} - {r.text}")
+        raise RuntimeError(f"Server status {r.status_code}")
 
-    # 3. Fallback Heurístico
-    if provider == "heuristic" or provider == "fallback_heuristic":
-        # Retornará dict compatible con el report format
-        return {
-            "is_fallback": True,
-            "provider": "heuristic"
-        }
+
+def _complete_gemini(prompt: str, system_prompt, response_json: bool) -> dict:
+    from google import genai
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    client = genai.Client(api_key=api_key)
+
+    full_prompt = prompt
+    if system_prompt:
+        full_prompt = f"{system_prompt}\n\nTEXTO A PROCESAR:\n{prompt}"
+
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[{"role": "user", "parts": [{"text": full_prompt}]}]
+    )
+    raw = response.text.strip()
+
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+
+    if response_json:
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if match:
+            raw = match.group(0)
+        parsed = json.loads(raw)
+        parsed.setdefault("meta", {})
+        parsed["meta"]["modelo"] = "gemini-2.0-flash"
+        return parsed
+    return {"text": raw, "meta": {"modelo": "gemini-2.0-flash"}}
 
 
 def query_gemini_api(prompt: str) -> str:
@@ -401,4 +490,114 @@ def query_gemini_api(prompt: str) -> str:
             time.sleep(sleep_time)
             
     return "[LLM Error] Excedido el número máximo de reintentos"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HEALTH CHECK EXPLÍCITO DEL LLM LOCAL
+# Prioriza la infraestructura local (llama-server) sobre los fallbacks remotos
+# (Mistral / Gemini). Valida no solo /health sino una inferencia real de prueba,
+# porque /health puede responder 200 mientras el modelo aún está cargando pesos
+# o saturando la RAM (el caso observado: 503 bajo carga tras devolver 200).
+# ─────────────────────────────────────────────────────────────────────────────
+
+def is_local_llm_healthy(probe_timeout: float = 8.0, probe_prompt: str = "Responde solo 'OK': ") -> dict:
+    """
+    Verifica que el llama-server local esté realmente operativo.
+
+    Hace dos chequeos:
+      1. GET /health  (debe ser 200)
+      2. POST /completion con un prompt de prueba mínimo (debe devolver contenido)
+
+    Retorna un dict:
+        {
+          "healthy": bool,
+          "url": str,
+          "model": str,
+          "health_status": int,        # código HTTP de /health o 0 si no respondió
+          "probe_ok": bool,            # la inferencia de prueba respondió
+          "probe_ms": float,           # latencia del probe
+          "error": Optional[str]
+        }
+    Nunca lanza excepción.
+    """
+    local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8083").rstrip("/")
+    model_name = os.environ.get("LOCAL_LLM_MODEL", "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf")
+    result = {
+        "healthy": False,
+        "url": local_url,
+        "model": model_name,
+        "health_status": 0,
+        "probe_ok": False,
+        "probe_ms": 0.0,
+        "error": None,
+    }
+    try:
+        h = httpx.get(f"{local_url}/health", timeout=probe_timeout)
+        result["health_status"] = h.status_code
+        if h.status_code != 200:
+            result["error"] = f"/health devolvió {h.status_code}"
+            return result
+    except Exception as exc:
+        result["error"] = f"No se pudo conectar a /health: {exc}"
+        return result
+
+    # Segundo chequeo: inferencia real de prueba (el /health puede mentir bajo carga)
+    try:
+        t0 = time.time()
+        r = httpx.post(
+            f"{local_url}/completion",
+            json={"prompt": probe_prompt, "n_predict": 8, "temperature": 0.0},
+            timeout=probe_timeout,
+        )
+        dt = (time.time() - t0) * 1000.0
+        result["probe_ms"] = round(dt, 1)
+        if r.status_code == 200:
+            content = (r.json().get("content") or "").strip()
+            if content:
+                result["probe_ok"] = True
+                result["healthy"] = True
+            else:
+                result["error"] = "Probe devolvió contenido vacío"
+        else:
+            result["error"] = f"/completion devolvió {r.status_code}"
+    except Exception as exc:
+        result["error"] = f"Fallo en probe de inferencia: {exc}"
+    return result
+
+
+def prefer_local_backend() -> tuple[str, str, dict]:
+    """
+    Devuelve el backend a usar, priorizando SIEMPRE el llama-server local si está
+    realmente sano (health + probe). Si no, cae al siguiente disponible según
+    detect_active_backend() (Mistral / Gemini / heuristic).
+
+    Retorna: (provider, model_name, health_info)
+    """
+    health = is_local_llm_healthy()
+    if health["healthy"]:
+        return "llama-server", health["model"], health
+    # Local no disponible: delegar a la detección estándar (respetando su orden de prioridad)
+    provider, model_name = detect_active_backend()
+    return provider, model_name, health
+
+
+def assert_local_llm_ready(raise_on_unhealthy: bool = False) -> dict:
+    """
+    Check explícito al inicio del pipeline. Loguea la decisión y retorna el estado.
+    Si raise_on_unhealthy=True y el local no está sano, lanza RuntimeError.
+    """
+    provider, model_name, health = prefer_local_backend()
+    if health["healthy"]:
+        logger.info(
+            "LLM LOCAL listo: %s (%s) - health=%s probe=%sms",
+            provider, model_name, health["health_status"], health["probe_ms"],
+        )
+    else:
+        logger.warning(
+            "LLM LOCAL NO DISPONIBLE (%s). Usando fallback: %s (%s). Razon: %s",
+            health.get("url"), provider, model_name, health.get("error"),
+        )
+        if raise_on_unhealthy:
+            raise RuntimeError(f"llama-server local no disponible: {health.get('error')}")
+    return {"provider": provider, "model": model_name, "local_health": health}
 
