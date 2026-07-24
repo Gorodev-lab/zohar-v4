@@ -19,6 +19,19 @@ logger = logging.getLogger(__name__)
 # Lock para sincronización de acceso al servidor local
 _llama_server_lock = threading.Lock()
 
+# Bandera compartida (thread-safe vía GIL) que indica si hay una inferencia
+# REAL en curso contra el llama-server local. El self-healing loop la consulta
+# para NO reiniciar el contenedor mientras el server está ocupado con una
+# generación legítima (el probe de salud quedaría en cola detrás de la
+# inferencia y tardaría >10s, lo que el loop interpretaría erróneamente como
+# "server colgado" y mataría la inferencia en curso).
+LLM_INFERENCE_IN_PROGRESS = threading.Event()
+# Watchdog: timestamp (time.monotonic) en que se hizo SET. Si la bandera
+# queda atascada en True por un crash abrupto del proceso (SIGKILL/OOM/
+# segfault) que no dispara el finally, el self-healing la ignora tras un
+# umbral de seguridad para no bloquearse indefinidamente.
+LLM_INFERENCE_STARTED_AT = None
+
 # Lock y variables locales para estadísticas de latencia
 _stats_lock = threading.Lock()
 _total_tokens = 0
@@ -309,61 +322,70 @@ def _complete_local(prompt: str, system_prompt, response_json: bool, n_predict, 
             "stop": ["<end_of_turn>", "<eos>"],
         }
 
-        max_local_retries = 3 if prefer_local else 1
-        last_exc: Exception | None = None
-        for attempt in range(1, max_local_retries + 1):
-            try:
-                r = httpx.post(f"{local_url.rstrip('/')}/completion", json=payload, timeout=300.0)
-                if r.status_code == 200:
-                    res_data = r.json()
-                    content = res_data["content"].strip()
+        try:
+            # Marcar inferencia real en curso para que el self-healing loop
+            # NO reinicie el contenedor mientras el server está ocupado.
+            LLM_INFERENCE_IN_PROGRESS.set()
+            LLM_INFERENCE_STARTED_AT = time.monotonic()
+            max_local_retries = 3 if prefer_local else 1
+            last_exc: Exception | None = None
+            for attempt in range(1, max_local_retries + 1):
+                try:
+                    r = httpx.post(f"{local_url.rstrip('/')}/completion", json=payload, timeout=300.0)
+                    if r.status_code == 200:
+                        res_data = r.json()
+                        content = res_data["content"].strip()
 
-                    # Track de métricas de latencia de tokens generados
-                    timings = res_data.get("timings", {})
-                    pred_n = timings.get("predicted_n", 0)
-                    pred_ms = timings.get("predicted_ms", 0.0)
-                    if pred_n > 0:
-                        update_latency_stats(pred_n, pred_ms)
+                        # Track de métricas de latencia de tokens generados
+                        timings = res_data.get("timings", {})
+                        pred_n = timings.get("predicted_n", 0)
+                        pred_ms = timings.get("predicted_ms", 0.0)
+                        if pred_n > 0:
+                            update_latency_stats(pred_n, pred_ms)
 
-                    if response_json:
-                        if content.startswith("```"):
-                            lines = content.split("\n")
-                            if lines[0].startswith("```"):
-                                lines.pop(0)
-                            if lines and lines[-1].startswith("```"):
-                                lines.pop()
-                            content = "\n".join(lines).strip()
-                        try:
-                            match = re.search(r"\{.*\}", content, re.DOTALL)
-                            if match:
-                                content = match.group(0)
-                            parsed = json.loads(content)
-                            parsed.setdefault("meta", {})
-                            parsed["meta"]["modelo"] = "llama-server:gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
-                            return parsed
-                        except json.JSONDecodeError as je:
-                            logger.error(f"Error decodificando JSON del modelo local: {je}. Contenido: {content}")
-                            raise je
-                    return {"text": content, "meta": {"modelo": "llama-server:gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"}}
-                else:
-                    logger.error(f"Error de llama-server: {r.status_code} - {r.text}")
-                    raise RuntimeError(f"Server status {r.status_code}")
-            except Exception as exc:
-                last_exc = exc
-                if attempt < max_local_retries:
-                    logger.warning(
-                        "Fallo en llama-server (fallback local, intento %d/%d): %s. Re-verificando salud...",
-                        attempt, max_local_retries, exc,
-                    )
-                    time.sleep(2.0 * attempt)
-                    if not is_local_llm_healthy(probe_timeout=5.0).get("healthy"):
-                        logger.warning("llama-server sigue no saludable tras reintento; se usará siguiente fallback.")
-                        break
-                    continue
-                logger.warning(f"Fallo definitivo en llama-server local: {exc}.")
-        if last_exc:
-            raise last_exc
-        raise RuntimeError("llama-server local no retornó resultado")
+                        if response_json:
+                            if content.startswith("```"):
+                                lines = content.split("\n")
+                                if lines[0].startswith("```"):
+                                    lines.pop(0)
+                                if lines and lines[-1].startswith("```"):
+                                    lines.pop()
+                                content = "\n".join(lines).strip()
+                            try:
+                                match = re.search(r"\{.*\}", content, re.DOTALL)
+                                if match:
+                                    content = match.group(0)
+                                parsed = json.loads(content)
+                                parsed.setdefault("meta", {})
+                                parsed["meta"]["modelo"] = "llama-server:gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
+                                return parsed
+                            except json.JSONDecodeError as je:
+                                logger.error(f"Error decodificando JSON del modelo local: {je}. Contenido: {content}")
+                                raise je
+                        return {"text": content, "meta": {"modelo": "llama-server:gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"}}
+                    else:
+                        logger.error(f"Error de llama-server: {r.status_code} - {r.text}")
+                        raise RuntimeError(f"Server status {r.status_code}")
+                except Exception as exc:
+                    last_exc = exc
+                    if attempt < max_local_retries:
+                        logger.warning(
+                            "Fallo en llama-server (fallback local, intento %d/%d): %s. Re-verificando salud...",
+                            attempt, max_local_retries, exc,
+                        )
+                        time.sleep(2.0 * attempt)
+                        if not is_local_llm_healthy(probe_timeout=5.0).get("healthy"):
+                            logger.warning("llama-server sigue no saludable tras reintento; se usará siguiente fallback.")
+                            break
+                        continue
+                    logger.warning(f"Fallo definitivo en llama-server local: {exc}.")
+            if last_exc:
+                raise last_exc
+            raise RuntimeError("llama-server local no retornó resultado")
+        finally:
+            # Limpiar la bandera SIEMPRE (éxito, error, timeout o crash parcial)
+            # para no dejar al self-healing loop pausado indefinidamente.
+            LLM_INFERENCE_IN_PROGRESS.clear()
 
 
 def _complete_ollama(prompt: str, system_prompt, response_json: bool) -> dict:
