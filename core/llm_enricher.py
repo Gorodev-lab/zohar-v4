@@ -115,6 +115,16 @@ def enrich_metadata_from_pdf(
             logger.info("Todos los campos de metadatos ya están completos. No se requiere LLM.")
             return existing_metadata
 
+        # HEALTH CHECK EXPLÍCITO: priorizar LLM local antes de enriquecer
+        prefer_local = False
+        try:
+            from core.pipeline_health import ensure_pipeline_llm_ready
+            hc = ensure_pipeline_llm_ready()
+            prefer_local = hc.get("prefer_local", False)
+        except Exception as hc_exc:
+            logger.warning("Health check LLM no pudo ejecutarse (no fatal): %s", hc_exc)
+
+        # Extraer texto del PDF
         logger.info(
             "Enriqueciendo %d campo(s) con LLM desde %s: %s",
             len(missing_fields), pdf_path.name, missing_fields
@@ -142,6 +152,7 @@ def enrich_metadata_from_pdf(
             prompt=prompt,
             system_prompt=system_prompt,
             response_json=True,
+            prefer_local=prefer_local,
         )
 
         # Fusionar resultado: solo llenar campos que siguen faltando

@@ -46,6 +46,15 @@ zohar_rsi.log
 zohar_rsi.log*
 autoresearch/rsi.pid
 
+# Verification / scratch artifacts (logs, reports, ad-hoc scripts)
+scratch/*.log
+scratch/*.json
+scratch/*.md
+scratch/verify_pipeline.py
+scratch/verify_dl/
+probar_claves.py
+quitar_limites.py
+
 # OS specific files
 .DS_Store
 Thumbs.db

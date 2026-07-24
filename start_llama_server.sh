@@ -61,7 +61,6 @@ CMD="$LLAMA_SERVER \
   --parallel $PARALLEL \
   -b 512 \
   -ub 512 \
-  --flash-attn on \
   --cache-type-k q4_0 \
   --cache-type-v q4_0 \
   --cont-batching \
