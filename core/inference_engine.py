@@ -228,6 +228,15 @@ def generate_report(md_path: Path) -> dict:
 
     text = md_path.read_text(encoding="utf-8", errors="replace")
 
+    # HEALTH CHECK EXPLÍCITO: priorizar LLM local antes de inferencia
+    prefer_local = False
+    try:
+        from core.pipeline_health import ensure_pipeline_llm_ready
+        hc = ensure_pipeline_llm_ready()
+        prefer_local = hc.get("prefer_local", False)
+    except Exception as hc_exc:
+        logger.warning("Health check LLM no pudo ejecutarse (no fatal): %s", hc_exc)
+
     # Knockout check primero (sin llamada a Gemini/local)
     knockouts = _check_knockouts(text)
     if knockouts:
@@ -253,16 +262,29 @@ def generate_report(md_path: Path) -> dict:
         # Prompts y RAG diferenciados
         if provider in ("llama-server", "ollama"):
             sys_prompt = SYSTEM_PROMPT_LOCAL
-            context = retrieve_relevant_context(text)
-            context = _truncate_text(context, max_chars=15_000)
+            if prefer_local:
+                # Infraestructura local: el llama-server tiene un timeout de task
+                # (~40s) que cancela generaciones largas. Para garantizar 100%
+                # offline sin fallback, acotamos el prompt TOTAL (no solo el
+                # contexto) a un tamaño que termine en <30s: extracto corto del
+                # propio documento + n_predict pequeño. Sin RAG pesado.
+                context = _truncate_text(text, max_chars=1_500)
+                n_predict = 200
+            else:
+                context = retrieve_relevant_context(text)
+                context = _truncate_text(context, max_chars=15_000)
+                n_predict = 512
         else:
             sys_prompt = SYSTEM_PROMPT_GEMINI
             context = _truncate_text(text, max_chars=120_000)
+            n_predict = None
             
         result = generate_completion(
             prompt=context,
             system_prompt=sys_prompt,
-            response_json=True
+            response_json=True,
+            n_predict=n_predict,
+            prefer_local=prefer_local,
         )
         
         if not result or not isinstance(result, dict) or result.get("is_fallback"):

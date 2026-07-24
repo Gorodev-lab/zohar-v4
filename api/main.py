@@ -333,6 +333,16 @@ async def startup_event():
     _observer.start()
     logger.info("Watcher de archivos iniciado con éxito.")
 
+    # HEALTH CHECK EXPLÍCITO DEL LLM LOCAL al arranque del pipeline.
+    # Prioriza la infraestructura local (llama-server) sobre los fallbacks remotos.
+    # No bloquea: si el local no está sano, el self-healing loop lo reintentará.
+    try:
+        from core.pipeline_health import ensure_pipeline_llm_ready
+        readiness = ensure_pipeline_llm_ready()
+        logger.info("Pipeline LLM readiness al arranque: %s", readiness)
+    except Exception as hc_exc:
+        logger.warning("No se pudo ejecutar health check de LLM al arranque: %s", hc_exc)
+
     # Registrar planificadores solo si no estamos en entorno de prueba
     import sys
     if "pytest" not in sys.modules:
@@ -686,6 +696,22 @@ async def get_model_status():
         "self_healing": SELF_HEALING_STATUS,
         "details": status_data.get("details", {})
     }
+
+
+@app.get("/api/pipeline/ensure-llm", tags=["pipeline"])
+async def pipeline_ensure_llm():
+    """
+    Health check explícito del pipeline: verifica que el LLM local (llama-server)
+    esté realmente operativo (health + probe de inferencia) y prioriza la
+    infraestructura local sobre los fallbacks remotos (Mistral / Gemini).
+    """
+    try:
+        from core.pipeline_health import ensure_pipeline_llm_ready, readiness_report
+        readiness = ensure_pipeline_llm_ready()
+        readiness["readiness_report"] = readiness_report()
+        return {"status": "ok" if readiness.get("local_healthy") else "fallback", **readiness}
+    except Exception as exc:
+        return {"status": "error", "error": str(exc)}
 
 
 async def llama_self_healing_loop():
@@ -3490,3 +3516,7 @@ app.include_router(graph_router, prefix="/api/graph", tags=["Knowledge Graph"])
 # --- FASE 8: KNOWLEDGE GRAPH ROUTER ---
 from api.graph_routes import router as graph_router
 app.include_router(graph_router, prefix="/api/graph", tags=["Knowledge Graph"])
+
+# Exponer descargas locales
+from fastapi.staticfiles import StaticFiles
+app.mount("/archivos", StaticFiles(directory=str(DOWNLOADS_DIR)), name="descargas_dgira")
