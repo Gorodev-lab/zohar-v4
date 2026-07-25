@@ -53,50 +53,73 @@ def run_visible_scraper():
             os.makedirs(target_dir, exist_ok=True)
 
             try:
-                page.goto(PORTAL_URL, timeout=30000, wait_until='networkidle')
-                time.sleep(1.5)
+                page.goto(PORTAL_URL, timeout=30000)
+                time.sleep(2)
                 
-                # Buscar input del formulario de la SPA
-                input_selector = 'input[type="text"], input[placeholder*="clave"], input[placeholder*="Clave"], input'
+                # Selector del input
+                input_selector = 'input[placeholder*="bitácora"], input[placeholder*="clave"], input[type="text"]'
                 page.wait_for_selector(input_selector, timeout=10000)
                 
-                # Limpiar y rellenar la clave del proyecto
+                # Escribir la clave
                 search_input = page.locator(input_selector).first
-                search_input.fill(clave)
+                search_input.click()
+                search_input.fill('')
+                search_input.type(clave, delay=50)
                 time.sleep(0.5)
 
-                # Clic en botón Buscar / Consultar
-                btn = page.locator('button:has-text("Buscar"), button:has-text("Consultar"), input[type="submit"]').first
-                btn.click()
+                # Clic en Buscar O presionar Enter
+                search_input.press('Enter')
                 
-                time.sleep(2.5) # Esperar renderizado de respuesta SPA
+                # Intentar clic en el botón 'Buscar' granate por si acaso
+                try:
+                    page.click('button:has-text("Buscar")', timeout=2000)
+                except Exception:
+                    pass
+                
+                print('   ⏳ Esperando resultados de la consulta...')
+                time.sleep(4) # Tiempo para respuesta SPA
 
-                # Descargar adjuntos o resolutivos
-                pdf_links = page.query_selector_all("a[href*='.pdf'], a[href*='download'], button:has-text('PDF')")
-                if not pdf_links:
-                    print(f'   ⚠️ No se detectaron enlaces PDF directos para {clave}')
+                # Buscar elementos de descarga en los resultados
+                download_selectors = [
+                    "a[href*='.pdf']", 
+                    "a[href*='download']", 
+                    "button:has-text('PDF')", 
+                    "a:has-text('Descargar')",
+                    "i.fa-file-pdf",
+                    "i.fa-download"
+                ]
+
+                pdf_elements = []
+                for sel in download_selectors:
+                    found = page.query_selector_all(sel)
+                    if found:
+                        pdf_elements.extend(found)
+
+                if not pdf_elements:
+                    print(f'   ⚠️ No se detectaron archivos adjuntos/PDFs visibles para {clave}')
                     failed += 1
                     continue
 
-                for link in pdf_links:
+                print(f'   📄 {len(pdf_elements)} enlace(s) o documento(s) encontrado(s). Descargando...')
+                for elem in pdf_elements:
                     try:
-                        with page.expect_download(timeout=15000) as download_info:
-                            link.click()
+                        with page.expect_download(timeout=10000) as download_info:
+                            elem.click()
                         download = download_info.value
                         save_path = os.path.join(target_dir, download.suggested_filename)
                         download.save_as(save_path)
-                        print(f'   📄 Guardado con éxito: {download.suggested_filename}')
+                        print(f'   ✅ Archivo guardado: {download.suggested_filename}')
                         successful += 1
                     except Exception:
                         pass
             except Exception as err:
-                print(f'   ❌ Error interactuando con la SPA para {clave}: {err}')
+                print(f'   ❌ Error procesando {clave}: {err}')
                 failed += 1
 
-            time.sleep(1)
+            time.sleep(2)
 
-        print(f'\n=== 🏁 RESUMEN DE DESCARGAS ===')
-        print(f'✅ Completados: {successful} | ⚠️ Sin PDF / Fallidos: {failed}')
+        print(f'\n=== 🏁 RESUMEN ===')
+        print(f'✅ Descargados: {successful} | ⚠️ Sin PDF / Fallidos: {failed}')
         browser.close()
 
 if __name__ == '__main__':
