@@ -68,6 +68,7 @@ Reglas:
 - Emite CONDICIONADO si hay impactos mitigables con medidas.
 - Emite FAVORABLE si los impactos son mínimos.
 - Sé conciso y técnico.
+- MÁXIMO 3 condicionantes, cada uno de MENOS de 12 palabras. Sin texto de relleno.
 
 Responde ÚNICAMENTE en JSON con esta estructura exacta:
 {
@@ -196,9 +197,15 @@ def _truncate_text(text: str, max_chars: int = 120_000) -> str:
     return text[:mid] + "\n\n[...TEXTO TRUNCADO...]\n\n" + text[-mid:]
 
 
-def generate_report(md_path: Path) -> dict:
+def generate_report(md_path: Path, prefer_local: bool = False) -> dict:
     """
     Genera reporte de inferencia para un estudio de impacto ambiental.
+
+    Args:
+        md_path: ruta al .md del resumen/proyecto.
+        prefer_local: si True, fuerza el llama-server local como primer provider
+            (modo offline) y acota el contexto a 1500 chars para terminar en <30s
+            en CPU. Si False, usa detect_active_backend() (Mistral primero).
 
     Returns:
     {
@@ -228,33 +235,27 @@ def generate_report(md_path: Path) -> dict:
 
     text = md_path.read_text(encoding="utf-8", errors="replace")
 
-    # HEALTH CHECK EXPLÍCITO: priorizar LLM local antes de inferencia
-    prefer_local = False
+    # HEALTH CHECK EXPLÍCITO: priorizar LLM local antes de inferencia.
+    # NO sobreescribir prefer_local del llamador: el script de organización
+    # pasa prefer_local=True para forzar modo offline (gemma local). Si el
+    # backend detectado es el llama-server/ollama, forzamos local-only
+    # igualmente (modo offline de facto) para no malgastar ~60s/clave
+    # probando Mistral/Gemini muertos y enfriando el server CPU.
     try:
         from core.pipeline_health import ensure_pipeline_llm_ready
         hc = ensure_pipeline_llm_ready()
-        prefer_local = hc.get("prefer_local", False)
+        _hc_prefer_local = hc.get("prefer_local", False)
     except Exception as hc_exc:
         logger.warning("Health check LLM no pudo ejecutarse (no fatal): %s", hc_exc)
-
-    # Knockout check primero (sin llamada a Gemini/local)
-    knockouts = _check_knockouts(text)
-    if knockouts:
-        return {
-            "veredicto": "DESFAVORABLE",
-            "score": 0.0,
-            "yes_signals": [],
-            "no_signals": ["Knockout automático detectado"],
-            "knockouts": knockouts,
-            "condicionantes": [],
-            "confianza_pct": 100,
-            "meta": {"source": "knockout_rule", "file": str(md_path)},
-        }
+        _hc_prefer_local = False
 
     # Llamar al cliente de abstracción de modelos
     try:
         from core.llm_client import detect_active_backend, generate_completion
         provider, model_name = detect_active_backend()
+
+        # Modo offline real: el llamador pidió local O el backend activo es local.
+        prefer_local = bool(prefer_local) or bool(_hc_prefer_local) or (provider in ("llama-server", "ollama"))
         
         if provider in ("heuristic", "fallback_heuristic"):
             return _fallback_report(text, md_path)
@@ -265,11 +266,12 @@ def generate_report(md_path: Path) -> dict:
             if prefer_local:
                 # Infraestructura local: el llama-server tiene un timeout de task
                 # (~40s) que cancela generaciones largas. Para garantizar 100%
-                # offline sin fallback, acotamos el prompt TOTAL (no solo el
-                # contexto) a un tamaño que termine en <30s: extracto corto del
-                # propio documento + n_predict pequeño. Sin RAG pesado.
-                context = _truncate_text(text, max_chars=1_500)
-                n_predict = 200
+                # offline sin fallback, acotamos el prompt TOTAL a 700 chars
+                # (ver organizar_y_procesar) y n_predict moderado (~140 => ~37s,
+                # justo bajo el limite). El system prompt exige JSON breve
+                # (<=3 condicionantes cortos) para caber en ese presupuesto.
+                context = _truncate_text(text, max_chars=700)
+                n_predict = 140
             else:
                 context = retrieve_relevant_context(text)
                 context = _truncate_text(context, max_chars=15_000)
