@@ -6,13 +6,12 @@ import time
 try:
     from playwright.sync_api import sync_playwright
 except ImportError:
-    print('❌ Playwright no instalado. Ejecutando instalación...')
-    os.system('pip install playwright && playwright install chromium')
-    from playwright.sync_api import sync_playwright
+    print('❌ Playwright no instalado.')
+    sys.exit(1)
 
 DB_PATH = 'data/metadata_proyecto.db'
 PACKAGES_DIR = 'data/packages'
-SEMARNAT_URL = 'https://www.semarnat.gob.mx/gobmx/transparencia/constramite.html'
+PORTAL_URL = 'https://app.semarnat.gob.mx/consulta-tramite/#/portal-consulta'
 
 def get_missing_keys():
     conn = sqlite3.connect(DB_PATH)
@@ -30,8 +29,8 @@ def get_missing_keys():
 
 def run_visible_scraper():
     missing_keys = get_missing_keys()
-    print('=== 🌐 INICIANDO SCRAPER VISIBLE (HEADLESS = FALSE) ===')
-    print(f'📊 Claves pendientes por descargar PDF: {len(missing_keys)}\n')
+    print('=== 🌐 SCRAPER VISIBLE: PORTAL TRÁMITES SEMARNAT 2.0 ===')
+    print(f'📊 Claves pendientes por procesar: {len(missing_keys)}\n')
     
     if not missing_keys:
         print('✅ ¡Todos los proyectos ya tienen sus PDFs descargados!')
@@ -40,7 +39,7 @@ def run_visible_scraper():
     os.makedirs(PACKAGES_DIR, exist_ok=True)
 
     with sync_playwright() as p:
-        print('🖥️ Abriendo ventana de Chromium en tu pantalla...')
+        print('🖥️ Desplegando Chromium en tu pantalla...')
         browser = p.chromium.launch(headless=False, args=['--start-maximized'])
         context = browser.new_context(no_viewport=True, accept_downloads=True)
         page = context.new_page()
@@ -49,23 +48,33 @@ def run_visible_scraper():
         failed = 0
 
         for idx, clave in enumerate(missing_keys, 1):
-            print(f'[{idx}/{len(missing_keys)}] 🔍 Consulta SEMARNAT: {clave}')
+            print(f'[{idx}/{len(missing_keys)}] 🔍 Consultando clave: {clave}')
             target_dir = os.path.join(PACKAGES_DIR, clave)
             os.makedirs(target_dir, exist_ok=True)
 
             try:
-                page.goto(SEMARNAT_URL, timeout=30000)
-                page.wait_for_selector('#bitacora', timeout=10000)
-                page.fill('#bitacora', clave)
-                time.sleep(0.5)
+                page.goto(PORTAL_URL, timeout=30000, wait_until='networkidle')
+                time.sleep(1.5)
                 
-                # Intentar clic en consultar
-                page.click('input[type="submit"], button[type="submit"], #btnConsultar')
-                time.sleep(2)
+                # Buscar input del formulario de la SPA
+                input_selector = 'input[type="text"], input[placeholder*="clave"], input[placeholder*="Clave"], input'
+                page.wait_for_selector(input_selector, timeout=10000)
+                
+                # Limpiar y rellenar la clave del proyecto
+                search_input = page.locator(input_selector).first
+                search_input.fill(clave)
+                time.sleep(0.5)
 
-                pdf_links = page.query_selector_all("a[href$='.pdf'], a[href*='pdf'], a[href*='download']")
+                # Clic en botón Buscar / Consultar
+                btn = page.locator('button:has-text("Buscar"), button:has-text("Consultar"), input[type="submit"]').first
+                btn.click()
+                
+                time.sleep(2.5) # Esperar renderizado de respuesta SPA
+
+                # Descargar adjuntos o resolutivos
+                pdf_links = page.query_selector_all("a[href*='.pdf'], a[href*='download'], button:has-text('PDF')")
                 if not pdf_links:
-                    print(f'   ⚠️ No hay PDFs directos en la bitácora para {clave}')
+                    print(f'   ⚠️ No se detectaron enlaces PDF directos para {clave}')
                     failed += 1
                     continue
 
@@ -76,18 +85,18 @@ def run_visible_scraper():
                         download = download_info.value
                         save_path = os.path.join(target_dir, download.suggested_filename)
                         download.save_as(save_path)
-                        print(f'   📄 Guardado: {download.suggested_filename}')
+                        print(f'   📄 Guardado con éxito: {download.suggested_filename}')
                         successful += 1
                     except Exception:
                         pass
             except Exception as err:
-                print(f'   ❌ Error en clave {clave}: {err}')
+                print(f'   ❌ Error interactuando con la SPA para {clave}: {err}')
                 failed += 1
 
-            time.sleep(0.8)
+            time.sleep(1)
 
-        print(f'\n=== 🏁 RESUMEN ===')
-        print(f'✅ Exitosos: {successful} | ⚠️ Fallidos/Sin PDF: {failed}')
+        print(f'\n=== 🏁 RESUMEN DE DESCARGAS ===')
+        print(f'✅ Completados: {successful} | ⚠️ Sin PDF / Fallidos: {failed}')
         browser.close()
 
 if __name__ == '__main__':
