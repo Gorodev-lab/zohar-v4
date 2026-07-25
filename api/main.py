@@ -716,9 +716,25 @@ async def pipeline_ensure_llm():
 
 
 async def llama_self_healing_loop():
-    """Loop desactivado: Self-healing deshabilitado por simplificación de arquitectura."""
-    logger.info("Self-healing: Deshabilitado por simplificación de arquitectura.")
-    return
+    """Loop en segundo plano que vigila el estado de salud de llama-server y lo reinicia si es necesario.
+
+    Partes A + B (decisión de diseño 2026-07-24):
+      A) No reinicia mientras haya una inferencia REAL en curso
+         (LLM_INFERENCE_IN_PROGRESS). El probe de salud quedaría en cola
+         detrás de esa inferencia y tardaría >10s, lo que se interpretaría
+         erróneamente como "server colgado" y mataría la inferencia legítima.
+      B) Requiere N ciclos consecutivos de fallo (no uno solo) antes de
+         reiniciar, para no matar inferencias largas por un único probe
+         lento transitorio.
+    """
+    logger.info("Self-healing: Iniciando loop de auto-recuperación para llama-server...")
+    local_url = os.environ.get("LOCAL_LLM_URL", "http://127.0.0.1:8083")
+
+    # Parte B: nº de ciclos consecutivos de fallo requeridos antes de reiniciar
+    REQUIRED_CONSECUTIVE_FAILURES = 3
+    # Watchdog: umbral (s) tras el cual una bandera de inferencia activa se
+    # considera "atascada" (crash sin finally) y se ignora la pausa. 90s es
+    # holgado frente a los ~40s de colapso observado y el timeout de 300s del
     # cliente HTTP, pero evita bloquear el self-healing indefinidamente.
     LLM_INFERENCE_MAX_AGE = 90.0
 
