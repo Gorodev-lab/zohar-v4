@@ -71,3 +71,6 @@ fallidas.txt
 omitidos.txt
 logs/
 
+dw/
+data/packages/
+*.pdf
