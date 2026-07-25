@@ -938,9 +938,6 @@ html, body {
   border: 1px solid;
 }
 
-.badge--geo    { color: var(--color-info);   border-color: var(--color-info); }
-.badge--law    { color: var(--color-purple); border-color: var(--color-purple); }
-.badge--bio    { color: var(--color-ok);     border-color: var(--color-ok); }
 .badge--warn   { color: var(--color-alert);  border-color: var(--color-alert); }
 .badge--semarnat { color: #FFB000; border-color: rgba(255, 176, 0, 0.5); background: rgba(255, 176, 0, 0.12); }
 .badge--asea     { color: #00E5FF; border-color: rgba(0, 229, 255, 0.5); background: rgba(0, 229, 255, 0.12); }

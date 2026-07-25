@@ -371,7 +371,7 @@ class SemarnatDownloader:
     def __init__(
         self,
         download_dir: str | Path,
-        headless: bool = True,
+        headless: bool = False,
         download_timeout: int = 600,
         carpeta_estudios: Optional[str | Path] = None,
         carpeta_resolutivos: Optional[str | Path] = None,
@@ -608,6 +608,23 @@ class SemarnatDownloader:
             yield {"status": "progress", "msg": "Buscando en SEMARNAT...", "pct": 30}
 
             # ----------------------------------------------------------------
+            # --- INYECCIÓN: Detección de Modal de Error ---
+            yield {"status": "progress", "msg": "Verificando validez de clave...", "pct": 25}
+            try:
+                error_xpath = "//*[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'encontro informaci')]"
+                WebDriverWait(driver, 3).until(EC.visibility_of_element_located((By.XPATH, error_xpath)))
+                
+                yield {"status": "not_found", "msg": f"Clave {bitacora_value} inválida (Modal detectado).", "level": "warning"}
+                
+                # Limpiar el DOM intentando cerrar el modal
+                try:
+                    btn_cerrar = driver.find_element(By.XPATH, "//button[contains(text(), 'Aceptar') or contains(text(), 'Cerrar') or contains(@class, 'confirm')]")
+                    driver.execute_script("arguments[0].click();", btn_cerrar)
+                except Exception:
+                    pass
+                return # Esto aborta la descarga y permite al lote continuar a la siguiente clave
+            except Exception:
+                pass # Sin modal de error, la clave es válida. Seguimos al PASO 4.
             # PASO 4: Esperar a que Angular enrute y aparezcan botones de
             # descarga (polling hasta 60s)
             # ----------------------------------------------------------------

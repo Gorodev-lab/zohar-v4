@@ -64,3 +64,10 @@ scratch/*.png
 scratch/portal_screenshot.png
 scratch/search_result.png
 logs/*.log
+
+# Runtime execution queues and logs (volatile per-batch state, not source)
+por_hacer.txt
+fallidas.txt
+omitidos.txt
+logs/
+

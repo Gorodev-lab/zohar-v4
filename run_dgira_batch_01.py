@@ -57,10 +57,10 @@ async def process_batch():
     pending_keys = await get_pending_2026_keys()
     
     # Ruteo Inteligente DGIRA (letras E, H, T, U, V, I, M)
-    dgira_keys = [k for k in pending_keys if re.search(r'2026[EHTUVIM]', k)]
+    dgira_keys = [k for k in pending_keys if re.search(r'\d{4}[EHTUVIM]\d{4}$', k)]
     
     # Tomamos estrictamente el primer bloque de 10
-    batch = dgira_keys
+    batch = dgira_keys[:10]
     logger.info(f"🚀 INICIANDO LOTE 1: {len(batch)} claves DGIRA seleccionadas.")
     
     downloader = SemarnatDownloader(download_dir="downloads")
@@ -69,7 +69,7 @@ async def process_batch():
     
     for idx, clave in enumerate(batch, 1):
         logger.info(f"\n" + "="*50)
-        logger.info(f"--- Procesando [{idx}/10]: {clave} ---")
+        logger.info(f"--- Procesando [{idx}/{len(batch)}]: {clave} ---")
         try:
             # 1. Scraping y Descarga (Selector arreglado)
             logger.info(f"[{clave}] 1. Descargando desde portal SEMARNAT...")
@@ -115,14 +115,19 @@ async def process_batch():
                         logger.info(f"[{clave}] -> Job RSI iniciado. Job ID: {job_id}")
                         
                         # Polling para proteger a Gemma (espera que acabe un doc antes de mandar el otro)
+                        # Con tope de intentos: evita que un solo documento congele todo el batch
+                        # si la inferencia se atora (ej. timeout de llama-server ya visto en logs previos).
                         logger.info(f"[{clave}] -> Esperando inferencia de llama-server...")
-                        while True:
+                        MAX_POLL_INTENTOS = 45  # 45 x 4s = 180s (3 min) máximo por documento
+                        for intento_poll in range(1, MAX_POLL_INTENTOS + 1):
                             status_res = httpx.get(f"{API_URL}/api/rsi/status/{job_id}").json()
                             status = status_res.get("status", "UNKNOWN")
                             if status in ["COMPLETED", "FAILED", "PERSISTED"]:
                                 logger.info(f"[{clave}] -> Resultado RSI: {status}")
                                 break
-                            await asyncio.sleep(4.0) # Ciclo de espera suave
+                            await asyncio.sleep(4.0)
+                        else:
+                            logger.warning(f"[{clave}] -> ⏱️ Timeout esperando RSI tras {MAX_POLL_INTENTOS * 4}s. Saltando a la siguiente clave sin bloquear el batch.")
                             
                     else:
                         logger.error(f"[{clave}] Error HTTP al iniciar RSI: {res.status_code}")
