@@ -1,0 +1,808 @@
+{
+  "04CA2026H0010": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "05CO2026E0014": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "05CO2026E0019": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "05CO2026E0020": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "05CO2026E0035": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "05CO2026I0001": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "05CO2026I0032": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "06CL2026H0009": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "07CH2024V0012": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "08CI2026E0024": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "10DU2026E0005": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "10DU2026E0013": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "11GU2022V0059": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "11GU2026E0027": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "11GU2026E0028": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "11GU2026E0030": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "11GU2026M0004": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "11GU2026U0029": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "12GE2025V0025": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "12GE2026I0021": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "12GE2026M0011": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "12GE2026V0001": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "12GE2026V0004": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "12GE2026V0006": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "12GE2026V0007": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "12GE2026V0012": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "12GE2026V0015": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "12GE2026V0016": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "12GE2026V0019": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "13HI2026E0021": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "13HI2026E0027": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "13HI2026E0031": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "13HI2026V0002": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "14JA2026E0061": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "14JA2026U0013": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "14JA2026U0023": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "14JA2026U0057": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "15EM2023U0069": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "15EM2026E0016": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "15EM2026E0074": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "15EM2026H0102": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "15EM2026I0033": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "15EM2026I0044": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "15EM2026I0106": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "15EM2026I0139": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "15EM2026M0105": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "16MI2026V0046": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "16MI2026V0053": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "17MO2026E0017": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "17MO2026V0004": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "17MO2026V0007": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "18NA2026U0003": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "19NL2026E0004": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "19NL2026E0034": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "19NL2026I0008": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "19NL2026I0050": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "19NL2026I0063": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "20OA2024V0071": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "20OA2025V0069": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "20OA2026E0003": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "20OA2026H0017": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "20OA2026V0005": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "20OA2026V0015": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "20OA2026V0025": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "20OA2026V0029": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "21PU2026E0057": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "21PU2026V0014": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "21PU2026V0036": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "22QE2026E0010": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "22QE2026E0029": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "22QE2026I0018": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "22QE2026M0019": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "22QE2026V0024": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "23QR2026E0007": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "23QR2026E0034": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "23QR2026E0035": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "23QR2026E0036": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "23QR2026T0008": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "23QR2026T0015": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "23QR2026V0004": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "24SL2026E0001": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "24SL2026E0021": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "24SL2026I0006": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "25SI2026I0015": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "25SI2026V0013": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "26SO2026M0005": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "26SO2026M0009": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "26SO2026V0014": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "27TA2025H0029": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "28TM2026E0049": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "28TM2026H0017": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "28TM2026V0014": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "28TM2026V0016": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "28TM2026V0024": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "29TX2026E0005": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "29TX2026E0015": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "29TX2026E0018": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "30VE2023H0090": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "30VE2024H0091": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "30VE2026E0014": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "30VE2026I0062": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "30VE2026U0010": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "30VE2026U0038": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "30VE2026V0052": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "31YU2022E0050": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "31YU2025T0056": {
+    "grupo": "resuelta",
+    "razon": "ya_tiene_md_en_extractions",
+    "tiene_pdf": true,
+    "tiene_md": true
+  },
+  "31YU2026E0015": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "31YU2026E0016": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "31YU2026E0034": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "31YU2026E0036": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "31YU2026H0029": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "31YU2026H0037": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "31YU2026H0038": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "31YU2026V0012": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "32ZA2026E0009": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "32ZA2026M0006": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  },
+  "32ZA2026M0008": {
+    "grupo": "a",
+    "razon": "tiene_pdf_valido_falla_fue_extraccion_o_timeout",
+    "tiene_pdf": true,
+    "tiene_md": false,
+    "recuperada_ocr": false
+  }
+}

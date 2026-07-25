@@ -1,0 +1,4 @@
+# Log de claves resueltas (no reintentar)
+# Formato: <clave> <fecha ISO> <origen>
+02BC2026E0059 2026-07-25T08:30:00 ya-no-en-fallidas-bak-resuelta
+02BC2026I0026 2026-07-25T08:30:00 ya-no-en-fallidas-bak-resuelta
