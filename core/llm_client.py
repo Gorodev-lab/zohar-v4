@@ -16,6 +16,39 @@ from typing import Optional, Any
 
 logger = logging.getLogger(__name__)
 
+# --- JSON tolerante para respuestas de modelo local ---
+# Gemma E2B a veces emite JSON casi-válido (comas finales, comillas simples).
+# En vez de descartar el análisis real a heurístico, intentamos repararlo.
+def _tolerant_json_loads(text: str):
+    text = text.strip()
+    # 1) intento estricto
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # 2) quitar fences ```json ... ``` por si acaso
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+    # 3) reparar coma final antes de ] o } (quirk más común de gemma)
+    fixed = re.sub(r",(\s*[\]}])", r"\1", cleaned)
+    try:
+        return json.loads(fixed)
+    except json.JSONDecodeError:
+        pass
+    # 4) último recurso: extraer primer {...} y reparar
+    m = re.search(r"\{.*\}", cleaned, re.DOTALL)
+    if m:
+        block = re.sub(r",(\s*[\]}])", r"\1", m.group(0))
+        try:
+            return json.loads(block)
+        except json.JSONDecodeError:
+            pass
+    raise json.JSONDecodeError("no se pudo parsear el JSON del modelo", text, 0)
+
+
 # Lock para sincronización de acceso al servidor local
 _llama_server_lock = threading.Lock()
 
@@ -76,15 +109,32 @@ def detect_active_backend() -> tuple[str, str]:
     # luego Gemini, luego llama-server local, luego Ollama, luego heurístico.
     # El llama-server local es fallback de Mistral ante cuota/indisponibilidad.
 
-    # 1. Verificar Mistral API (primario)
-    if os.environ.get("MISTRAL_API_KEY"):
-        return "mistral", os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
+    # 1. Verificar Mistral API (primario) — SOLO si la key es válida.
+    #    Una key presente pero inválida (401) ya no bloquea el pipeline: caemos
+    #    al llama-server local (que ahora funciona). Esto evita que un token
+    #    vencido deje todos los veredictos en heurística.
+    mistral_key = os.environ.get("MISTRAL_API_KEY")
+    if mistral_key:
+        try:
+            probe = httpx.get(
+                "https://api.mistral.ai/v1/models",
+                headers={"Authorization": f"Bearer {mistral_key}"},
+                timeout=4.0,
+            )
+            if probe.status_code == 200:
+                return "mistral", os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
+            logger.warning(
+                "Mistral key inválida (HTTP %s) — usando llama-server local como backend.",
+                probe.status_code,
+            )
+        except Exception as exc:
+            logger.warning("Mistral inalcanzable (%s) — usando llama-server local.", exc)
 
     # 2. Verificar Gemini API
     if os.environ.get("GEMINI_API_KEY"):
         return "gemini", "gemini-2.0-flash"
 
-    # 3. Verificar llama-server (fallback local)
+    # 3. Verificar llama-server (fallback local / primario offline)
     local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8083")
     try:
         r = httpx.get(f"{local_url}/health", timeout=1.0)
@@ -156,8 +206,18 @@ def generate_completion(
     # Cadena de providers en orden de preferencia (Mistral primario, local como
     # fallback de cuota/indisponibilidad, luego Gemini/Ollama/heurístico).
     full_chain = ["mistral", "llama-server", "gemini", "ollama", "heuristic"]
-    # Reorganizar: primer provider primero, luego el resto en orden
+    # Reorganizar: primer provider primero, luego el resto en orden.
     provider_chain = [first_provider] + [p for p in full_chain if p != first_provider]
+
+    # En modo offline (llama-server es el primero por elección o porque los
+    # clouds están caídos/sin crédito), NO perder tiempo ni enfriar el server
+    # probando Mistral/Gemini/Ollama muertos: truncamos la cadena en el
+    # primer provider LOCAL. Esto evita el timeout de Ollama (10s) por clave
+    # que deja al llama-server idle y provoca desconexiones en frio.
+    if first_provider in ("llama-server", "ollama"):
+        _local_idx = provider_chain.index(first_provider)
+        provider_chain = provider_chain[: _local_idx + 1]
+        # (no incluir "heuristic" aqui: _complete_local ya reintenta con prime)
 
     errors: list[str] = []
 
@@ -186,10 +246,19 @@ def generate_completion(
             logger.info("Usando LLM provider: %s (modelo: %s)", provider, result.get("meta", {}).get("modelo"))
             return result
 
-        except MistralRequestError:
-            # Error NO recuperable (400/401/403/prompt inválido): no se
-            # reintenta en otro provider. Relanzar directo con contexto claro.
-            raise
+        except MistralRequestError as exc:
+            # 401/403 = key inválida/expirada -> NO es un error de prompt, es
+            # un fallo de auth recuperable: caer al siguiente provider (local).
+            # 400 por prompt malformado -> tampoco sirve reintentar en otro
+            # provider (el prompt es el mismo), pero para no dejar el pipeline
+            # en heurística cuando el local SÍ funciona, también caemos a local.
+            err_msg = f"{provider}: {exc}"
+            errors.append(err_msg)
+            logger.warning(
+                "Mistral falló (auth/prompt): %s. Probando siguiente provider (local)...",
+                exc,
+            )
+            continue
         except Exception as exc:  # noqa: BLE001 - capturar fallos recuperables del provider
             err_msg = f"{provider}: {exc}"
             errors.append(err_msg)
@@ -355,7 +424,7 @@ def _complete_local(prompt: str, system_prompt, response_json: bool, n_predict, 
                                 match = re.search(r"\{.*\}", content, re.DOTALL)
                                 if match:
                                     content = match.group(0)
-                                parsed = json.loads(content)
+                                parsed = _tolerant_json_loads(content)
                                 parsed.setdefault("meta", {})
                                 parsed["meta"]["modelo"] = "llama-server:gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
                                 return parsed
@@ -373,9 +442,34 @@ def _complete_local(prompt: str, system_prompt, response_json: bool, n_predict, 
                             "Fallo en llama-server (fallback local, intento %d/%d): %s. Re-verificando salud...",
                             attempt, max_local_retries, exc,
                         )
-                        time.sleep(2.0 * attempt)
-                        if not is_local_llm_healthy(probe_timeout=5.0).get("healthy"):
-                            logger.warning("llama-server sigue no saludable tras reintento; se usará siguiente fallback.")
+                        # El server GGUF/gemma en CPU desconecta la PRIMERA
+                        # generacion tras quedar idle. Hacemos un llamado
+                        # "prime" descartable para dejarlo caliente antes del
+                        # reintento real.
+                        try:
+                            httpx.post(
+                                f"{local_url.rstrip('/')}/completion",
+                                json={"prompt": "<start_of_turn>user\nOK<end_of_turn>\n<start_of_turn>model\n",
+                                      "n_predict": 8, "temperature": 0.0,
+                                      "stop": ["<end_of_turn>", "<eos>"]},
+                                timeout=60.0,
+                            )
+                        except Exception:
+                            pass
+                        # El server GGUF/gemma en CPU puede CRASHEAR (no solo
+                        # idle) en generaciones largas; el contenedor (--restart
+                        # unless-stopped) lo respawna en ~3s. Esperamos a que
+                        # vuelva a estar saludable ANTES del reintento real,
+                        # no asumimos que ya lo está.
+                        _waited = 0.0
+                        while _waited < 15.0:
+                            time.sleep(2.0)
+                            _waited += 2.0
+                            if is_local_llm_healthy(probe_timeout=5.0).get("healthy"):
+                                logger.info("llama-server recuperado tras crash (%ss); reintentando...", int(_waited))
+                                break
+                        else:
+                            logger.warning("llama-server sigue no saludable tras %ss; se usará siguiente fallback.", int(_waited))
                             break
                         continue
                     logger.warning(f"Fallo definitivo en llama-server local: {exc}.")
