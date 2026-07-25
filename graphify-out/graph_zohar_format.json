@@ -2,8 +2,8 @@
   "nodes": [
     {
       "id": "proyecto_ASEA_GACETA_19-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_19-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_19-2025",
         "promovente": null,
@@ -14,8 +14,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Considera La Operación Del Proyecto Por Un Periodo De 30 Años",
@@ -26,8 +26,8 @@
     },
     {
       "id": "proyecto_02BC2026M0029",
-      "type": "proyecto",
       "label": "02BC2026M0029",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026M0029",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -38,8 +38,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -50,8 +50,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Elawan Wind Mexico Ii",
@@ -62,8 +62,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -74,8 +74,8 @@
     },
     {
       "id": "proyecto_12GE2026I0021",
-      "type": "proyecto",
       "label": "12GE2026I0021",
+      "type": "proyecto",
       "properties": {
         "nombre": "12GE2026I0021",
         "promovente": null,
@@ -86,8 +86,8 @@
     },
     {
       "id": "proyecto_02BC2025E0049",
-      "type": "proyecto",
       "label": "02BC2025E0049",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2025E0049",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental.",
@@ -98,8 +98,8 @@
     },
     {
       "id": "proyecto_03BS2025U0020",
-      "type": "proyecto",
       "label": "03BS2025U0020",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2025U0020",
         "promovente": null,
@@ -110,8 +110,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": "Promociones Solares Mw",
@@ -122,8 +122,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_26-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_26-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_26-2026",
         "promovente": null,
@@ -134,8 +134,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable De Estudio De Impacto Ambiental",
@@ -146,8 +146,8 @@
     },
     {
       "id": "proyecto_28TM2026V0014",
-      "type": "proyecto",
       "label": "28TM2026V0014",
+      "type": "proyecto",
       "properties": {
         "nombre": "28TM2026V0014",
         "promovente": null,
@@ -158,8 +158,8 @@
     },
     {
       "id": "proyecto_gaceta_0001-26",
-      "type": "proyecto",
       "label": "gaceta_0001-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0001-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -170,8 +170,8 @@
     },
     {
       "id": "proyecto_test_ollama",
-      "type": "proyecto",
       "label": "test_ollama",
+      "type": "proyecto",
       "properties": {
         "nombre": "test_ollama",
         "promovente": null,
@@ -182,8 +182,8 @@
     },
     {
       "id": "proyecto_gaceta_0055-25",
-      "type": "proyecto",
       "label": "gaceta_0055-25",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0055-25",
         "promovente": null,
@@ -194,8 +194,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -206,8 +206,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_04-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_04-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_04-2026",
         "promovente": null,
@@ -218,8 +218,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -230,8 +230,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -242,8 +242,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -254,8 +254,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -266,8 +266,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Instituto Nacional De Antropología E Historia",
@@ -278,8 +278,8 @@
     },
     {
       "id": "proyecto_gaceta_0004-26",
-      "type": "proyecto",
       "label": "gaceta_0004-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0004-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -290,8 +290,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -302,8 +302,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -314,8 +314,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -326,8 +326,8 @@
     },
     {
       "id": "proyecto_20OA2026V0015",
-      "type": "proyecto",
       "label": "20OA2026V0015",
+      "type": "proyecto",
       "properties": {
         "nombre": "20OA2026V0015",
         "promovente": null,
@@ -338,8 +338,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_41-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_41-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_41-2025",
         "promovente": null,
@@ -350,8 +350,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Tren Maya",
@@ -362,8 +362,8 @@
     },
     {
       "id": "proyecto_04CA2026E0003",
-      "type": "proyecto",
       "label": "04CA2026E0003",
+      "type": "proyecto",
       "properties": {
         "nombre": "04CA2026E0003",
         "promovente": null,
@@ -374,8 +374,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_31-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_31-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_31-2025",
         "promovente": null,
@@ -386,8 +386,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -398,8 +398,8 @@
     },
     {
       "id": "proyecto_gaceta_0012-26",
-      "type": "proyecto",
       "label": "gaceta_0012-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0012-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -410,8 +410,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental.",
@@ -422,8 +422,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -434,8 +434,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Del Promovente.",
@@ -446,8 +446,8 @@
     },
     {
       "id": "proyecto_gaceta_0054-25",
-      "type": "proyecto",
       "label": "gaceta_0054-25",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0054-25",
         "promovente": "Sunstone Power",
@@ -458,8 +458,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Del Promovente",
@@ -470,8 +470,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_33-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_33-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_33-2024",
         "promovente": null,
@@ -482,8 +482,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -494,8 +494,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -506,8 +506,8 @@
     },
     {
       "id": "proyecto_11GU2022V0059",
-      "type": "proyecto",
       "label": "11GU2022V0059",
+      "type": "proyecto",
       "properties": {
         "nombre": "11GU2022V0059",
         "promovente": "Para Que",
@@ -518,8 +518,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_03-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_03-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_03-2025",
         "promovente": null,
@@ -530,8 +530,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_19-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_19-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_19-2026",
         "promovente": null,
@@ -542,8 +542,8 @@
     },
     {
       "id": "proyecto_gaceta_0022-26",
-      "type": "proyecto",
       "label": "gaceta_0022-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0022-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -554,8 +554,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio",
@@ -566,8 +566,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -578,8 +578,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Atlas Renewable Energy Desarrollos México S.A.P.I. De C.V.",
@@ -590,8 +590,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -602,8 +602,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": "Xxxxxxxxxxxxxxxxx",
@@ -614,8 +614,8 @@
     },
     {
       "id": "proyecto_gaceta_0026-26",
-      "type": "proyecto",
       "label": "gaceta_0026-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0026-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -626,8 +626,8 @@
     },
     {
       "id": "proyecto_03BS2026U0029",
-      "type": "proyecto",
       "label": "03BS2026U0029",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2026U0029",
         "promovente": null,
@@ -638,8 +638,8 @@
     },
     {
       "id": "proyecto_23QR2022T0015",
-      "type": "proyecto",
       "label": "23QR2022T0015",
+      "type": "proyecto",
       "properties": {
         "nombre": "23QR2022T0015",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -650,8 +650,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -662,8 +662,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -674,8 +674,8 @@
     },
     {
       "id": "proyecto_gaceta_0007-26",
-      "type": "proyecto",
       "label": "gaceta_0007-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0007-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -686,8 +686,8 @@
     },
     {
       "id": "proyecto_04CA2026E0004",
-      "type": "proyecto",
       "label": "04CA2026E0004",
+      "type": "proyecto",
       "properties": {
         "nombre": "04CA2026E0004",
         "promovente": "Cazadero Solar S. De R.L. De C.V.",
@@ -698,8 +698,8 @@
     },
     {
       "id": "proyecto_02BC2024E0044",
-      "type": "proyecto",
       "label": "02BC2024E0044",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2024E0044",
         "promovente": "Energía",
@@ -710,8 +710,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -722,8 +722,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -734,8 +734,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_13-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_13-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_13-2024",
         "promovente": null,
@@ -746,8 +746,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -758,8 +758,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -770,8 +770,8 @@
     },
     {
       "id": "proyecto_gaceta_0050-25",
-      "type": "proyecto",
       "label": "gaceta_0050-25",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0050-25",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -782,8 +782,8 @@
     },
     {
       "id": "proyecto_gaceta_0024-26",
-      "type": "proyecto",
       "label": "gaceta_0024-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0024-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -794,8 +794,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_03-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_03-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_03-2026",
         "promovente": null,
@@ -806,8 +806,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -818,8 +818,8 @@
     },
     {
       "id": "proyecto_11GU2026M0004",
-      "type": "proyecto",
       "label": "11GU2026M0004",
+      "type": "proyecto",
       "properties": {
         "nombre": "11GU2026M0004",
         "promovente": "Y Del",
@@ -830,8 +830,8 @@
     },
     {
       "id": "proyecto_02BC2025V0060",
-      "type": "proyecto",
       "label": "02BC2025V0060",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2025V0060",
         "promovente": null,
@@ -842,8 +842,8 @@
     },
     {
       "id": "proyecto_gaceta_0051-25",
-      "type": "proyecto",
       "label": "gaceta_0051-25",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0051-25",
         "promovente": null,
@@ -854,8 +854,8 @@
     },
     {
       "id": "proyecto_04CA2026E0008",
-      "type": "proyecto",
       "label": "04CA2026E0008",
+      "type": "proyecto",
       "properties": {
         "nombre": "04CA2026E0008",
         "promovente": "Promociones Solares Mw",
@@ -866,8 +866,8 @@
     },
     {
       "id": "proyecto_12GE2026V0007",
-      "type": "proyecto",
       "label": "12GE2026V0007",
+      "type": "proyecto",
       "properties": {
         "nombre": "12GE2026V0007",
         "promovente": null,
@@ -878,8 +878,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -890,8 +890,8 @@
     },
     {
       "id": "proyecto_gaceta_0023-26",
-      "type": "proyecto",
       "label": "gaceta_0023-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0023-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -902,8 +902,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable",
@@ -914,8 +914,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_25-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_25-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_25-2025",
         "promovente": null,
@@ -926,8 +926,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Quimica Delta",
@@ -938,8 +938,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Atlas Renewable Energy Desarrollos México",
@@ -950,8 +950,8 @@
     },
     {
       "id": "proyecto_03BS2026U0029",
-      "type": "proyecto",
       "label": "03BS2026U0029",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2026U0029",
         "promovente": "Hermandad En Armonía",
@@ -962,8 +962,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -974,8 +974,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Hermandad En Armonía",
@@ -986,8 +986,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_01-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_01-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_01-2026",
         "promovente": null,
@@ -998,8 +998,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1010,8 +1010,8 @@
     },
     {
       "id": "proyecto_gaceta_0014-26",
-      "type": "proyecto",
       "label": "gaceta_0014-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0014-26",
         "promovente": null,
@@ -1022,8 +1022,8 @@
     },
     {
       "id": "proyecto_02BC2022E0016",
-      "type": "proyecto",
       "label": "02BC2022E0016",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2022E0016",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -1034,8 +1034,8 @@
     },
     {
       "id": "proyecto_15EM2023U0069",
-      "type": "proyecto",
       "label": "15EM2023U0069",
+      "type": "proyecto",
       "properties": {
         "nombre": "15EM2023U0069",
         "promovente": null,
@@ -1046,8 +1046,8 @@
     },
     {
       "id": "proyecto_gaceta_0025-26",
-      "type": "proyecto",
       "label": "gaceta_0025-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0025-26",
         "promovente": null,
@@ -1058,8 +1058,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -1070,8 +1070,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1082,8 +1082,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_27-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_27-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_27-2024",
         "promovente": null,
@@ -1094,8 +1094,8 @@
     },
     {
       "id": "proyecto_gaceta_0003-26",
-      "type": "proyecto",
       "label": "gaceta_0003-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0003-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -1106,8 +1106,8 @@
     },
     {
       "id": "proyecto_03BS2023E0004",
-      "type": "proyecto",
       "label": "03BS2023E0004",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2023E0004",
         "promovente": null,
@@ -1118,8 +1118,8 @@
     },
     {
       "id": "proyecto_03BS2024U0025",
-      "type": "proyecto",
       "label": "03BS2024U0025",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2024U0025",
         "promovente": "",
@@ -1130,8 +1130,8 @@
     },
     {
       "id": "proyecto_gaceta_0013-26",
-      "type": "proyecto",
       "label": "gaceta_0013-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0013-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -1142,8 +1142,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_18-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_18-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_18-2024",
         "promovente": null,
@@ -1154,8 +1154,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental.",
@@ -1166,8 +1166,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -1178,8 +1178,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_36-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_36-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_36-2024",
         "promovente": null,
@@ -1190,8 +1190,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_21-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_21-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_21-2026",
         "promovente": null,
@@ -1202,8 +1202,8 @@
     },
     {
       "id": "proyecto_gaceta_0018-26",
-      "type": "proyecto",
       "label": "gaceta_0018-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0018-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -1214,8 +1214,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1226,8 +1226,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -1238,8 +1238,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_13-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_13-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_13-2025",
         "promovente": null,
@@ -1250,8 +1250,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -1262,8 +1262,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_37-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_37-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_37-2024",
         "promovente": null,
@@ -1274,8 +1274,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1286,8 +1286,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1298,8 +1298,8 @@
     },
     {
       "id": "proyecto_05CO2026I0001",
-      "type": "proyecto",
       "label": "05CO2026I0001",
+      "type": "proyecto",
       "properties": {
         "nombre": "05CO2026I0001",
         "promovente": "Y Del Responsable Del Estudio De Impactoambiental.",
@@ -1310,8 +1310,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio",
@@ -1322,8 +1322,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_09-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_09-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_09-2024",
         "promovente": null,
@@ -1334,8 +1334,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1346,8 +1346,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1358,8 +1358,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1370,8 +1370,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -1382,8 +1382,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1394,8 +1394,8 @@
     },
     {
       "id": "proyecto_12GE2025V0025",
-      "type": "proyecto",
       "label": "12GE2025V0025",
+      "type": "proyecto",
       "properties": {
         "nombre": "12GE2025V0025",
         "promovente": null,
@@ -1406,8 +1406,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -1418,8 +1418,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_05-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_05-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_05-2024",
         "promovente": null,
@@ -1430,8 +1430,8 @@
     },
     {
       "id": "proyecto_gaceta_0010-26",
-      "type": "proyecto",
       "label": "gaceta_0010-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0010-26",
         "promovente": "Solar Energía Tres Hermanos",
@@ -1442,8 +1442,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_12-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_12-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_12-2025",
         "promovente": null,
@@ -1454,8 +1454,8 @@
     },
     {
       "id": "proyecto_gaceta_0032-26",
-      "type": "proyecto",
       "label": "gaceta_0032-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0032-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -1466,8 +1466,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_27-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_27-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_27-2026",
         "promovente": null,
@@ -1478,8 +1478,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_34-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_34-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_34-2025",
         "promovente": null,
@@ -1490,8 +1490,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -1502,8 +1502,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1514,8 +1514,8 @@
     },
     {
       "id": "proyecto_05CO2026I0001",
-      "type": "proyecto",
       "label": "05CO2026I0001",
+      "type": "proyecto",
       "properties": {
         "nombre": "05CO2026I0001",
         "promovente": null,
@@ -1526,8 +1526,8 @@
     },
     {
       "id": "proyecto_gaceta_0021-26",
-      "type": "proyecto",
       "label": "gaceta_0021-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0021-26",
         "promovente": "Informe",
@@ -1538,8 +1538,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Secretaría De Comunicaciones Y Transportes Centro Sict Oaxaca.",
@@ -1550,8 +1550,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_22-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_22-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_22-2026",
         "promovente": null,
@@ -1562,8 +1562,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Podrá Proceder Con La Preparación",
@@ -1574,8 +1574,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_05-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_05-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_05-2025",
         "promovente": null,
@@ -1586,8 +1586,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1598,8 +1598,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_28-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_28-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_28-2026",
         "promovente": null,
@@ -1610,8 +1610,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "O De Su Representante Legal Para Recibir U Oír Notificaciones.",
@@ -1622,8 +1622,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Vientos De Panabá",
@@ -1634,8 +1634,8 @@
     },
     {
       "id": "proyecto_03BS2026U0029",
-      "type": "proyecto",
       "label": "03BS2026U0029",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2026U0029",
         "promovente": "Hermandad En Armonia",
@@ -1646,8 +1646,8 @@
     },
     {
       "id": "proyecto_03BS2026E0021",
-      "type": "proyecto",
       "label": "03BS2026E0021",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2026E0021",
         "promovente": "Desarrollo Inmobiliario El Zacatón",
@@ -1658,8 +1658,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -1670,8 +1670,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_11-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_11-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_11-2026",
         "promovente": null,
@@ -1682,8 +1682,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_26-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_26-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_26-2025",
         "promovente": null,
@@ -1694,8 +1694,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -1706,8 +1706,8 @@
     },
     {
       "id": "proyecto_04CA2026H0010",
-      "type": "proyecto",
       "label": "04CA2026H0010",
+      "type": "proyecto",
       "properties": {
         "nombre": "04CA2026H0010",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -1718,8 +1718,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": "Y Del",
@@ -1730,8 +1730,8 @@
     },
     {
       "id": "proyecto_02BC2026V0003",
-      "type": "proyecto",
       "label": "02BC2026V0003",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026V0003",
         "promovente": null,
@@ -1742,8 +1742,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_40-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_40-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_40-2025",
         "promovente": null,
@@ -1754,8 +1754,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_17-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_17-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_17-2026",
         "promovente": null,
@@ -1766,8 +1766,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_31-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_31-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_31-2024",
         "promovente": null,
@@ -1778,8 +1778,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -1790,8 +1790,8 @@
     },
     {
       "id": "proyecto_TEST_CLAVE_999",
-      "type": "proyecto",
       "label": "TEST_CLAVE_999",
+      "type": "proyecto",
       "properties": {
         "nombre": "TEST_CLAVE_999",
         "promovente": null,
@@ -1802,8 +1802,8 @@
     },
     {
       "id": "proyecto_12GE2020V0017",
-      "type": "proyecto",
       "label": "12GE2020V0017",
+      "type": "proyecto",
       "properties": {
         "nombre": "12GE2020V0017",
         "promovente": null,
@@ -1814,8 +1814,8 @@
     },
     {
       "id": "proyecto_gaceta_0017-26",
-      "type": "proyecto",
       "label": "gaceta_0017-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0017-26",
         "promovente": "Desarrollos Y Soluciones Energéticas Leda",
@@ -1826,8 +1826,8 @@
     },
     {
       "id": "proyecto_02BC2026I0068",
-      "type": "proyecto",
       "label": "02BC2026I0068",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026I0068",
         "promovente": "",
@@ -1838,8 +1838,8 @@
     },
     {
       "id": "proyecto_gaceta_0006-26",
-      "type": "proyecto",
       "label": "gaceta_0006-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0006-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -1850,8 +1850,8 @@
     },
     {
       "id": "proyecto_02BC2024E0044",
-      "type": "proyecto",
       "label": "02BC2024E0044",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2024E0044",
         "promovente": null,
@@ -1862,8 +1862,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": "Full Engineering",
@@ -1874,8 +1874,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -1886,8 +1886,8 @@
     },
     {
       "id": "proyecto_26SO2026V0014",
-      "type": "proyecto",
       "label": "26SO2026V0014",
+      "type": "proyecto",
       "properties": {
         "nombre": "26SO2026V0014",
         "promovente": null,
@@ -1898,8 +1898,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -1910,8 +1910,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_10-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_10-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_10-2025",
         "promovente": null,
@@ -1922,8 +1922,8 @@
     },
     {
       "id": "proyecto_23QR2026T0008",
-      "type": "proyecto",
       "label": "23QR2026T0008",
+      "type": "proyecto",
       "properties": {
         "nombre": "23QR2026T0008",
         "promovente": "Y Del",
@@ -1934,8 +1934,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_39-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_39-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_39-2025",
         "promovente": null,
@@ -1946,8 +1946,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_15-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_15-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_15-2025",
         "promovente": null,
@@ -1958,8 +1958,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -1970,8 +1970,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_29-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_29-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_29-2025",
         "promovente": null,
@@ -1982,8 +1982,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -1994,8 +1994,8 @@
     },
     {
       "id": "proyecto_23QR2025T0061",
-      "type": "proyecto",
       "label": "23QR2025T0061",
+      "type": "proyecto",
       "properties": {
         "nombre": "23QR2025T0061",
         "promovente": null,
@@ -2006,8 +2006,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2018,8 +2018,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_15-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_15-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_15-2026",
         "promovente": null,
@@ -2030,8 +2030,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -2042,8 +2042,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_10-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_10-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_10-2026",
         "promovente": null,
@@ -2054,8 +2054,8 @@
     },
     {
       "id": "proyecto_04CA2026E0002",
-      "type": "proyecto",
       "label": "04CA2026E0002",
+      "type": "proyecto",
       "properties": {
         "nombre": "04CA2026E0002",
         "promovente": "Y Responsable",
@@ -2066,8 +2066,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2078,8 +2078,8 @@
     },
     {
       "id": "proyecto_06CL2026H0009",
-      "type": "proyecto",
       "label": "06CL2026H0009",
+      "type": "proyecto",
       "properties": {
         "nombre": "06CL2026H0009",
         "promovente": null,
@@ -2090,8 +2090,8 @@
     },
     {
       "id": "proyecto_15EM2025I0324",
-      "type": "proyecto",
       "label": "15EM2025I0324",
+      "type": "proyecto",
       "properties": {
         "nombre": "15EM2025I0324",
         "promovente": null,
@@ -2102,8 +2102,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2114,8 +2114,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2126,8 +2126,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_26-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_26-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_26-2024",
         "promovente": null,
@@ -2138,8 +2138,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2150,8 +2150,8 @@
     },
     {
       "id": "proyecto_10DU2026E0005",
-      "type": "proyecto",
       "label": "10DU2026E0005",
+      "type": "proyecto",
       "properties": {
         "nombre": "10DU2026E0005",
         "promovente": "Y Del Responsable Del Estudio",
@@ -2162,8 +2162,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "",
@@ -2174,8 +2174,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2186,8 +2186,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Es Una Empresa Minera Que Se Dedica A La Exploración",
@@ -2198,8 +2198,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2210,8 +2210,8 @@
     },
     {
       "id": "proyecto_12GE2026V0006",
-      "type": "proyecto",
       "label": "12GE2026V0006",
+      "type": "proyecto",
       "properties": {
         "nombre": "12GE2026V0006",
         "promovente": null,
@@ -2222,8 +2222,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_28-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_28-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_28-2024",
         "promovente": null,
@@ -2234,8 +2234,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_11-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_11-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_11-2024",
         "promovente": null,
@@ -2246,8 +2246,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2258,8 +2258,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Gre El Rincón",
@@ -2270,8 +2270,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_25-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_25-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_25-2026",
         "promovente": null,
@@ -2282,8 +2282,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Cazadero Solar S. De R.L. De C.V.",
@@ -2294,8 +2294,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_21-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_21-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_21-2025",
         "promovente": null,
@@ -2306,8 +2306,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -2318,8 +2318,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2330,8 +2330,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -2342,8 +2342,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2354,8 +2354,8 @@
     },
     {
       "id": "proyecto_12GE2025V0025",
-      "type": "proyecto",
       "label": "12GE2025V0025",
+      "type": "proyecto",
       "properties": {
         "nombre": "12GE2025V0025",
         "promovente": null,
@@ -2366,8 +2366,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2378,8 +2378,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2390,8 +2390,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_24-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_24-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_24-2025",
         "promovente": null,
@@ -2402,8 +2402,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -2414,8 +2414,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2426,8 +2426,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": "Proyecto Solar Jalisco",
@@ -2438,8 +2438,8 @@
     },
     {
       "id": "proyecto_12GE2026V0004",
-      "type": "proyecto",
       "label": "12GE2026V0004",
+      "type": "proyecto",
       "properties": {
         "nombre": "12GE2026V0004",
         "promovente": "Presentó Ante Esta",
@@ -2450,8 +2450,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del",
@@ -2462,8 +2462,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2474,8 +2474,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2486,8 +2486,8 @@
     },
     {
       "id": "proyecto_02BC2026I0026",
-      "type": "proyecto",
       "label": "02BC2026I0026",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026I0026",
         "promovente": null,
@@ -2498,8 +2498,8 @@
     },
     {
       "id": "proyecto_02BC2024H0042",
-      "type": "proyecto",
       "label": "02BC2024H0042",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2024H0042",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -2510,8 +2510,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2522,8 +2522,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_08-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_08-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_08-2026",
         "promovente": null,
@@ -2534,8 +2534,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del  Estudio De  Impacto Ambiental.",
@@ -2546,8 +2546,8 @@
     },
     {
       "id": "proyecto_23QR2026T0008",
-      "type": "proyecto",
       "label": "23QR2026T0008",
+      "type": "proyecto",
       "properties": {
         "nombre": "23QR2026T0008",
         "promovente": null,
@@ -2558,8 +2558,8 @@
     },
     {
       "id": "proyecto_05CO2026E0019",
-      "type": "proyecto",
       "label": "05CO2026E0019",
+      "type": "proyecto",
       "properties": {
         "nombre": "05CO2026E0019",
         "promovente": "Atlas Renewable Energy Desarrollos México S.A.P.I. De C.V.",
@@ -2570,8 +2570,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_02-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_02-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_02-2024",
         "promovente": null,
@@ -2582,8 +2582,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Página",
@@ -2594,8 +2594,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2606,8 +2606,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2618,8 +2618,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_12-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_12-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_12-2024",
         "promovente": null,
@@ -2630,8 +2630,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2642,8 +2642,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_27-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_27-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_27-2025",
         "promovente": null,
@@ -2654,8 +2654,8 @@
     },
     {
       "id": "proyecto_02BC2026E0059",
-      "type": "proyecto",
       "label": "02BC2026E0059",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026E0059",
         "promovente": "Certe Power Supply S.A.P.I. De C.V.",
@@ -2666,8 +2666,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2678,8 +2678,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_35-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_35-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_35-2025",
         "promovente": null,
@@ -2690,8 +2690,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_11-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_11-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_11-2025",
         "promovente": null,
@@ -2702,8 +2702,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_13-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_13-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_13-2026",
         "promovente": "Cabrales Protein",
@@ -2714,8 +2714,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2726,8 +2726,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -2738,8 +2738,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Promovente",
@@ -2750,8 +2750,8 @@
     },
     {
       "id": "proyecto_gaceta_0028-26",
-      "type": "proyecto",
       "label": "gaceta_0028-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0028-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -2762,8 +2762,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio De",
@@ -2774,8 +2774,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2786,8 +2786,8 @@
     },
     {
       "id": "proyecto_03BS2026H0015",
-      "type": "proyecto",
       "label": "03BS2026H0015",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2026H0015",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental.",
@@ -2798,8 +2798,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2810,8 +2810,8 @@
     },
     {
       "id": "proyecto_26SO2026V0014",
-      "type": "proyecto",
       "label": "26SO2026V0014",
+      "type": "proyecto",
       "properties": {
         "nombre": "26SO2026V0014",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental.",
@@ -2822,8 +2822,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2834,8 +2834,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_39-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_39-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_39-2024",
         "promovente": null,
@@ -2846,8 +2846,8 @@
     },
     {
       "id": "proyecto_24SL2026I0006",
-      "type": "proyecto",
       "label": "24SL2026I0006",
+      "type": "proyecto",
       "properties": {
         "nombre": "24SL2026I0006",
         "promovente": null,
@@ -2858,8 +2858,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_05-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_05-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_05-2026",
         "promovente": null,
@@ -2870,8 +2870,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2882,8 +2882,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_02-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_02-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_02-2026",
         "promovente": null,
@@ -2894,8 +2894,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2906,8 +2906,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_14-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_14-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_14-2026",
         "promovente": null,
@@ -2918,8 +2918,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_30-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_30-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_30-2025",
         "promovente": null,
@@ -2930,8 +2930,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -2942,8 +2942,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -2954,8 +2954,8 @@
     },
     {
       "id": "proyecto_03BS2023T0019",
-      "type": "proyecto",
       "label": "03BS2023T0019",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2023T0019",
         "promovente": "Ingresó Ante Esta",
@@ -2966,8 +2966,8 @@
     },
     {
       "id": "proyecto_gaceta_0009-26",
-      "type": "proyecto",
       "label": "gaceta_0009-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0009-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -2978,8 +2978,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -2990,8 +2990,8 @@
     },
     {
       "id": "proyecto_07CH2025H0048",
-      "type": "proyecto",
       "label": "07CH2025H0048",
+      "type": "proyecto",
       "properties": {
         "nombre": "07CH2025H0048",
         "promovente": "Y Del Responsable Del",
@@ -3002,8 +3002,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_01-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_01-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_01-2025",
         "promovente": null,
@@ -3014,8 +3014,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Transformaes Creación Sostenible",
@@ -3026,8 +3026,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Del Promovente.",
@@ -3038,8 +3038,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_19-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_19-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_19-2024",
         "promovente": null,
@@ -3050,8 +3050,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_10-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_10-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_10-2024",
         "promovente": null,
@@ -3062,8 +3062,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3074,8 +3074,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3086,8 +3086,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -3098,8 +3098,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Responsable De La Elaboración Del Estudio De Impacto Ambiental4",
@@ -3110,8 +3110,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3122,8 +3122,8 @@
     },
     {
       "id": "proyecto_03BS2024U0025",
-      "type": "proyecto",
       "label": "03BS2024U0025",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2024U0025",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -3134,8 +3134,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_14-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_14-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_14-2024",
         "promovente": null,
@@ -3146,8 +3146,8 @@
     },
     {
       "id": "proyecto_04CA2026H0010",
-      "type": "proyecto",
       "label": "04CA2026H0010",
+      "type": "proyecto",
       "properties": {
         "nombre": "04CA2026H0010",
         "promovente": null,
@@ -3158,8 +3158,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3170,8 +3170,8 @@
     },
     {
       "id": "proyecto_02BC2025E0049",
-      "type": "proyecto",
       "label": "02BC2025E0049",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2025E0049",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -3182,8 +3182,8 @@
     },
     {
       "id": "proyecto_gaceta_0031-26",
-      "type": "proyecto",
       "label": "gaceta_0031-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0031-26",
         "promovente": "Informe",
@@ -3194,8 +3194,8 @@
     },
     {
       "id": "proyecto_gaceta_0034-26",
-      "type": "proyecto",
       "label": "gaceta_0034-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0034-26",
         "promovente": "Foxconn.",
@@ -3206,8 +3206,8 @@
     },
     {
       "id": "proyecto_gaceta_0029-26",
-      "type": "proyecto",
       "label": "gaceta_0029-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0029-26",
         "promovente": "Informe",
@@ -3218,8 +3218,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_14-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_14-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_14-2025",
         "promovente": null,
@@ -3230,8 +3230,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_28-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_28-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_28-2025",
         "promovente": null,
@@ -3242,8 +3242,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -3254,8 +3254,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -3266,8 +3266,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3278,8 +3278,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_32-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_32-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_32-2025",
         "promovente": null,
@@ -3290,8 +3290,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3302,8 +3302,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_01-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_01-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_01-2024",
         "promovente": null,
@@ -3314,8 +3314,8 @@
     },
     {
       "id": "proyecto_12GE2026M0011",
-      "type": "proyecto",
       "label": "12GE2026M0011",
+      "type": "proyecto",
       "properties": {
         "nombre": "12GE2026M0011",
         "promovente": "Y Del Responsable Del",
@@ -3326,8 +3326,8 @@
     },
     {
       "id": "proyecto_02BC2026I0026",
-      "type": "proyecto",
       "label": "02BC2026I0026",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026I0026",
         "promovente": null,
@@ -3338,8 +3338,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -3350,8 +3350,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3362,8 +3362,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -3374,8 +3374,8 @@
     },
     {
       "id": "proyecto_gaceta_0033-26",
-      "type": "proyecto",
       "label": "gaceta_0033-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0033-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -3386,8 +3386,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -3398,8 +3398,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_32-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_32-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_32-2024",
         "promovente": null,
@@ -3410,8 +3410,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Responsable De La Elaboración Del Estudio De Impacto Ambiental4",
@@ -3422,8 +3422,8 @@
     },
     {
       "id": "proyecto_02BC2026V0003",
-      "type": "proyecto",
       "label": "02BC2026V0003",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026V0003",
         "promovente": null,
@@ -3434,8 +3434,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_22-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_22-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_22-2024",
         "promovente": null,
@@ -3446,8 +3446,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3458,8 +3458,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3470,8 +3470,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_02-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_02-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_02-2025",
         "promovente": null,
@@ -3482,8 +3482,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_20-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_20-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_20-2024",
         "promovente": null,
@@ -3494,8 +3494,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_08-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_08-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_08-2025",
         "promovente": null,
@@ -3506,8 +3506,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "De Esta Iniciativa Es A Cargo De La Comisión Municipal De Agua Potable Y Alcantarillado",
@@ -3518,8 +3518,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -3530,8 +3530,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_33-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_33-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_33-2025",
         "promovente": null,
@@ -3542,8 +3542,8 @@
     },
     {
       "id": "proyecto_gaceta_0056-25",
-      "type": "proyecto",
       "label": "gaceta_0056-25",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0056-25",
         "promovente": null,
@@ -3554,8 +3554,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_20-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_20-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_20-2026",
         "promovente": null,
@@ -3566,8 +3566,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "-",
@@ -3578,8 +3578,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_07-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_07-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_07-2024",
         "promovente": null,
@@ -3590,8 +3590,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Promociones Solares Mw",
@@ -3602,8 +3602,8 @@
     },
     {
       "id": "proyecto_11GU2026E0030",
-      "type": "proyecto",
       "label": "11GU2026E0030",
+      "type": "proyecto",
       "properties": {
         "nombre": "11GU2026E0030",
         "promovente": "Promovente Atlas Renewable Energy Desarrollos México",
@@ -3614,8 +3614,8 @@
     },
     {
       "id": "proyecto_20OA2026V0015",
-      "type": "proyecto",
       "label": "20OA2026V0015",
+      "type": "proyecto",
       "properties": {
         "nombre": "20OA2026V0015",
         "promovente": null,
@@ -3626,8 +3626,8 @@
     },
     {
       "id": "proyecto_11GU2023E0010",
-      "type": "proyecto",
       "label": "11GU2023E0010",
+      "type": "proyecto",
       "properties": {
         "nombre": "11GU2023E0010",
         "promovente": null,
@@ -3638,8 +3638,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -3650,8 +3650,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_40-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_40-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_40-2024",
         "promovente": null,
@@ -3662,8 +3662,8 @@
     },
     {
       "id": "proyecto_gaceta_0005-26",
-      "type": "proyecto",
       "label": "gaceta_0005-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0005-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -3674,8 +3674,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -3686,8 +3686,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_16-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_16-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_16-2026",
         "promovente": null,
@@ -3698,8 +3698,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": "Instituto Nacional De Antropología E Historia",
@@ -3710,8 +3710,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_37-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_37-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_37-2025",
         "promovente": null,
@@ -3722,8 +3722,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_07-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_07-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_07-2025",
         "promovente": null,
@@ -3734,8 +3734,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3746,8 +3746,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_38-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_38-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_38-2024",
         "promovente": null,
@@ -3758,8 +3758,8 @@
     },
     {
       "id": "proyecto_11GU2026M0004",
-      "type": "proyecto",
       "label": "11GU2026M0004",
+      "type": "proyecto",
       "properties": {
         "nombre": "11GU2026M0004",
         "promovente": "Ingresó Para Su Aná Lisis Y Eva Luación En Materia De Impacto Ambiental La",
@@ -3770,8 +3770,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -3782,8 +3782,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_16-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_16-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_16-2025",
         "promovente": "Gnl Cosala",
@@ -3794,8 +3794,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3806,8 +3806,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -3818,8 +3818,8 @@
     },
     {
       "id": "proyecto_gaceta_0053-25",
-      "type": "proyecto",
       "label": "gaceta_0053-25",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0053-25",
         "promovente": "Biznaga Recursos Ambientales",
@@ -3830,8 +3830,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -3842,8 +3842,8 @@
     },
     {
       "id": "proyecto_03BS2026T0028",
-      "type": "proyecto",
       "label": "03BS2026T0028",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2026T0028",
         "promovente": "Gre El Rincón",
@@ -3854,8 +3854,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_09-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_09-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_09-2026",
         "promovente": null,
@@ -3866,8 +3866,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -3878,8 +3878,8 @@
     },
     {
       "id": "proyecto_12GE2026V0004",
-      "type": "proyecto",
       "label": "12GE2026V0004",
+      "type": "proyecto",
       "properties": {
         "nombre": "12GE2026V0004",
         "promovente": "Instituto Nacional De Los Pueblos Indigenas",
@@ -3890,8 +3890,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3902,8 +3902,8 @@
     },
     {
       "id": "proyecto_03BS2026H0015",
-      "type": "proyecto",
       "label": "03BS2026H0015",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2026H0015",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -3914,8 +3914,8 @@
     },
     {
       "id": "proyecto_05CO2026E0014",
-      "type": "proyecto",
       "label": "05CO2026E0014",
+      "type": "proyecto",
       "properties": {
         "nombre": "05CO2026E0014",
         "promovente": "-",
@@ -3926,8 +3926,8 @@
     },
     {
       "id": "proyecto_10DU2026E0013",
-      "type": "proyecto",
       "label": "10DU2026E0013",
+      "type": "proyecto",
       "properties": {
         "nombre": "10DU2026E0013",
         "promovente": null,
@@ -3938,8 +3938,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -3950,8 +3950,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Mexicana De Cobre",
@@ -3962,8 +3962,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental.",
@@ -3974,8 +3974,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_18-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_18-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_18-2026",
         "promovente": null,
@@ -3986,8 +3986,8 @@
     },
     {
       "id": "proyecto_04CA2026E0003",
-      "type": "proyecto",
       "label": "04CA2026E0003",
+      "type": "proyecto",
       "properties": {
         "nombre": "04CA2026E0003",
         "promovente": null,
@@ -3998,8 +3998,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4010,8 +4010,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_23-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_23-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_23-2026",
         "promovente": null,
@@ -4022,8 +4022,8 @@
     },
     {
       "id": "proyecto_12GE2026V0001",
-      "type": "proyecto",
       "label": "12GE2026V0001",
+      "type": "proyecto",
       "properties": {
         "nombre": "12GE2026V0001",
         "promovente": "Ingresó En Esta",
@@ -4034,8 +4034,8 @@
     },
     {
       "id": "proyecto_gaceta_0057-25",
-      "type": "proyecto",
       "label": "gaceta_0057-25",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0057-25",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -4046,8 +4046,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4058,8 +4058,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4070,8 +4070,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_07-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_07-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_07-2026",
         "promovente": null,
@@ -4082,8 +4082,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental.",
@@ -4094,8 +4094,8 @@
     },
     {
       "id": "proyecto_05CO2026E0035",
-      "type": "proyecto",
       "label": "05CO2026E0035",
+      "type": "proyecto",
       "properties": {
         "nombre": "05CO2026E0035",
         "promovente": null,
@@ -4106,8 +4106,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4118,8 +4118,8 @@
     },
     {
       "id": "proyecto_gaceta_0019-26",
-      "type": "proyecto",
       "label": "gaceta_0019-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0019-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -4130,8 +4130,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_17-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_17-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_17-2024",
         "promovente": null,
@@ -4142,8 +4142,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_25-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_25-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_25-2024",
         "promovente": null,
@@ -4154,8 +4154,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_17-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_17-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_17-2025",
         "promovente": null,
@@ -4166,8 +4166,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4178,8 +4178,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental.",
@@ -4190,8 +4190,8 @@
     },
     {
       "id": "proyecto_11GU2026E0027",
-      "type": "proyecto",
       "label": "11GU2026E0027",
+      "type": "proyecto",
       "properties": {
         "nombre": "11GU2026E0027",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental.",
@@ -4202,8 +4202,8 @@
     },
     {
       "id": "proyecto_11GU2026U0029",
-      "type": "proyecto",
       "label": "11GU2026U0029",
+      "type": "proyecto",
       "properties": {
         "nombre": "11GU2026U0029",
         "promovente": null,
@@ -4214,8 +4214,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -4226,8 +4226,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -4238,8 +4238,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Cogen Tepetlaoxtoc",
@@ -4250,8 +4250,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -4262,8 +4262,8 @@
     },
     {
       "id": "proyecto_29TX2026E0005",
-      "type": "proyecto",
       "label": "29TX2026E0005",
+      "type": "proyecto",
       "properties": {
         "nombre": "29TX2026E0005",
         "promovente": null,
@@ -4274,8 +4274,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del",
@@ -4286,8 +4286,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_23-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_23-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_23-2025",
         "promovente": null,
@@ -4298,8 +4298,8 @@
     },
     {
       "id": "proyecto_11GU2022V0059",
-      "type": "proyecto",
       "label": "11GU2022V0059",
+      "type": "proyecto",
       "properties": {
         "nombre": "11GU2022V0059",
         "promovente": null,
@@ -4310,8 +4310,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -4322,8 +4322,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4334,8 +4334,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -4346,8 +4346,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4358,8 +4358,8 @@
     },
     {
       "id": "proyecto_gaceta_0016-26",
-      "type": "proyecto",
       "label": "gaceta_0016-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0016-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -4370,8 +4370,8 @@
     },
     {
       "id": "proyecto_11GU2026E0028",
-      "type": "proyecto",
       "label": "11GU2026E0028",
+      "type": "proyecto",
       "properties": {
         "nombre": "11GU2026E0028",
         "promovente": "Promovente Pretende La Construcción",
@@ -4382,8 +4382,8 @@
     },
     {
       "id": "proyecto_gaceta_0027-26",
-      "type": "proyecto",
       "label": "gaceta_0027-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0027-26",
         "promovente": null,
@@ -4394,8 +4394,8 @@
     },
     {
       "id": "proyecto_gaceta_0052-25",
-      "type": "proyecto",
       "label": "gaceta_0052-25",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0052-25",
         "promovente": "Bluemex San Miguel",
@@ -4406,8 +4406,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4418,8 +4418,8 @@
     },
     {
       "id": "proyecto_gaceta_0030-26",
-      "type": "proyecto",
       "label": "gaceta_0030-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0030-26",
         "promovente": null,
@@ -4430,8 +4430,8 @@
     },
     {
       "id": "proyecto_gaceta_0002-26",
-      "type": "proyecto",
       "label": "gaceta_0002-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0002-26",
         "promovente": null,
@@ -4442,8 +4442,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -4454,8 +4454,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_21-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_21-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_21-2024",
         "promovente": null,
@@ -4466,8 +4466,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4478,8 +4478,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Desarrollo Inmobiliario El Zacatón",
@@ -4490,8 +4490,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4502,8 +4502,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_06-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_06-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_06-2026",
         "promovente": null,
@@ -4514,8 +4514,8 @@
     },
     {
       "id": "proyecto_20OA2025V0069",
-      "type": "proyecto",
       "label": "20OA2025V0069",
+      "type": "proyecto",
       "properties": {
         "nombre": "20OA2025V0069",
         "promovente": "Instituto Nacional De Los Pueblos Indígenas",
@@ -4526,8 +4526,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -4538,8 +4538,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4550,8 +4550,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -4562,8 +4562,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4574,8 +4574,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Ubicacion Del Proyecto",
@@ -4586,8 +4586,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4598,8 +4598,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -4610,8 +4610,8 @@
     },
     {
       "id": "proyecto_02BC2026I0026",
-      "type": "proyecto",
       "label": "02BC2026I0026",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026I0026",
         "promovente": "Biológicos Ambientales Del Noroeste",
@@ -4622,8 +4622,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4634,8 +4634,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Promovente Pretende La Construcción",
@@ -4646,8 +4646,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -4658,8 +4658,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_06-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_06-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_06-2025",
         "promovente": null,
@@ -4670,8 +4670,8 @@
     },
     {
       "id": "proyecto_01AG2024E0014",
-      "type": "proyecto",
       "label": "01AG2024E0014",
+      "type": "proyecto",
       "properties": {
         "nombre": "01AG2024E0014",
         "promovente": "Proyecto Solar Jalisco",
@@ -4682,8 +4682,8 @@
     },
     {
       "id": "proyecto_24SL2026I0006",
-      "type": "proyecto",
       "label": "24SL2026I0006",
+      "type": "proyecto",
       "properties": {
         "nombre": "24SL2026I0006",
         "promovente": null,
@@ -4694,8 +4694,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_34-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_34-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_34-2024",
         "promovente": null,
@@ -4706,8 +4706,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_12-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_12-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_12-2026",
         "promovente": null,
@@ -4718,8 +4718,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del",
@@ -4730,8 +4730,8 @@
     },
     {
       "id": "proyecto_gaceta_0049-25",
-      "type": "proyecto",
       "label": "gaceta_0049-25",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0049-25",
         "promovente": null,
@@ -4742,8 +4742,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": "Presentó Ante Esta",
@@ -4754,8 +4754,8 @@
     },
     {
       "id": "proyecto_02BC2026I0026",
-      "type": "proyecto",
       "label": "02BC2026I0026",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026I0026",
         "promovente": null,
@@ -4766,8 +4766,8 @@
     },
     {
       "id": "proyecto_15EM2023U0069",
-      "type": "proyecto",
       "label": "15EM2023U0069",
+      "type": "proyecto",
       "properties": {
         "nombre": "15EM2023U0069",
         "promovente": null,
@@ -4778,8 +4778,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": "Energía",
@@ -4790,8 +4790,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio",
@@ -4802,8 +4802,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental Y Descripción Del Proyecto",
@@ -4814,8 +4814,8 @@
     },
     {
       "id": "proyecto_23QR2025T0061",
-      "type": "proyecto",
       "label": "23QR2025T0061",
+      "type": "proyecto",
       "properties": {
         "nombre": "23QR2025T0061",
         "promovente": "Ingresó Ante El Espacio De Contacto Ciudadano",
@@ -4826,8 +4826,8 @@
     },
     {
       "id": "proyecto_01AG2024E0014",
-      "type": "proyecto",
       "label": "01AG2024E0014",
+      "type": "proyecto",
       "properties": {
         "nombre": "01AG2024E0014",
         "promovente": null,
@@ -4838,8 +4838,8 @@
     },
     {
       "id": "proyecto_28TM2026V0014",
-      "type": "proyecto",
       "label": "28TM2026V0014",
+      "type": "proyecto",
       "properties": {
         "nombre": "28TM2026V0014",
         "promovente": null,
@@ -4850,8 +4850,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_24-2026",
-      "type": "proyecto",
       "label": "ASEA_GACETA_24-2026",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_24-2026",
         "promovente": null,
@@ -4862,8 +4862,8 @@
     },
     {
       "id": "proyecto_02BC2026I0068",
-      "type": "proyecto",
       "label": "02BC2026I0068",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026I0068",
         "promovente": "",
@@ -4874,8 +4874,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -4886,8 +4886,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_09-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_09-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_09-2025",
         "promovente": null,
@@ -4898,8 +4898,8 @@
     },
     {
       "id": "proyecto_04CA2026E0011",
-      "type": "proyecto",
       "label": "04CA2026E0011",
+      "type": "proyecto",
       "properties": {
         "nombre": "04CA2026E0011",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -4910,8 +4910,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del",
@@ -4922,8 +4922,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -4934,8 +4934,8 @@
     },
     {
       "id": "proyecto_03BS2026U0030",
-      "type": "proyecto",
       "label": "03BS2026U0030",
+      "type": "proyecto",
       "properties": {
         "nombre": "03BS2026U0030",
         "promovente": null,
@@ -4946,8 +4946,8 @@
     },
     {
       "id": "proyecto_23QR2025T0061",
-      "type": "proyecto",
       "label": "23QR2025T0061",
+      "type": "proyecto",
       "properties": {
         "nombre": "23QR2025T0061",
         "promovente": null,
@@ -4958,8 +4958,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "---",
@@ -4970,8 +4970,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -4982,8 +4982,8 @@
     },
     {
       "id": "proyecto_05CO2026E0020",
-      "type": "proyecto",
       "label": "05CO2026E0020",
+      "type": "proyecto",
       "properties": {
         "nombre": "05CO2026E0020",
         "promovente": "Atlas Renewable Energy Desarrollos México",
@@ -4994,8 +4994,8 @@
     },
     {
       "id": "proyecto_29TX2026E0005",
-      "type": "proyecto",
       "label": "29TX2026E0005",
+      "type": "proyecto",
       "properties": {
         "nombre": "29TX2026E0005",
         "promovente": null,
@@ -5006,8 +5006,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -5018,8 +5018,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_20-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_20-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_20-2025",
         "promovente": null,
@@ -5030,8 +5030,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_35-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_35-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_35-2024",
         "promovente": null,
@@ -5042,8 +5042,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_36-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_36-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_36-2025",
         "promovente": null,
@@ -5054,8 +5054,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": "Sunstone Power2",
@@ -5066,8 +5066,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_18-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_18-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_18-2025",
         "promovente": null,
@@ -5078,8 +5078,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_15-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_15-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_15-2024",
         "promovente": null,
@@ -5090,8 +5090,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del",
@@ -5102,8 +5102,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Responsable",
@@ -5114,8 +5114,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -5126,8 +5126,8 @@
     },
     {
       "id": "proyecto_gaceta_0008-26",
-      "type": "proyecto",
       "label": "gaceta_0008-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0008-26",
         "promovente": null,
@@ -5138,8 +5138,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_29-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_29-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_29-2024",
         "promovente": null,
@@ -5150,8 +5150,8 @@
     },
     {
       "id": "proyecto_12GE2026V0001",
-      "type": "proyecto",
       "label": "12GE2026V0001",
+      "type": "proyecto",
       "properties": {
         "nombre": "12GE2026V0001",
         "promovente": "Y Del Responsable Del Estudio",
@@ -5162,8 +5162,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -5174,8 +5174,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": "Presentó Ante Esta",
@@ -5186,8 +5186,8 @@
     },
     {
       "id": "proyecto_02BC2026I0026",
-      "type": "proyecto",
       "label": "02BC2026I0026",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026I0026",
         "promovente": null,
@@ -5198,8 +5198,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -5210,8 +5210,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -5222,8 +5222,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -5234,8 +5234,8 @@
     },
     {
       "id": "proyecto_gaceta_0055-24",
-      "type": "proyecto",
       "label": "gaceta_0055-24",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0055-24",
         "promovente": "Eps Cfe Distribución",
@@ -5246,8 +5246,8 @@
     },
     {
       "id": "proyecto_02BC2022E0016",
-      "type": "proyecto",
       "label": "02BC2022E0016",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2022E0016",
         "promovente": "Promotora De Infraestructura Renovable México",
@@ -5258,8 +5258,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Certe Power Supply S.A.P.I. De C.V.",
@@ -5270,8 +5270,8 @@
     },
     {
       "id": "proyecto_08CI2026E0024",
-      "type": "proyecto",
       "label": "08CI2026E0024",
+      "type": "proyecto",
       "properties": {
         "nombre": "08CI2026E0024",
         "promovente": null,
@@ -5282,8 +5282,8 @@
     },
     {
       "id": "proyecto_01AG2026E0008",
-      "type": "proyecto",
       "label": "01AG2026E0008",
+      "type": "proyecto",
       "properties": {
         "nombre": "01AG2026E0008",
         "promovente": "Y Del Responsable Del",
@@ -5294,8 +5294,8 @@
     },
     {
       "id": "proyecto_gaceta_0011-26",
-      "type": "proyecto",
       "label": "gaceta_0011-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0011-26",
         "promovente": "Informe Y Exponga Los Aspectos Técnicos Ambientales Del Proyecto",
@@ -5306,8 +5306,8 @@
     },
     {
       "id": "proyecto_gaceta_0035-26",
-      "type": "proyecto",
       "label": "gaceta_0035-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0035-26",
         "promovente": "Órgano Síntesis",
@@ -5318,8 +5318,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_08-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_08-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_08-2024",
         "promovente": null,
@@ -5330,8 +5330,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -5342,8 +5342,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -5354,8 +5354,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -5366,8 +5366,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_04-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_04-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_04-2025",
         "promovente": null,
@@ -5378,8 +5378,8 @@
     },
     {
       "id": "proyecto_01AG2026X9999",
-      "type": "proyecto",
       "label": "01AG2026X9999",
+      "type": "proyecto",
       "properties": {
         "nombre": "01AG2026X9999",
         "promovente": "Energías Renovables Del Norte S.A. De C.V.",
@@ -5390,8 +5390,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_30-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_30-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_30-2024",
         "promovente": null,
@@ -5402,8 +5402,8 @@
     },
     {
       "id": "proyecto_gaceta_0020-26",
-      "type": "proyecto",
       "label": "gaceta_0020-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0020-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -5414,8 +5414,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_03-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_03-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_03-2024",
         "promovente": null,
@@ -5426,8 +5426,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_41-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_41-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_41-2024",
         "promovente": null,
@@ -5438,8 +5438,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -5450,8 +5450,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Elawan Wind 3 Sapi De Cv. La Propuesta Consiste En La Planeación",
@@ -5462,8 +5462,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -5474,8 +5474,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -5486,8 +5486,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_22-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_22-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_22-2025",
         "promovente": null,
@@ -5498,8 +5498,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": null,
@@ -5510,8 +5510,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_23-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_23-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_23-2024",
         "promovente": null,
@@ -5522,8 +5522,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -5534,8 +5534,8 @@
     },
     {
       "id": "proyecto_gaceta_0015-26",
-      "type": "proyecto",
       "label": "gaceta_0015-26",
+      "type": "proyecto",
       "properties": {
         "nombre": "gaceta_0015-26",
         "promovente": "Proyecto Modalidad Fecha De Ingreso",
@@ -5546,8 +5546,8 @@
     },
     {
       "id": "proyecto_estudio",
-      "type": "proyecto",
       "label": "estudio",
+      "type": "proyecto",
       "properties": {
         "nombre": "estudio",
         "promovente": null,
@@ -5558,8 +5558,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_06-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_06-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_06-2024",
         "promovente": null,
@@ -5570,8 +5570,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_38-2025",
-      "type": "proyecto",
       "label": "ASEA_GACETA_38-2025",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_38-2025",
         "promovente": null,
@@ -5582,8 +5582,8 @@
     },
     {
       "id": "proyecto_01AG2026E0008",
-      "type": "proyecto",
       "label": "01AG2026E0008",
+      "type": "proyecto",
       "properties": {
         "nombre": "01AG2026E0008",
         "promovente": "Y Del Responsable Del",
@@ -5594,8 +5594,8 @@
     },
     {
       "id": "proyecto_05CO2026I0032",
-      "type": "proyecto",
       "label": "05CO2026I0032",
+      "type": "proyecto",
       "properties": {
         "nombre": "05CO2026I0032",
         "promovente": null,
@@ -5606,8 +5606,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_24-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_24-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_24-2024",
         "promovente": null,
@@ -5618,8 +5618,8 @@
     },
     {
       "id": "proyecto_02BC2026I0026",
-      "type": "proyecto",
       "label": "02BC2026I0026",
+      "type": "proyecto",
       "properties": {
         "nombre": "02BC2026I0026",
         "promovente": null,
@@ -5630,8 +5630,8 @@
     },
     {
       "id": "proyecto_resumen",
-      "type": "proyecto",
       "label": "resumen",
+      "type": "proyecto",
       "properties": {
         "nombre": "resumen",
         "promovente": "Y Del Responsable Del Estudio De Impacto Ambiental",
@@ -5642,8 +5642,8 @@
     },
     {
       "id": "proyecto_31YU2025T0056",
-      "type": "proyecto",
       "label": "31YU2025T0056",
+      "type": "proyecto",
       "properties": {
         "nombre": "31YU2025T0056",
         "promovente": "Instituto Nacional De Antropología E Historia",
@@ -5654,8 +5654,8 @@
     },
     {
       "id": "proyecto_20OA2025V0069",
-      "type": "proyecto",
       "label": "20OA2025V0069",
+      "type": "proyecto",
       "properties": {
         "nombre": "20OA2025V0069",
         "promovente": null,
@@ -5666,8 +5666,8 @@
     },
     {
       "id": "proyecto_resolutivo",
-      "type": "proyecto",
       "label": "resolutivo",
+      "type": "proyecto",
       "properties": {
         "nombre": "resolutivo",
         "promovente": null,
@@ -5678,8 +5678,8 @@
     },
     {
       "id": "proyecto_31YU2025T0056",
-      "type": "proyecto",
       "label": "31YU2025T0056",
+      "type": "proyecto",
       "properties": {
         "nombre": "31YU2025T0056",
         "promovente": "Instituto Nacional De Antropología E Historia",
@@ -5690,8 +5690,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_04-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_04-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_04-2024",
         "promovente": null,
@@ -5702,8 +5702,8 @@
     },
     {
       "id": "proyecto_ASEA_GACETA_16-2024",
-      "type": "proyecto",
       "label": "ASEA_GACETA_16-2024",
+      "type": "proyecto",
       "properties": {
         "nombre": "ASEA_GACETA_16-2024",
         "promovente": null,
@@ -5714,1448 +5714,1448 @@
     },
     {
       "id": "promovente_Y Del Responsable Del Estudio De Impacto Ambiental",
-      "type": "promovente",
       "label": "Y Del Responsable Del Estudio De Impacto Ambiental",
+      "type": "promovente",
       "properties": {
         "nombre": "Y Del Responsable Del Estudio De Impacto Ambiental"
       }
     },
     {
       "id": "municipio_Benito Juárez",
-      "type": "municipio",
       "label": "Benito Juárez",
+      "type": "municipio",
       "properties": {
         "nombre": "Benito Juárez"
       }
     },
     {
       "id": "estado_De Quintana Roo",
-      "type": "estado",
       "label": "De Quintana Roo",
+      "type": "estado",
       "properties": {
         "nombre": "De Quintana Roo"
       }
     },
     {
       "id": "municipio_De Tecate",
-      "type": "municipio",
       "label": "De Tecate",
+      "type": "municipio",
       "properties": {
         "nombre": "De Tecate"
       }
     },
     {
       "id": "municipio_San Quintín",
-      "type": "municipio",
       "label": "San Quintín",
+      "type": "municipio",
       "properties": {
         "nombre": "San Quintín"
       }
     },
     {
       "id": "municipio_De Nuevo Casas Grandes En El",
-      "type": "municipio",
       "label": "De Nuevo Casas Grandes En El",
+      "type": "municipio",
       "properties": {
         "nombre": "De Nuevo Casas Grandes En El"
       }
     },
     {
       "id": "estado_De Chihuahua",
-      "type": "estado",
       "label": "De Chihuahua",
+      "type": "estado",
       "properties": {
         "nombre": "De Chihuahua"
       }
     },
     {
       "id": "promovente_Proyecto Modalidad Fecha De Ingreso",
-      "type": "promovente",
       "label": "Proyecto Modalidad Fecha De Ingreso",
+      "type": "promovente",
       "properties": {
         "nombre": "Proyecto Modalidad Fecha De Ingreso"
       }
     },
     {
       "id": "municipio_De General Cepeda",
-      "type": "municipio",
       "label": "De General Cepeda",
+      "type": "municipio",
       "properties": {
         "nombre": "De General Cepeda"
       }
     },
     {
       "id": "estado_De Coahuila De Zaragoza",
-      "type": "estado",
       "label": "De Coahuila De Zaragoza",
+      "type": "estado",
       "properties": {
         "nombre": "De Coahuila De Zaragoza"
       }
     },
     {
       "id": "municipio_De Suchiate",
-      "type": "municipio",
       "label": "De Suchiate",
+      "type": "municipio",
       "properties": {
         "nombre": "De Suchiate"
       }
     },
     {
       "id": "estado_Chiapas",
-      "type": "estado",
       "label": "Chiapas",
+      "type": "estado",
       "properties": {
         "nombre": "Chiapas"
       }
     },
     {
       "id": "municipio_Los Cabos",
-      "type": "municipio",
       "label": "Los Cabos",
+      "type": "municipio",
       "properties": {
         "nombre": "Los Cabos"
       }
     },
     {
       "id": "estado_De Campeche",
-      "type": "estado",
       "label": "De Campeche",
+      "type": "estado",
       "properties": {
         "nombre": "De Campeche"
       }
     },
     {
       "id": "municipio_Coicoyán De Las Flores",
-      "type": "municipio",
       "label": "Coicoyán De Las Flores",
+      "type": "municipio",
       "properties": {
         "nombre": "Coicoyán De Las Flores"
       }
     },
     {
       "id": "estado_Oaxaca",
-      "type": "estado",
       "label": "Oaxaca",
+      "type": "estado",
       "properties": {
         "nombre": "Oaxaca"
       }
     },
     {
       "id": "municipio_Tulum",
-      "type": "municipio",
       "label": "Tulum",
+      "type": "municipio",
       "properties": {
         "nombre": "Tulum"
       }
     },
     {
       "id": "estado_Jalisco",
-      "type": "estado",
       "label": "Jalisco",
+      "type": "estado",
       "properties": {
         "nombre": "Jalisco"
       }
     },
     {
       "id": "promovente_Sunstone Power",
-      "type": "promovente",
       "label": "Sunstone Power",
+      "type": "promovente",
       "properties": {
         "nombre": "Sunstone Power"
       }
     },
     {
       "id": "municipio_De Escárcega",
-      "type": "municipio",
       "label": "De Escárcega",
+      "type": "municipio",
       "properties": {
         "nombre": "De Escárcega"
       }
     },
     {
       "id": "estado_Campeche",
-      "type": "estado",
       "label": "Campeche",
+      "type": "estado",
       "properties": {
         "nombre": "Campeche"
       }
     },
     {
       "id": "municipio_El Marqués",
-      "type": "municipio",
       "label": "El Marqués",
+      "type": "municipio",
       "properties": {
         "nombre": "El Marqués"
       }
     },
     {
       "id": "municipio_Nopalucan",
-      "type": "municipio",
       "label": "Nopalucan",
+      "type": "municipio",
       "properties": {
         "nombre": "Nopalucan"
       }
     },
     {
       "id": "municipio_De Jaral Del Progreso Guanajuato",
-      "type": "municipio",
       "label": "De Jaral Del Progreso Guanajuato",
+      "type": "municipio",
       "properties": {
         "nombre": "De Jaral Del Progreso Guanajuato"
       }
     },
     {
       "id": "estado_Municipio De Chilpancingo De Guerrero Los Bravo",
-      "type": "estado",
       "label": "Municipio De Chilpancingo De Guerrero Los Bravo",
+      "type": "estado",
       "properties": {
         "nombre": "Municipio De Chilpancingo De Guerrero Los Bravo"
       }
     },
     {
       "id": "estado_Durango",
-      "type": "estado",
       "label": "Durango",
+      "type": "estado",
       "properties": {
         "nombre": "Durango"
       }
     },
     {
       "id": "promovente_Hermandad En Armonia",
-      "type": "promovente",
       "label": "Hermandad En Armonia",
+      "type": "promovente",
       "properties": {
         "nombre": "Hermandad En Armonia"
       }
     },
     {
       "id": "estado_Quintana Roo",
-      "type": "estado",
       "label": "Quintana Roo",
+      "type": "estado",
       "properties": {
         "nombre": "Quintana Roo"
       }
     },
     {
       "id": "municipio_De Atoyac De Álvarez",
-      "type": "municipio",
       "label": "De Atoyac De Álvarez",
+      "type": "municipio",
       "properties": {
         "nombre": "De Atoyac De Álvarez"
       }
     },
     {
       "id": "estado_De Guerrero",
-      "type": "estado",
       "label": "De Guerrero",
+      "type": "estado",
       "properties": {
         "nombre": "De Guerrero"
       }
     },
     {
       "id": "promovente_Cazadero Solar S. De R.L. De C.V.",
-      "type": "promovente",
       "label": "Cazadero Solar S. De R.L. De C.V.",
+      "type": "promovente",
       "properties": {
         "nombre": "Cazadero Solar S. De R.L. De C.V."
       }
     },
     {
       "id": "municipio_Escárcega",
-      "type": "municipio",
       "label": "Escárcega",
+      "type": "municipio",
       "properties": {
         "nombre": "Escárcega"
       }
     },
     {
       "id": "municipio_Zacualtipán De Ángeles",
-      "type": "municipio",
       "label": "Zacualtipán De Ángeles",
+      "type": "municipio",
       "properties": {
         "nombre": "Zacualtipán De Ángeles"
       }
     },
     {
       "id": "estado_Hidalgo",
-      "type": "estado",
       "label": "Hidalgo",
+      "type": "estado",
       "properties": {
         "nombre": "Hidalgo"
       }
     },
     {
       "id": "municipio_Manzanillo",
-      "type": "municipio",
       "label": "Manzanillo",
+      "type": "municipio",
       "properties": {
         "nombre": "Manzanillo"
       }
     },
     {
       "id": "promovente_Ingresó Para Su Aná Lisis Y Eva Luación En Materia De Impacto Ambiental La",
-      "type": "promovente",
       "label": "Ingresó Para Su Aná Lisis Y Eva Luación En Materia De Impacto Ambiental La",
+      "type": "promovente",
       "properties": {
         "nombre": "Ingresó Para Su Aná Lisis Y Eva Luación En Materia De Impacto Ambiental La"
       }
     },
     {
       "id": "municipio_De Xichú",
-      "type": "municipio",
       "label": "De Xichú",
+      "type": "municipio",
       "properties": {
         "nombre": "De Xichú"
       }
     },
     {
       "id": "municipio_De Ensenada",
-      "type": "municipio",
       "label": "De Ensenada",
+      "type": "municipio",
       "properties": {
         "nombre": "De Ensenada"
       }
     },
     {
       "id": "estado_De Baja California",
-      "type": "estado",
       "label": "De Baja California",
+      "type": "estado",
       "properties": {
         "nombre": "De Baja California"
       }
     },
     {
       "id": "municipio_De Los Cabos",
-      "type": "municipio",
       "label": "De Los Cabos",
+      "type": "municipio",
       "properties": {
         "nombre": "De Los Cabos"
       }
     },
     {
       "id": "estado_Baja California Sur Promovido Por",
-      "type": "estado",
       "label": "Baja California Sur Promovido Por",
+      "type": "estado",
       "properties": {
         "nombre": "Baja California Sur Promovido Por"
       }
     },
     {
       "id": "promovente_Promociones Solares Mw",
-      "type": "promovente",
       "label": "Promociones Solares Mw",
+      "type": "promovente",
       "properties": {
         "nombre": "Promociones Solares Mw"
       }
     },
     {
       "id": "municipio_De Piedras Negras",
-      "type": "municipio",
       "label": "De Piedras Negras",
+      "type": "municipio",
       "properties": {
         "nombre": "De Piedras Negras"
       }
     },
     {
       "id": "estado_De Coahuila",
-      "type": "estado",
       "label": "De Coahuila",
+      "type": "estado",
       "properties": {
         "nombre": "De Coahuila"
       }
     },
     {
       "id": "municipio_Guasave",
-      "type": "municipio",
       "label": "Guasave",
+      "type": "municipio",
       "properties": {
         "nombre": "Guasave"
       }
     },
     {
       "id": "estado_Zacatecas",
-      "type": "estado",
       "label": "Zacatecas",
+      "type": "estado",
       "properties": {
         "nombre": "Zacatecas"
       }
     },
     {
       "id": "promovente_Promotora De Infraestructura Renovable México",
-      "type": "promovente",
       "label": "Promotora De Infraestructura Renovable México",
+      "type": "promovente",
       "properties": {
         "nombre": "Promotora De Infraestructura Renovable México"
       }
     },
     {
       "id": "municipio_De San Quintín",
-      "type": "municipio",
       "label": "De San Quintín",
+      "type": "municipio",
       "properties": {
         "nombre": "De San Quintín"
       }
     },
     {
       "id": "estado_Baja California",
-      "type": "estado",
       "label": "Baja California",
+      "type": "estado",
       "properties": {
         "nombre": "Baja California"
       }
     },
     {
       "id": "municipio_De Atitalaquia",
-      "type": "municipio",
       "label": "De Atitalaquia",
+      "type": "municipio",
       "properties": {
         "nombre": "De Atitalaquia"
       }
     },
     {
       "id": "estado_Puebla",
-      "type": "estado",
       "label": "Puebla",
+      "type": "estado",
       "properties": {
         "nombre": "Puebla"
       }
     },
     {
       "id": "municipio_Desarrollo En Condominio Irapuato Gto",
-      "type": "municipio",
       "label": "Desarrollo En Condominio Irapuato Gto",
+      "type": "municipio",
       "properties": {
         "nombre": "Desarrollo En Condominio Irapuato Gto"
       }
     },
     {
       "id": "municipio_De Aguascalientes",
-      "type": "municipio",
       "label": "De Aguascalientes",
+      "type": "municipio",
       "properties": {
         "nombre": "De Aguascalientes"
       }
     },
     {
       "id": "estado_Aguascalientes",
-      "type": "estado",
       "label": "Aguascalientes",
+      "type": "estado",
       "properties": {
         "nombre": "Aguascalientes"
       }
     },
     {
       "id": "municipio_Quecholac",
-      "type": "municipio",
       "label": "Quecholac",
+      "type": "municipio",
       "properties": {
         "nombre": "Quecholac"
       }
     },
     {
       "id": "municipio_Saltillo",
-      "type": "municipio",
       "label": "Saltillo",
+      "type": "municipio",
       "properties": {
         "nombre": "Saltillo"
       }
     },
     {
       "id": "estado_Nuevo León",
-      "type": "estado",
       "label": "Nuevo León",
+      "type": "estado",
       "properties": {
         "nombre": "Nuevo León"
       }
     },
     {
       "id": "municipio_Mexicali",
-      "type": "municipio",
       "label": "Mexicali",
+      "type": "municipio",
       "properties": {
         "nombre": "Mexicali"
       }
     },
     {
       "id": "municipio_De General Cepeda En El",
-      "type": "municipio",
       "label": "De General Cepeda En El",
+      "type": "municipio",
       "properties": {
         "nombre": "De General Cepeda En El"
       }
     },
     {
       "id": "promovente_Solar Energía Tres Hermanos",
-      "type": "promovente",
       "label": "Solar Energía Tres Hermanos",
+      "type": "promovente",
       "properties": {
         "nombre": "Solar Energía Tres Hermanos"
       }
     },
     {
       "id": "municipio_Tlacoapa",
-      "type": "municipio",
       "label": "Tlacoapa",
+      "type": "municipio",
       "properties": {
         "nombre": "Tlacoapa"
       }
     },
     {
       "id": "estado_Tlaxcala",
-      "type": "estado",
       "label": "Tlaxcala",
+      "type": "estado",
       "properties": {
         "nombre": "Tlaxcala"
       }
     },
     {
       "id": "municipio_De Tepic",
-      "type": "municipio",
       "label": "De Tepic",
+      "type": "municipio",
       "properties": {
         "nombre": "De Tepic"
       }
     },
     {
       "id": "estado_Nayarit",
-      "type": "estado",
       "label": "Nayarit",
+      "type": "estado",
       "properties": {
         "nombre": "Nayarit"
       }
     },
     {
       "id": "municipio_De Sultepec",
-      "type": "municipio",
       "label": "De Sultepec",
+      "type": "municipio",
       "properties": {
         "nombre": "De Sultepec"
       }
     },
     {
       "id": "estado_México",
-      "type": "estado",
       "label": "México",
+      "type": "estado",
       "properties": {
         "nombre": "México"
       }
     },
     {
       "id": "municipio_Mérida",
-      "type": "municipio",
       "label": "Mérida",
+      "type": "municipio",
       "properties": {
         "nombre": "Mérida"
       }
     },
     {
       "id": "promovente_Informe",
-      "type": "promovente",
       "label": "Informe",
+      "type": "promovente",
       "properties": {
         "nombre": "Informe"
       }
     },
     {
       "id": "municipio_Ensenada",
-      "type": "municipio",
       "label": "Ensenada",
+      "type": "municipio",
       "properties": {
         "nombre": "Ensenada"
       }
     },
     {
       "id": "promovente_Desarrollo Inmobiliario El Zacatón",
-      "type": "promovente",
       "label": "Desarrollo Inmobiliario El Zacatón",
+      "type": "promovente",
       "properties": {
         "nombre": "Desarrollo Inmobiliario El Zacatón"
       }
     },
     {
       "id": "promovente_Desarrollos Y Soluciones Energéticas Leda",
-      "type": "promovente",
       "label": "Desarrollos Y Soluciones Energéticas Leda",
+      "type": "promovente",
       "properties": {
         "nombre": "Desarrollos Y Soluciones Energéticas Leda"
       }
     },
     {
       "id": "municipio_De Silao De La Victoria",
-      "type": "municipio",
       "label": "De Silao De La Victoria",
+      "type": "municipio",
       "properties": {
         "nombre": "De Silao De La Victoria"
       }
     },
     {
       "id": "promovente_",
-      "type": "promovente",
       "label": "",
+      "type": "promovente",
       "properties": {
         "nombre": ""
       }
     },
     {
       "id": "municipio_Venustiano Carranza",
-      "type": "municipio",
       "label": "Venustiano Carranza",
+      "type": "municipio",
       "properties": {
         "nombre": "Venustiano Carranza"
       }
     },
     {
       "id": "promovente_Y Del Responsable Del Estudio De Impacto Ambiental.",
-      "type": "promovente",
       "label": "Y Del Responsable Del Estudio De Impacto Ambiental.",
+      "type": "promovente",
       "properties": {
         "nombre": "Y Del Responsable Del Estudio De Impacto Ambiental."
       }
     },
     {
       "id": "municipio_De Pitiquito",
-      "type": "municipio",
       "label": "De Pitiquito",
+      "type": "municipio",
       "properties": {
         "nombre": "De Pitiquito"
       }
     },
     {
       "id": "estado_Sonora",
-      "type": "estado",
       "label": "Sonora",
+      "type": "estado",
       "properties": {
         "nombre": "Sonora"
       }
     },
     {
       "id": "municipio_Ecatepec De Morelos",
-      "type": "municipio",
       "label": "Ecatepec De Morelos",
+      "type": "municipio",
       "properties": {
         "nombre": "Ecatepec De Morelos"
       }
     },
     {
       "id": "municipio_Caborca",
-      "type": "municipio",
       "label": "Caborca",
+      "type": "municipio",
       "properties": {
         "nombre": "Caborca"
       }
     },
     {
       "id": "promovente_Y Responsable",
-      "type": "promovente",
       "label": "Y Responsable",
+      "type": "promovente",
       "properties": {
         "nombre": "Y Responsable"
       }
     },
     {
       "id": "promovente_Y Del Responsable Del Estudio",
-      "type": "promovente",
       "label": "Y Del Responsable Del Estudio",
+      "type": "promovente",
       "properties": {
         "nombre": "Y Del Responsable Del Estudio"
       }
     },
     {
       "id": "municipio_Mapimí",
-      "type": "municipio",
       "label": "Mapimí",
+      "type": "municipio",
       "properties": {
         "nombre": "Mapimí"
       }
     },
     {
       "id": "municipio_De Tlacoapa",
-      "type": "municipio",
       "label": "De Tlacoapa",
+      "type": "municipio",
       "properties": {
         "nombre": "De Tlacoapa"
       }
     },
     {
       "id": "municipio_Uruapan",
-      "type": "municipio",
       "label": "Uruapan",
+      "type": "municipio",
       "properties": {
         "nombre": "Uruapan"
       }
     },
     {
       "id": "municipio_Epigmenio González",
-      "type": "municipio",
       "label": "Epigmenio González",
+      "type": "municipio",
       "properties": {
         "nombre": "Epigmenio González"
       }
     },
     {
       "id": "estado_Querétaro",
-      "type": "estado",
       "label": "Querétaro",
+      "type": "estado",
       "properties": {
         "nombre": "Querétaro"
       }
     },
     {
       "id": "municipio_Tizimín",
-      "type": "municipio",
       "label": "Tizimín",
+      "type": "municipio",
       "properties": {
         "nombre": "Tizimín"
       }
     },
     {
       "id": "promovente_Instituto Nacional De Los Pueblos Indigenas",
-      "type": "promovente",
       "label": "Instituto Nacional De Los Pueblos Indigenas",
+      "type": "promovente",
       "properties": {
         "nombre": "Instituto Nacional De Los Pueblos Indigenas"
       }
     },
     {
       "id": "municipio_Tlapa De Comonfort",
-      "type": "municipio",
       "label": "Tlapa De Comonfort",
+      "type": "municipio",
       "properties": {
         "nombre": "Tlapa De Comonfort"
       }
     },
     {
       "id": "estado_Guerrero",
-      "type": "estado",
       "label": "Guerrero",
+      "type": "estado",
       "properties": {
         "nombre": "Guerrero"
       }
     },
     {
       "id": "municipio_De Playas De Rosarito",
-      "type": "municipio",
       "label": "De Playas De Rosarito",
+      "type": "municipio",
       "properties": {
         "nombre": "De Playas De Rosarito"
       }
     },
     {
       "id": "promovente_Atlas Renewable Energy Desarrollos México S.A.P.I. De C.V.",
-      "type": "promovente",
       "label": "Atlas Renewable Energy Desarrollos México S.A.P.I. De C.V.",
+      "type": "promovente",
       "properties": {
         "nombre": "Atlas Renewable Energy Desarrollos México S.A.P.I. De C.V."
       }
     },
     {
       "id": "municipio_Piedras Negras",
-      "type": "municipio",
       "label": "Piedras Negras",
+      "type": "municipio",
       "properties": {
         "nombre": "Piedras Negras"
       }
     },
     {
       "id": "estado_Coahuila",
-      "type": "estado",
       "label": "Coahuila",
+      "type": "estado",
       "properties": {
         "nombre": "Coahuila"
       }
     },
     {
       "id": "municipio_Bacalar",
-      "type": "municipio",
       "label": "Bacalar",
+      "type": "municipio",
       "properties": {
         "nombre": "Bacalar"
       }
     },
     {
       "id": "municipio_Tlajomulco De Zúñiga",
-      "type": "municipio",
       "label": "Tlajomulco De Zúñiga",
+      "type": "municipio",
       "properties": {
         "nombre": "Tlajomulco De Zúñiga"
       }
     },
     {
       "id": "municipio_Almoloya",
-      "type": "municipio",
       "label": "Almoloya",
+      "type": "municipio",
       "properties": {
         "nombre": "Almoloya"
       }
     },
     {
       "id": "promovente_Certe Power Supply S.A.P.I. De C.V.",
-      "type": "promovente",
       "label": "Certe Power Supply S.A.P.I. De C.V.",
+      "type": "promovente",
       "properties": {
         "nombre": "Certe Power Supply S.A.P.I. De C.V."
       }
     },
     {
       "id": "promovente_Cabrales Protein",
-      "type": "promovente",
       "label": "Cabrales Protein",
+      "type": "promovente",
       "properties": {
         "nombre": "Cabrales Protein"
       }
     },
     {
       "id": "estado_De Oaxaca",
-      "type": "estado",
       "label": "De Oaxaca",
+      "type": "estado",
       "properties": {
         "nombre": "De Oaxaca"
       }
     },
     {
       "id": "municipio_Zaragoza",
-      "type": "municipio",
       "label": "Zaragoza",
+      "type": "municipio",
       "properties": {
         "nombre": "Zaragoza"
       }
     },
     {
       "id": "municipio_Zapopan",
-      "type": "municipio",
       "label": "Zapopan",
+      "type": "municipio",
       "properties": {
         "nombre": "Zapopan"
       }
     },
     {
       "id": "estado_Michoacán De Ocampo",
-      "type": "estado",
       "label": "Michoacán De Ocampo",
+      "type": "estado",
       "properties": {
         "nombre": "Michoacán De Ocampo"
       }
     },
     {
       "id": "promovente_Ingresó Ante Esta",
-      "type": "promovente",
       "label": "Ingresó Ante Esta",
+      "type": "promovente",
       "properties": {
         "nombre": "Ingresó Ante Esta"
       }
     },
     {
       "id": "municipio_De Mapimí",
-      "type": "municipio",
       "label": "De Mapimí",
+      "type": "municipio",
       "properties": {
         "nombre": "De Mapimí"
       }
     },
     {
       "id": "promovente_Y Del Responsable Del",
-      "type": "promovente",
       "label": "Y Del Responsable Del",
+      "type": "promovente",
       "properties": {
         "nombre": "Y Del Responsable Del"
       }
     },
     {
       "id": "municipio_Anáhuac",
-      "type": "municipio",
       "label": "Anáhuac",
+      "type": "municipio",
       "properties": {
         "nombre": "Anáhuac"
       }
     },
     {
       "id": "municipio_Valle De Chalco",
-      "type": "municipio",
       "label": "Valle De Chalco",
+      "type": "municipio",
       "properties": {
         "nombre": "Valle De Chalco"
       }
     },
     {
       "id": "municipio_Culiacán",
-      "type": "municipio",
       "label": "Culiacán",
+      "type": "municipio",
       "properties": {
         "nombre": "Culiacán"
       }
     },
     {
       "id": "estado_Sinaloa",
-      "type": "estado",
       "label": "Sinaloa",
+      "type": "estado",
       "properties": {
         "nombre": "Sinaloa"
       }
     },
     {
       "id": "estado_De Baja California Sur",
-      "type": "estado",
       "label": "De Baja California Sur",
+      "type": "estado",
       "properties": {
         "nombre": "De Baja California Sur"
       }
     },
     {
       "id": "promovente_Foxconn.",
-      "type": "promovente",
       "label": "Foxconn.",
+      "type": "promovente",
       "properties": {
         "nombre": "Foxconn."
       }
     },
     {
       "id": "municipio_De Matamoros",
-      "type": "municipio",
       "label": "De Matamoros",
+      "type": "municipio",
       "properties": {
         "nombre": "De Matamoros"
       }
     },
     {
       "id": "estado_De Colima",
-      "type": "estado",
       "label": "De Colima",
+      "type": "estado",
       "properties": {
         "nombre": "De Colima"
       }
     },
     {
       "id": "municipio_Acuña",
-      "type": "municipio",
       "label": "Acuña",
+      "type": "municipio",
       "properties": {
         "nombre": "Acuña"
       }
     },
     {
       "id": "municipio_Aguascalientes",
-      "type": "municipio",
       "label": "Aguascalientes",
+      "type": "municipio",
       "properties": {
         "nombre": "Aguascalientes"
       }
     },
     {
       "id": "municipio_Acapulco De Juárez",
-      "type": "municipio",
       "label": "Acapulco De Juárez",
+      "type": "municipio",
       "properties": {
         "nombre": "Acapulco De Juárez"
       }
     },
     {
       "id": "municipio_Tecate",
-      "type": "municipio",
       "label": "Tecate",
+      "type": "municipio",
       "properties": {
         "nombre": "Tecate"
       }
     },
     {
       "id": "municipio_Umán",
-      "type": "municipio",
       "label": "Umán",
+      "type": "municipio",
       "properties": {
         "nombre": "Umán"
       }
     },
     {
       "id": "estado_Guanajuato",
-      "type": "estado",
       "label": "Guanajuato",
+      "type": "estado",
       "properties": {
         "nombre": "Guanajuato"
       }
     },
     {
       "id": "municipio_Atitalaquia",
-      "type": "municipio",
       "label": "Atitalaquia",
+      "type": "municipio",
       "properties": {
         "nombre": "Atitalaquia"
       }
     },
     {
       "id": "municipio_Ocoyoacac",
-      "type": "municipio",
       "label": "Ocoyoacac",
+      "type": "municipio",
       "properties": {
         "nombre": "Ocoyoacac"
       }
     },
     {
       "id": "promovente_Promovente Atlas Renewable Energy Desarrollos México",
-      "type": "promovente",
       "label": "Promovente Atlas Renewable Energy Desarrollos México",
+      "type": "promovente",
       "properties": {
         "nombre": "Promovente Atlas Renewable Energy Desarrollos México"
       }
     },
     {
       "id": "municipio_De San Luis De La Paz",
-      "type": "municipio",
       "label": "De San Luis De La Paz",
+      "type": "municipio",
       "properties": {
         "nombre": "De San Luis De La Paz"
       }
     },
     {
       "id": "estado_De Guanajuato",
-      "type": "estado",
       "label": "De Guanajuato",
+      "type": "estado",
       "properties": {
         "nombre": "De Guanajuato"
       }
     },
     {
       "id": "estado_De Hidalgo",
-      "type": "estado",
       "label": "De Hidalgo",
+      "type": "estado",
       "properties": {
         "nombre": "De Hidalgo"
       }
     },
     {
       "id": "municipio_Tepetongo",
-      "type": "municipio",
       "label": "Tepetongo",
+      "type": "municipio",
       "properties": {
         "nombre": "Tepetongo"
       }
     },
     {
       "id": "promovente_Gnl Cosala",
-      "type": "promovente",
       "label": "Gnl Cosala",
+      "type": "promovente",
       "properties": {
         "nombre": "Gnl Cosala"
       }
     },
     {
       "id": "municipio_San Pedro Tlaquepaque",
-      "type": "municipio",
       "label": "San Pedro Tlaquepaque",
+      "type": "municipio",
       "properties": {
         "nombre": "San Pedro Tlaquepaque"
       }
     },
     {
       "id": "estado_Veracruz",
-      "type": "estado",
       "label": "Veracruz",
+      "type": "estado",
       "properties": {
         "nombre": "Veracruz"
       }
     },
     {
       "id": "promovente_Biznaga Recursos Ambientales",
-      "type": "promovente",
       "label": "Biznaga Recursos Ambientales",
+      "type": "promovente",
       "properties": {
         "nombre": "Biznaga Recursos Ambientales"
       }
     },
     {
       "id": "municipio_De Lagos De Moreno",
-      "type": "municipio",
       "label": "De Lagos De Moreno",
+      "type": "municipio",
       "properties": {
         "nombre": "De Lagos De Moreno"
       }
     },
     {
       "id": "promovente_Gre El Rincón",
-      "type": "promovente",
       "label": "Gre El Rincón",
+      "type": "promovente",
       "properties": {
         "nombre": "Gre El Rincón"
       }
     },
     {
       "id": "municipio_Puerto Morelos",
-      "type": "municipio",
       "label": "Puerto Morelos",
+      "type": "municipio",
       "properties": {
         "nombre": "Puerto Morelos"
       }
     },
     {
       "id": "promovente_-",
-      "type": "promovente",
       "label": "-",
+      "type": "promovente",
       "properties": {
         "nombre": "-"
       }
     },
     {
       "id": "municipio_De Guanajuato",
-      "type": "municipio",
       "label": "De Guanajuato",
+      "type": "municipio",
       "properties": {
         "nombre": "De Guanajuato"
       }
     },
     {
       "id": "municipio_De Turistico Palmilla",
-      "type": "municipio",
       "label": "De Turistico Palmilla",
+      "type": "municipio",
       "properties": {
         "nombre": "De Turistico Palmilla"
       }
     },
     {
       "id": "municipio_Conkal",
-      "type": "municipio",
       "label": "Conkal",
+      "type": "municipio",
       "properties": {
         "nombre": "Conkal"
       }
     },
     {
       "id": "municipio_De Huamantla",
-      "type": "municipio",
       "label": "De Huamantla",
+      "type": "municipio",
       "properties": {
         "nombre": "De Huamantla"
       }
     },
     {
       "id": "estado_De Tlaxcala",
-      "type": "estado",
       "label": "De Tlaxcala",
+      "type": "estado",
       "properties": {
         "nombre": "De Tlaxcala"
       }
     },
     {
       "id": "municipio_Tekax",
-      "type": "municipio",
       "label": "Tekax",
+      "type": "municipio",
       "properties": {
         "nombre": "Tekax"
       }
     },
     {
       "id": "municipio_De Pinos",
-      "type": "municipio",
       "label": "De Pinos",
+      "type": "municipio",
       "properties": {
         "nombre": "De Pinos"
       }
     },
     {
       "id": "estado_De Zacatecas",
-      "type": "estado",
       "label": "De Zacatecas",
+      "type": "estado",
       "properties": {
         "nombre": "De Zacatecas"
       }
     },
     {
       "id": "promovente_Promovente Pretende La Construcción",
-      "type": "promovente",
       "label": "Promovente Pretende La Construcción",
+      "type": "promovente",
       "properties": {
         "nombre": "Promovente Pretende La Construcción"
       }
     },
     {
       "id": "municipio_De Manzanillo",
-      "type": "municipio",
       "label": "De Manzanillo",
+      "type": "municipio",
       "properties": {
         "nombre": "De Manzanillo"
       }
     },
     {
       "id": "estado_Colima",
-      "type": "estado",
       "label": "Colima",
+      "type": "estado",
       "properties": {
         "nombre": "Colima"
       }
     },
     {
       "id": "promovente_Bluemex San Miguel",
-      "type": "promovente",
       "label": "Bluemex San Miguel",
+      "type": "promovente",
       "properties": {
         "nombre": "Bluemex San Miguel"
       }
     },
     {
       "id": "municipio_De Allende",
-      "type": "municipio",
       "label": "De Allende",
+      "type": "municipio",
       "properties": {
         "nombre": "De Allende"
       }
     },
     {
       "id": "municipio_De Petatlan",
-      "type": "municipio",
       "label": "De Petatlan",
+      "type": "municipio",
       "properties": {
         "nombre": "De Petatlan"
       }
     },
     {
       "id": "municipio_Morelia",
-      "type": "municipio",
       "label": "Morelia",
+      "type": "municipio",
       "properties": {
         "nombre": "Morelia"
       }
     },
     {
       "id": "municipio_De Santa María Tepantlali Mixes",
-      "type": "municipio",
       "label": "De Santa María Tepantlali Mixes",
+      "type": "municipio",
       "properties": {
         "nombre": "De Santa María Tepantlali Mixes"
       }
     },
     {
       "id": "municipio_Atlacomulco",
-      "type": "municipio",
       "label": "Atlacomulco",
+      "type": "municipio",
       "properties": {
         "nombre": "Atlacomulco"
       }
     },
     {
       "id": "municipio_Tulancingo De Bravo",
-      "type": "municipio",
       "label": "Tulancingo De Bravo",
+      "type": "municipio",
       "properties": {
         "nombre": "Tulancingo De Bravo"
       }
     },
     {
       "id": "estado_Morelos",
-      "type": "estado",
       "label": "Morelos",
+      "type": "estado",
       "properties": {
         "nombre": "Morelos"
       }
     },
     {
       "id": "municipio_Cozumel",
-      "type": "municipio",
       "label": "Cozumel",
+      "type": "municipio",
       "properties": {
         "nombre": "Cozumel"
       }
     },
     {
       "id": "promovente_Atlas Renewable Energy Desarrollos México",
-      "type": "promovente",
       "label": "Atlas Renewable Energy Desarrollos México",
+      "type": "promovente",
       "properties": {
         "nombre": "Atlas Renewable Energy Desarrollos México"
       }
     },
     {
       "id": "municipio_De Nava",
-      "type": "municipio",
       "label": "De Nava",
+      "type": "municipio",
       "properties": {
         "nombre": "De Nava"
       }
     },
     {
       "id": "municipio_Juan R",
-      "type": "municipio",
       "label": "Juan R",
+      "type": "municipio",
       "properties": {
         "nombre": "Juan R"
       }
     },
     {
       "id": "municipio_León",
-      "type": "municipio",
       "label": "León",
+      "type": "municipio",
       "properties": {
         "nombre": "León"
       }
     },
     {
       "id": "municipio_Centla",
-      "type": "municipio",
       "label": "Centla",
+      "type": "municipio",
       "properties": {
         "nombre": "Centla"
       }
     },
     {
       "id": "municipio_De Villa Sola De Vega",
-      "type": "municipio",
       "label": "De Villa Sola De Vega",
+      "type": "municipio",
       "properties": {
         "nombre": "De Villa Sola De Vega"
       }
     },
     {
       "id": "municipio_Chihuahua",
-      "type": "municipio",
       "label": "Chihuahua",
+      "type": "municipio",
       "properties": {
         "nombre": "Chihuahua"
       }
     },
     {
       "id": "promovente_Eps Cfe Distribución",
-      "type": "promovente",
       "label": "Eps Cfe Distribución",
+      "type": "promovente",
       "properties": {
         "nombre": "Eps Cfe Distribución"
       }
     },
     {
       "id": "municipio_Tuzantan",
-      "type": "municipio",
       "label": "Tuzantan",
+      "type": "municipio",
       "properties": {
         "nombre": "Tuzantan"
       }
     },
     {
       "id": "promovente_Informe Y Exponga Los Aspectos Técnicos Ambientales Del Proyecto",
-      "type": "promovente",
       "label": "Informe Y Exponga Los Aspectos Técnicos Ambientales Del Proyecto",
+      "type": "promovente",
       "properties": {
         "nombre": "Informe Y Exponga Los Aspectos Técnicos Ambientales Del Proyecto"
       }
     },
     {
       "id": "municipio_De",
-      "type": "municipio",
       "label": "De",
+      "type": "municipio",
       "properties": {
         "nombre": "De"
       }
     },
     {
       "id": "promovente_Órgano Síntesis",
-      "type": "promovente",
       "label": "Órgano Síntesis",
+      "type": "promovente",
       "properties": {
         "nombre": "Órgano Síntesis"
       }
     },
     {
       "id": "municipio_Ixtapaluca",
-      "type": "municipio",
       "label": "Ixtapaluca",
+      "type": "municipio",
       "properties": {
         "nombre": "Ixtapaluca"
       }
     },
     {
       "id": "estado_Chihuahua",
-      "type": "estado",
       "label": "Chihuahua",
+      "type": "estado",
       "properties": {
         "nombre": "Chihuahua"
       }
     },
     {
       "id": "promovente_Energías Renovables Del Norte S.A. De C.V.",
-      "type": "promovente",
       "label": "Energías Renovables Del Norte S.A. De C.V.",
+      "type": "promovente",
       "properties": {
         "nombre": "Energías Renovables Del Norte S.A. De C.V."
       }
     },
     {
       "id": "municipio_Ocampo",
-      "type": "municipio",
       "label": "Ocampo",
+      "type": "municipio",
       "properties": {
         "nombre": "Ocampo"
       }
     },
     {
       "id": "municipio_San Luis De La Paz",
-      "type": "municipio",
       "label": "San Luis De La Paz",
+      "type": "municipio",
       "properties": {
         "nombre": "San Luis De La Paz"
       }
     },
     {
       "id": "municipio_La Paz",
-      "type": "municipio",
       "label": "La Paz",
+      "type": "municipio",
       "properties": {
         "nombre": "La Paz"
       }
     },
     {
       "id": "estado_De Veracruz",
-      "type": "estado",
       "label": "De Veracruz",
+      "type": "estado",
       "properties": {
         "nombre": "De Veracruz"
       }
     },
     {
       "id": "municipio_Tuxtla Gutiérrez",
-      "type": "municipio",
       "label": "Tuxtla Gutiérrez",
+      "type": "municipio",
       "properties": {
         "nombre": "Tuxtla Gutiérrez"
       }
     },
     {
       "id": "municipio_Eduardo Neri",
-      "type": "municipio",
       "label": "Eduardo Neri",
+      "type": "municipio",
       "properties": {
         "nombre": "Eduardo Neri"
       }
     },
     {
       "id": "estado_Parque Industrial Bajio Michoacan",
-      "type": "estado",
       "label": "Parque Industrial Bajio Michoacan",
+      "type": "estado",
       "properties": {
         "nombre": "Parque Industrial Bajio Michoacan"
       }
     },
     {
       "id": "promovente_Instituto Nacional De Antropología E Historia",
-      "type": "promovente",
       "label": "Instituto Nacional De Antropología E Historia",
+      "type": "promovente",
       "properties": {
         "nombre": "Instituto Nacional De Antropología E Historia"
       }
     },
     {
       "id": "municipio_Santa Elena",
-      "type": "municipio",
       "label": "Santa Elena",
+      "type": "municipio",
       "properties": {
         "nombre": "Santa Elena"
       }
     },
     {
       "id": "estado_De Yucatán",
-      "type": "estado",
       "label": "De Yucatán",
+      "type": "estado",
       "properties": {
         "nombre": "De Yucatán"
       }
     },
     {
       "id": "municipio_Puebla",
-      "type": "municipio",
       "label": "Puebla",
+      "type": "municipio",
       "properties": {
         "nombre": "Puebla"
       }
