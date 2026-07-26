@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import re
+import os
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -32,6 +33,41 @@ CLAVE_RE = re.compile(r"^([0-9]{2}[A-Z]{2}[0-9]{4}[A-Z][0-9]{4})")
 
 # Lista cerrada de 32 entidades federativas (de text_utils._ESTADOS_MX)
 ESTADOS_VALIDOS = set(e.upper() for e in _ESTADOS_MX)
+
+# ── Configuración de recorte dinámico (Fase 1 / Bloque 2) ──────────────────────
+# Los topes de snippet ya NO son constantes fijas de 4000/6000: se derivan del
+# contexto real del modelo (-c / n_ctx) consultando /props del llama-server, con
+# un margen para la respuesta. Ver TECHNICAL_DEBT.md (patrón de índice vs cuerpo).
+CHARS_PER_TOKEN = 4
+MARGEN_RESPUESTA_TOKENS = 1000   # margen reservado para que el LLM genere el JSON
+DEFAULT_N_CTX = 4096             # fallback si /props no responde
+LLAMA_SERVER_URL = os.environ.get("LOCAL_LLM_URL", "http://localhost:8083")
+# Proporción del presupuesto destinada a cada snippet
+DG_FRAC = 0.40
+DESC_FRAC = 0.60
+
+def get_model_n_ctx(url: str = LLAMA_SERVER_URL, timeout: float = 3.0) -> int:
+    """Lee el contexto real (-c / n_ctx) del llama-server vía /props.
+    Fallback a DEFAULT_N_CTX si el server no responde (p. ej. congelado)."""
+    try:
+        import httpx
+        with httpx.Client(timeout=timeout) as client:
+            r = client.get(f"{url.rstrip('/')}/props")
+        if r.status_code == 200:
+            d = r.json()
+            n_ctx = d.get("default_generation_settings", {}).get("n_ctx")
+            if isinstance(n_ctx, int) and n_ctx > 0:
+                return n_ctx
+    except Exception:
+        pass
+    return DEFAULT_N_CTX
+
+def compute_snippet_budget(n_ctx: int | None = None) -> int:
+    """Presupuesto total de caracteres para los snippets, derivado de n_ctx."""
+    if n_ctx is None:
+        n_ctx = get_model_n_ctx()
+    disponibles = max(512, n_ctx - MARGEN_RESPUESTA_TOKENS)
+    return max(2000, disponibles * CHARS_PER_TOKEN)
 
 # Patrones que distinguen una ENTRADA DE ÍNDICE/TABLA DE CONTENIDO de un cuerpo real.
 # Evidencia (audit_headers.py sobre 12GE2026V0006, 02BC2022E0016, 04CA2026E0011):
@@ -141,7 +177,7 @@ _SECCION_DESC = re.compile(
 )
 
 
-def locate_metadata_snippets(text: str) -> dict[str, str]:
+def locate_metadata_snippets(text: str, n_ctx: int | None = None) -> dict[str, str]:
     """
     Localiza (sin LLM) los tramos de texto relevantes para cada campo.
 
@@ -152,6 +188,9 @@ def locate_metadata_snippets(text: str) -> dict[str, str]:
       'descripcion':     snippet del CUERPO REAL de la sección de descripción.
       'prefijo':         primeras ~2000 chars (fallback general).
 
+    Los tamaños de snippet se derivan del contexto real del modelo (n_ctx vía
+    /props) con un margen para la respuesta; no son topes fijos. Ver
+    TECHNICAL_DEBT.md (patrón índice vs cuerpo y topes dinámicos).
 
     NO extrae valores; solo entrega el contexto crudo para que el LLM
     (Bloque 2) lo procese.
@@ -161,18 +200,23 @@ def locate_metadata_snippets(text: str) -> dict[str, str]:
 
     out = {"datos_generales": "", "descripcion": "", "prefijo": text[:2000]}
 
+    # Presupuesto dinámico derivado de n_ctx
+    budget = compute_snippet_budget(n_ctx)
+    win_dg = max(600, int(budget * DG_FRAC))
+    win_desc = max(600, int(budget * DESC_FRAC))
+
     # 1) Sección DATOS GENERALES -> cuerpo real (no índice)
-    span = _find_section_span(text, _SECCION_DATOS, window=4000)
+    span = _find_section_span(text, _SECCION_DATOS, window=win_dg)
     if span:
         out["datos_generales"] = text[span[0]:span[1]]
 
     # 2) Sección DESCRIPCIÓN -> cuerpo real (no índice)
-    span2 = _find_section_span(text, _SECCION_DESC, window=6000)
+    span2 = _find_section_span(text, _SECCION_DESC, window=win_desc)
     if span2:
         out["descripcion"] = text[span2[0]:span2[1]]
     else:
         out["descripcion"] = build_targeted_snippet(
-            text, prefix_chars=2000, window_chars=300, max_total_chars=6000
+            text, prefix_chars=win_desc // 2, window_chars=300, max_total_chars=win_desc
         )
 
     return out
