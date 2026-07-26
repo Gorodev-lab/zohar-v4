@@ -33,6 +33,94 @@ CLAVE_RE = re.compile(r"^([0-9]{2}[A-Z]{2}[0-9]{4}[A-Z][0-9]{4})")
 # Lista cerrada de 32 entidades federativas (de text_utils._ESTADOS_MX)
 ESTADOS_VALIDOS = set(e.upper() for e in _ESTADOS_MX)
 
+# Patrones que distinguen una ENTRADA DE ÍNDICE/TABLA DE CONTENIDO de un cuerpo real.
+# Evidencia (audit_headers.py sobre 12GE2026V0006, 02BC2022E0016, 04CA2026E0011):
+#  - la PRIMERA aparición de "DATOS GENERALES" es siempre el índice.
+#  - pymupdf4llm es inconsistente: a veces el cuerpo lleva '#'/'##', a veces es
+#    texto plano ("I. DATOS GENERALES..."). Pero el índice SIEMPRE tiene puntos
+#    suspensivos (.....) o es línea de tabla '|...|'. El cuerpo real NUNCA los tiene.
+_INDEX_DOTS = re.compile(r"\.{3,}")
+_INDEX_TABLE = re.compile(r"^\s*\|")
+_MD_HEADER = re.compile(r"^\s*(#{1,6}\s|-\s+#{1,6}\s)")
+# (a) número de página al final: puntos (aunque sean pocos) seguidos de dígito(s)
+#     al final de la ventana, o un dígito final cuando ya hubo puntos antes.
+_INDEX_DOTS_PAGE = re.compile(r"\.\s*\d+\s*$")
+_INDEX_PAGE_TAIL = re.compile(r"\d+\s*$")
+# (b) tag HTML de índice (subrayado de TOC visto en 04CA2026E0011)
+_INDEX_HTML_U = re.compile(r"</?u>", re.IGNORECASE)
+# (c) marcador de lista al inicio de línea (bullet o numeración)
+_LIST_MARKER = re.compile(r"^\s*([-*]\s+|\d+\.\s+)")
+
+def _is_index_entry(line: str) -> bool:
+    """True si la línea/ventana corresponde a una entrada de índice/TOC.
+
+    Criterio negativo (dirigido por evidencia; ver TECHNICAL_DEBT.md): el cuerpo
+    real NUNCA lleva puntos de relleno + número de página ni tags <u> de TOC. Se
+    detecta:
+      base) puntos suspensivos '.....' o fila de tabla '|...'
+      (a)   puntos + número de página al final ('.... 4'), o dígito final cuando
+            ya hay puntos suspensivos en la ventana
+      (b)   tag HTML <u>/<u> (subrayado de TOC)
+      (c)   bullet/numeración al inicio SOLO cuando la línea también tiene el
+            patrón completo de índice (puntos suspensivos + número de página)
+    """
+    if _INDEX_DOTS.search(line) or _INDEX_TABLE.match(line):
+        return True
+    # (a) número de página al final de la ventana
+    if _INDEX_DOTS_PAGE.search(line):
+        return True
+    if "." in line and _INDEX_PAGE_TAIL.search(line) and _INDEX_DOTS.search(line):
+        return True
+    # (b) tag HTML de índice
+    if _INDEX_HTML_U.search(line):
+        return True
+    # (c) bullet/numeración de lista COMBINADO con patrón de índice completo
+    if _LIST_MARKER.match(line) and _INDEX_DOTS.search(line) and _INDEX_PAGE_TAIL.search(line):
+        return True
+    return False
+
+def _find_section_span(text: str, pattern: re.Pattern, window: int) -> tuple[int, int] | None:
+    """Devuelve (start, end) del CUERPO REAL de la sección, no la entrada de índice.
+
+    Lógica (dirigida por evidencia empírica, ver TECHNICAL_DEBT.md):
+      1. Reunir todas las coincidencias del patrón.
+      2. Descartar las que son entrada de índice (puntos suspensivos / tabla).
+      3. De las restantes, preferir la PRIMERA con marcador markdown (#/##); si
+         ninguna lo tiene, usar la primera restante (ya no es índice).
+      4. Fallback: si todas eran índice, usar la ÚLTIMA aparición.
+    """
+    matches = list(pattern.finditer(text))
+    if not matches:
+        return None
+
+    cuerpo_cands = []   # (start, tiene_md_header)
+    for m in matches:
+        s = m.start()
+        # Bug 2 fix: construir una ventana que incluya la LÍNEA COMPLETA que
+        # contiene el match MÁS ~120 chars de lookahead, para no truncar antes
+        # de los puntos suspensivos + número de página del índice (visto en
+        # 02BC2022E0016 pos~930, donde el mapeo previo cortaba la ventana).
+        line_start = text.rfind("\n", 0, s) + 1  # 0 si no hay salto previo
+        nl = text.find("\n", s)
+        line_end = nl if nl != -1 else len(text)
+        # extender lookahead más allá del fin de línea para capturar '.... N'
+        window_end = min(len(text), max(line_end, s + 120))
+        ventana = text[line_start:window_end]
+        if _is_index_entry(ventana):
+            continue
+        cuerpo_cands.append((s, bool(_MD_HEADER.match(ventana))))
+
+    if cuerpo_cands:
+        # preferir la primera con marcador md
+        with_md = [c for c in cuerpo_cands if c[1]]
+        pick = (with_md or cuerpo_cands)[0][0]
+    else:
+        # todas eran indice: usar la ultima aparicion (fallback)
+        pick = matches[-1].start()
+
+    return (max(0, pick - 200), min(len(text), pick + window))
+
+
 # ── Secciones objetivo para localizar snippets ────────────────────────────────
 # Datos generales / ficha técnica -> clave, promovente, municipio, estado, localidad
 # NOTA: 'ficha tecnica' se restringe a la del PROYECTO; se excluye 'ficha tecnica
@@ -58,10 +146,12 @@ def locate_metadata_snippets(text: str) -> dict[str, str]:
     Localiza (sin LLM) los tramos de texto relevantes para cada campo.
 
     Devuelve un dict con:
-      'datos_generales': snippet alrededor de la sección 1 (promovente,
-                         municipio, estado, localidad, clave).
-      'descripcion':     snippet alrededor de la sección de descripción.
+      'datos_generales': snippet del CUERPO REAL de la sección 1 (promovente,
+                         municipio, estado, localidad, clave). NO la entrada
+                         de índice/tabla de contenido.
+      'descripcion':     snippet del CUERPO REAL de la sección de descripción.
       'prefijo':         primeras ~2000 chars (fallback general).
+
 
     NO extrae valores; solo entrega el contexto crudo para que el LLM
     (Bloque 2) lo procese.
@@ -71,21 +161,15 @@ def locate_metadata_snippets(text: str) -> dict[str, str]:
 
     out = {"datos_generales": "", "descripcion": "", "prefijo": text[:2000]}
 
-    # 1) Sección DATOS GENERALES
-    m = _SECCION_DATOS.search(text)
-    if m:
-        start = max(0, m.start() - 200)
-        end = min(len(text), m.start() + 4000)
-        out["datos_generales"] = text[start:end]
+    # 1) Sección DATOS GENERALES -> cuerpo real (no índice)
+    span = _find_section_span(text, _SECCION_DATOS, window=4000)
+    if span:
+        out["datos_generales"] = text[span[0]:span[1]]
 
-    # 2) Sección DESCRIPCIÓN (priorizar encabezados explícitos de descripción;
-    #    'capítulo ii' / 'ii.' solo como último recurso porque en algunos MIA
-    #    el "II." es marco jurídico, no descripción del proyecto)
-    m2 = _SECCION_DESC.search(text)
-    if m2:
-        start2 = max(0, m2.start() - 100)
-        end2 = min(len(text), m2.start() + 6000)
-        out["descripcion"] = text[start2:end2]
+    # 2) Sección DESCRIPCIÓN -> cuerpo real (no índice)
+    span2 = _find_section_span(text, _SECCION_DESC, window=6000)
+    if span2:
+        out["descripcion"] = text[span2[0]:span2[1]]
     else:
         out["descripcion"] = build_targeted_snippet(
             text, prefix_chars=2000, window_chars=300, max_total_chars=6000
