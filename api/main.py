@@ -3076,6 +3076,49 @@ async def get_eval_questions():
 # Telemetría en Tiempo Real y Gestión Unificada de Servidores
 # ---------------------------------------------------------------------------
 
+@app.get("/api/telemetry", tags=["system"])
+async def get_telemetry():
+    """
+    Retorna métricas de estado del sistema en JSON:
+    - pdfs_descargados: Número de PDFs en data/packages/
+    - extracciones_md: Número de archivos .md en extractions/
+    - espacio_disco_mb: Espacio en disco usado por el proyecto (MB)
+    - estado_db: Estado de la base de datos SQLite (OK/ERROR)
+    """
+    from pathlib import Path
+    import sqlite3
+
+    # 1. Contar PDFs descargados
+    packages_dir = Path("data/packages")
+    pdfs_descargados = sum(1 for p in packages_dir.rglob("*.pdf") if p.is_file())
+
+    # 2. Contar extracciones .md
+    extractions_dir = Path("extractions")
+    extracciones_md = sum(1 for m in extractions_dir.rglob("*.md") if m.is_file())
+
+    # 3. Espacio en disco usado por el proyecto (en MB)
+    project_size_mb = sum(f.stat().st_size for f in Path(".").rglob("*") if f.is_file()) / (1024 * 1024)
+
+    # 4. Estado de la base de datos SQLite
+    db_path = "data/metadata_proyecto.db"
+    estado_db = "OK"
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM metadata_proyecto")
+        cursor.fetchone()
+        conn.close()
+    except Exception as e:
+        estado_db = f"ERROR: {str(e)}"
+
+    return JSONResponse(content={
+        "pdfs_descargados": pdfs_descargados,
+        "extracciones_md": extracciones_md,
+        "espacio_disco_mb": round(project_size_mb, 2),
+        "estado_db": estado_db
+    })
+
+
 @app.get("/api/telemetry/stream", tags=["system"])
 async def telemetry_stream():
     """
