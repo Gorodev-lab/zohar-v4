@@ -173,6 +173,7 @@ def generate_completion(
     max_chars: Optional[int] = None,
     n_predict: Optional[int] = None,
     prefer_local: bool = False,
+    temperature: Optional[float] = None,
 ) -> dict:
     """
     Genera una completación de chat con el backend de mayor prioridad activo.
@@ -224,13 +225,13 @@ def generate_completion(
     for provider in provider_chain:
         try:
             if provider == "mistral":
-                result = _complete_mistral(prompt, system_prompt, response_json)
+                result = _complete_mistral(prompt, system_prompt, response_json, temperature)
             elif provider == "llama-server":
-                result = _complete_local(prompt, system_prompt, response_json, n_predict, prefer_local)
+                result = _complete_local(prompt, system_prompt, response_json, n_predict, prefer_local, temperature)
             elif provider == "gemini":
-                result = _complete_gemini(prompt, system_prompt, response_json)
+                result = _complete_gemini(prompt, system_prompt, response_json, temperature)
             elif provider == "ollama":
-                result = _complete_ollama(prompt, system_prompt, response_json)
+                result = _complete_ollama(prompt, system_prompt, response_json, temperature)
             elif provider == "heuristic":
                 # Si llegamos aquí por fallo de todos los anteriores, no devolvemos
                 # un dict silencioso: lanzamos error explícito.
@@ -302,7 +303,7 @@ def _is_quota_or_unavailable(exc: Exception) -> bool:
 _NON_RECOVERABLE_STATUS = {400, 401, 403, 404, 405, 409, 422}
 
 
-def _complete_mistral(prompt: str, system_prompt, response_json: bool) -> dict:
+def _complete_mistral(prompt: str, system_prompt, response_json: bool, temperature: Optional[float] = None) -> dict:
     api_key = os.environ.get("MISTRAL_API_KEY", "")
     if not api_key:
         # Sin key es un problema de configuración → no recuperable
@@ -320,7 +321,7 @@ def _complete_mistral(prompt: str, system_prompt, response_json: bool) -> dict:
     payload = {
         "model": m_model,
         "messages": messages,
-        "temperature": 0.1,
+        "temperature": temperature if temperature is not None else 0.1,
     }
     if response_json:
         payload["response_format"] = {"type": "json_object"}
@@ -371,7 +372,7 @@ def _complete_mistral(prompt: str, system_prompt, response_json: bool) -> dict:
         )
 
 
-def _complete_local(prompt: str, system_prompt, response_json: bool, n_predict, prefer_local: bool) -> dict:
+def _complete_local(prompt: str, system_prompt, response_json: bool, n_predict, prefer_local: bool, temperature: Optional[float] = None) -> dict:
     """Llama al llama-server local vía /completion. Fallback de Mistral."""
     # Bloquear acceso para evitar concurrencia en el servidor local de hilos reducidos
     with _llama_server_lock:
@@ -386,7 +387,7 @@ def _complete_local(prompt: str, system_prompt, response_json: bool, n_predict, 
 
         payload = {
             "prompt": formatted_prompt,
-            "temperature": 0.1,
+            "temperature": temperature if temperature is not None else 0.1,
             "n_predict": n_predict or 512,
             "stop": ["<end_of_turn>", "<eos>"],
         }
@@ -482,7 +483,7 @@ def _complete_local(prompt: str, system_prompt, response_json: bool, n_predict, 
             LLM_INFERENCE_IN_PROGRESS.clear()
 
 
-def _complete_ollama(prompt: str, system_prompt, response_json: bool) -> dict:
+def _complete_ollama(prompt: str, system_prompt, response_json: bool, temperature: Optional[float] = None) -> dict:
     base_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
     if not base_url.endswith("/v1"):
         base_url = f"{base_url.rstrip('/')}/v1"
@@ -495,7 +496,7 @@ def _complete_ollama(prompt: str, system_prompt, response_json: bool) -> dict:
     payload = {
         "model": os.environ.get("OLLAMA_MODEL", "gemma:latest"),
         "messages": messages,
-        "temperature": 0.1,
+        "temperature": temperature if temperature is not None else 0.1,
     }
     if response_json:
         payload["response_format"] = {"type": "json_object"}
@@ -529,7 +530,7 @@ def _complete_ollama(prompt: str, system_prompt, response_json: bool) -> dict:
         raise RuntimeError(f"Server status {r.status_code}")
 
 
-def _complete_gemini(prompt: str, system_prompt, response_json: bool) -> dict:
+def _complete_gemini(prompt: str, system_prompt, response_json: bool, temperature: Optional[float] = None) -> dict:
     from google import genai
     api_key = os.environ.get("GEMINI_API_KEY", "")
     client = genai.Client(api_key=api_key)
