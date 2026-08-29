@@ -31,6 +31,22 @@ from core.best_of_n import extract_consistent, _norm, REVIEW_DIR
 
 logger = logging.getLogger(__name__)
 
+CONSTITUTION_PATH = Path(__file__).parent.parent / "prompts" / "constitution.yaml"
+
+
+def cargar_constitution() -> str:
+    """Carga la constitution versionada como bloque de system prompt compacto."""
+    try:
+        import yaml
+        c = yaml.safe_load(CONSTITUTION_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    lineas = [f"[CONSTITUCIÓN v{c.get('version','?')}]"]
+    for r in c.get("reglas_verbatim", []) + c.get("reglas_riesgo", []) + c.get("reglas_consistencia", []):
+        lineas.append(f"- {r['regla']}")
+    return "\n".join(lineas)
+
+
 OMNIROUTE_URL = os.environ.get("OMNIROUTE_BASE_URL", "http://localhost:20128/v1/chat/completions")
 OMNIROUTE_MODEL = os.environ.get("OMNIROUTE_MODEL", "auto/fast")
 LOCAL_URL = os.environ.get("LOCAL_LLM_URL", "http://localhost:8083")
@@ -65,9 +81,27 @@ def _verificar(ev: dict) -> list[str]:
     return problems
 
 
-def _extraer_simple(clave: str, md_content: str) -> Optional[dict]:
-    """Pasada única barata: llama-server local primero, OmniRoute free fallback."""
+def _extraer_simple(clave: str, md_content: str, max_retries: int = 2) -> Optional[dict]:
+    """Pasada única barata: llama-server local primero, OmniRoute free fallback.
+    Con execution feedback: si la verificación falla, el error concreto se
+    reinyecta en el retry (patrón ReAct) — no reintentos a ciegas."""
     prompt = _prompt(clave, md_content)
+    feedback = ""
+    for intento in range(max_retries + 1):
+        ev = _extraer_simple_pass(prompt + feedback, clave)
+        if ev is None:
+            feedback = "\n\n[ERROR ANTERIOR] No se produjo JSON válido. Responde SOLO el JSON del esquema."
+            continue
+        problems = _verificar(ev)
+        if not problems:
+            return ev
+        # ReAct: el error concreto de la verificación vuelve al modelo
+        feedback = "\n\n[ERROR DE VALIDACIÓN — corrige y responde de nuevo SOLO el JSON]\n" + "\n".join(f"- {p}" for p in problems)
+        logger.info("%s intento %d: %s → retry con feedback", clave, intento + 1, problems)
+    return ev  # último intento aunque falle — el llamador decide
+
+
+def _extraer_simple_pass(prompt: str, clave: str) -> Optional[dict]:
 
     # 1. llama-server local (gratis, sin límite)
     try:
@@ -101,7 +135,10 @@ def _extraer_simple(clave: str, md_content: str) -> Optional[dict]:
 
 
 def _prompt(clave: str, md_content: str) -> str:
-    return f"""Analiza el documento ambiental y extrae JSON estricto.
+    constitution = cargar_constitution()
+    return f"""{constitution}
+
+Analiza el documento ambiental y extrae JSON estricto.
 
 DOCUMENTO (Clave: {clave}):
 ```markdown

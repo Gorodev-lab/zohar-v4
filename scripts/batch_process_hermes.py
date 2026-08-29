@@ -37,3 +37,14 @@ if __name__ == "__main__":
     print(f"Archivos pendientes por procesar: {len(pending)}")
     for clave, path in pending:
         print(f" - Clave: {clave} | Ruta: {path}")
+
+    # CS329A idea 3: eval suite después del batch — cada corrida deja línea
+    # en la serie histórica (regresiones auditable al cambiar prompt/modelo)
+    if pending:
+        try:
+            import subprocess as sp
+            r = sp.run(["python3", str(Path(__file__).parent.parent / "eval_suite.py")],
+                       capture_output=True, text=True, timeout=120)
+            print(r.stdout[-500:])
+        except Exception as e:
+            print(f"[eval_suite] no corrió: {e}")

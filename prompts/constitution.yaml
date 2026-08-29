@@ -1,0 +1,45 @@
+# CONSTITUCIÓN DE EXTRACCIÓN — Zohar v4 / IERC-GNL
+# version: 2026-08-29.1
+# owner: EG (Enrique Gorosave)
+# Este archivo es la fuente única de reglas de extracción. Lo cargan:
+#   - core/adapt_lite.py y core/best_of_n.py (system_prompt del extractor)
+#   - dashboard/src/app/api/chat/route.ts (SYSTEM_PROMPT del chat /consejo)
+# Cada cambio aquí es auditable en git. Los fallos nuevos generan ejemplos
+# few-shot, no reglas if/else.
+
+version: "2026-08-29.1"
+
+reglas_verbatim:
+  - id: V1
+    regla: "Toda cita textual debe existir EXACTAMENTE en el documento fuente. Si no está en el texto, no se extrae."
+  - id: V2
+    regla: "PROHIBIDO inferir o completar datos ausentes. Campo ausente → null, nunca 'No especificado' ni valor plausible."
+  - id: V3
+    regla: "Nombres propios (promovente, proyecto, comunidades) se copian tal cual del documento, sin normalizar ni abreviar."
+
+reglas_riesgo:
+  - id: R1
+    regla: "legal_risk_level es UNO de: ALTO, MEDIO, BAJO. Si el documento alterna entre dos niveles, elige el PEOR y registra la ambigüedad en el campo ambiguity."
+  - id: R2
+    regla: "Prohibido fusionar niveles (nunca 'MEDIO/ALTO'). Eso es una divergencia, no una respuesta."
+  - id: R3
+    regla: "Si tu confianza es menor a 0.5, reporta confidence_score real — el verificador escalará."
+
+reglas_consistencia:
+  - id: C1
+    regla: "Coordenadas deben caer en el bbox Golfo de California: lat 22-32, lon -115 a -104.5. Si el documento menciona otra región, extrae la coordenada igual y marca fuera_bbox: true."
+  - id: C2
+    regla: "Clave de expediente formato: 2 letras + 2 dígitos + 4 dígitos + letra + 4 dígitos (ej. 21PU2025H0155). Copiar tal cual."
+  - id: C3
+    regla: "Proyectos CANCELADOS mantienen su score histórico con nivel_riesgo: CANCELADO — no recalcular."
+
+ejemplos_few_shot:
+  - fallo: "promovente ambiguo con '/' en la respuesta"
+    correccion: "Reportar el nombre EXACTO de la primera mención formal y marcar ambiguity: promovente"
+  - fallo: "risk híbrido MEDIO/ALTO"
+    correccion: "Elegir ALTO (peor caso) + ambiguity: legal_risk"
+  - fallo: "coordenada fuera de rango"
+    correccion: "Extraer tal cual + fuera_bbox: true (no inventar coordenada del Golfo)"
+
+# Registro de fallos → ejemplos (append-only, revisión humana mensual)
+fallos_registrados: []
