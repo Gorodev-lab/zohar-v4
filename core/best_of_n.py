@@ -109,6 +109,15 @@ Responde ÚNICAMENTE con una estructura JSON válida:
         if v["status"] == "divergente":
             divergentes.append(v["field"])
 
+    report = {
+        "clave": clave,
+        "status": "divergente" if divergentes else "consenso",
+        "n_solicitado": n, "n_ok": len(candidatos),
+        "campos_divergentes": divergentes,
+        "votos": votos,
+        "confidence_score_promedio": conf_promedio,
+    }
+
     # legal_risk_level: conservador (peor caso) si diverge o hay híbridos ('MEDIO/ALTO')
     riesgos = [_norm(c.get("legal_risk_level")) for c in candidatos if c.get("legal_risk_level")]
     if "legal_risk_level" in divergentes or any("/" in r for r in riesgos):
@@ -122,15 +131,6 @@ Responde ÚNICAMENTE con una estructura JSON válida:
                                     "valor": consenso.get("legal_risk_level"), "votes": len(riesgos),
                                     "de": len(candidatos),
                                     "variantes": sorted(set(riesgos))[:3]})
-
-    report = {
-        "clave": clave,
-        "status": "divergente" if divergentes else "consenso",
-        "n_solicitado": n, "n_ok": len(candidatos),
-        "campos_divergentes": divergentes,
-        "votos": votos,
-        "confidence_score_promedio": conf_promedio,
-    }
 
     # Cola de revisión: divergentes esperan decisión humana
     if divergentes:
